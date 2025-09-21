@@ -78,12 +78,15 @@ private fun InputField(
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color(0xFF2D2D2D),
                 unfocusedContainerColor = Color(0xFF2D2D2D),
+                errorContainerColor = Color(0xFF2D2D2D),
+
                 focusedIndicatorColor = Color.Transparent,
                 unfocusedIndicatorColor = Color.Transparent,
+                errorIndicatorColor = Color.Transparent,
+
                 focusedTextColor = Color.White,
                 unfocusedTextColor = Color.White,
-                errorContainerColor = Color(0xFF2D2D2D),
-                errorIndicatorColor = Color.Transparent
+                errorTextColor = Color.White
             ),
             isError = isError,
             supportingText = {
@@ -117,7 +120,7 @@ fun LoginScreen(
             .fillMaxWidth()
             .fillMaxHeight()
             .verticalScroll(rememberScrollState())
-            .background(Color(0xFF1E1E1E))
+                .background(Color(0xFF1E1E1E))
             .padding(16.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally

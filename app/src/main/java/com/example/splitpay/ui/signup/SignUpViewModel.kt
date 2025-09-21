@@ -3,22 +3,26 @@ package com.example.splitpay.ui.signup
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitpay.data.model.User
+import com.example.splitpay.data.repository.UserRepository
 import com.google.firebase.FirebaseNetworkException
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.launch
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 
-class SignUpViewModel : ViewModel() {
+class SignUpViewModel(
+    private val repository: UserRepository = UserRepository()
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SignUpUiState())
     val uiState: StateFlow<SignUpUiState> = _uiState
@@ -26,7 +30,8 @@ class SignUpViewModel : ViewModel() {
     private val _uiEvent = MutableSharedFlow<SignUpUiEvent>()
     val uiEvent: SharedFlow<SignUpUiEvent> = _uiEvent
 
-    private val auth = FirebaseAuth.getInstance()
+    private val currentUser = repository.getCurrentUser()
+    private val firestore = FirebaseFirestore.getInstance()
 
     fun onFullNameChange(value: String) {
         _uiState.update { it.copy(fullName = value) }
@@ -92,13 +97,28 @@ class SignUpViewModel : ViewModel() {
             viewModelScope.launch {
                 _uiState.update { it.copy(isLoading = true, errorMessage = "") }
                 try {
-                    val result = auth.createUserWithEmailAndPassword(state.email, state.password).await()
+                    val result = repository.signUp(state.email, state.password)
+                    val firebaseUser = result.user
 
-                    result.user?.updateProfile(
+                    firebaseUser?.updateProfile(
                         UserProfileChangeRequest.Builder()
                             .setDisplayName(state.fullName)
                             .build()
                     )?.await()
+
+                    firebaseUser?.let { user ->
+                        val userDoc = User(
+                            uid = user.uid,
+                            fullName = state.fullName,
+                            username = state.username,
+                            email = state.email
+                        )
+
+                        firestore.collection("users")
+                            .document(user.uid)
+                            .set(userDoc)
+                            .await()
+                    }
 
                     _uiEvent.emit(SignUpUiEvent.NavigateToHome)
                 } catch (e: Exception) {

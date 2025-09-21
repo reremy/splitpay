@@ -3,20 +3,21 @@ package com.example.splitpay.ui.login
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitpay.data.repository.UserRepository
 import com.google.firebase.FirebaseNetworkException
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 
-class LoginViewModel : ViewModel() {
+class LoginViewModel(
+    private val repository: UserRepository = UserRepository()
+) : ViewModel() {
 
-    private val auth = FirebaseAuth.getInstance()
+    private val currentUser = repository.getCurrentUser()
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState
@@ -60,7 +61,7 @@ class LoginViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, generalError = null) }
             try {
-                auth.signInWithEmailAndPassword(state.email, state.password).await()
+                repository.signUp(state.email, state.password)
                 _uiState.update { it.copy(loginSuccess = true) }
             } catch (e: Exception) {
                 when (e) {

@@ -3,17 +3,14 @@ package com.example.splitpay.navigation
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.splitpay.ui.home.HomeScreen3
+import com.example.splitpay.ui.login.LoginScreen
 import com.example.splitpay.ui.signup.SignUpScreen
 import com.example.splitpay.ui.welcome.WelcomeScreen
-import com.example.splitpay.ui.home.HomeScreen
-import com.example.splitpay.ui.login.LoginScreen
-import com.google.firebase.auth.FirebaseAuth
 
 // Navigation.kt
 @Composable
@@ -108,16 +105,19 @@ fun SplitPayNavHost(
         composable(
             route = "home",
         ) {
-            HomeScreen(
-                onLogout = {
-                    FirebaseAuth.getInstance().signOut()
-                    navController.navigate("welcome"){
-                        popUpTo("welcome"){
-                            inclusive = true
-                        }
-                    }
-                }
-            )
+            HomeScreen3(onNavigateBack = onNavigateBack)
+//            HomeScreen(
+//                onLogout = {
+//                    FirebaseAuth.getInstance().signOut()
+//                    navController.navigate("welcome"){
+//                        popUpTo("welcome"){
+//                            inclusive = true
+//                        }
+//                    }
+//                }
+//            )
         }
+
+
     }
 }
