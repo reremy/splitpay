@@ -104,7 +104,7 @@ private fun InputField(
 fun LoginScreen(
     viewModel: LoginViewModel = viewModel(),
     onNavigateToHome: () -> Unit,
-    //onNavigateToBack: () -> Unit
+    onNavigateToBack: () -> Unit
 ) {
 
     val uiState = viewModel.uiState.collectAsState().value

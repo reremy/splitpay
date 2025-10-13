@@ -1,6 +1,6 @@
 package com.example.splitpay
 
-import com.example.splitpay.navigation.SplitPayNavHost
+import com.example.splitpay.navigation.Navigation
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
             val navController = rememberNavController()
 
             Surface(Modifier.fillMaxSize()) {
-                SplitPayNavHost(
+                Navigation(
                     navController = navController,
                     startDestination = startDestination,
                     onNavigateBack = { navController.popBackStack() }

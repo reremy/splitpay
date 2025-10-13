@@ -30,9 +30,6 @@ class SignUpViewModel(
     private val _uiEvent = MutableSharedFlow<SignUpUiEvent>()
     val uiEvent: SharedFlow<SignUpUiEvent> = _uiEvent
 
-    private val currentUser = repository.getCurrentUser()
-    private val firestore = FirebaseFirestore.getInstance()
-
     fun onFullNameChange(value: String) {
         _uiState.update { it.copy(fullName = value) }
     }
@@ -62,7 +59,8 @@ class SignUpViewModel(
                 usernameError = null,
                 passwordError = null,
                 retypePasswordError = null,
-                fullNameError = null
+                fullNameError = null,
+                errorMessage = ""
             )
         }
 
@@ -93,9 +91,11 @@ class SignUpViewModel(
             isValid = false
         }
 
+        val firestore = FirebaseFirestore.getInstance()
+
         if (isValid) {
             viewModelScope.launch {
-                _uiState.update { it.copy(isLoading = true, errorMessage = "") }
+                _uiState.update { it.copy(isLoading = true) }
                 try {
                     val result = repository.signUp(state.email, state.password)
                     val firebaseUser = result.user
@@ -148,7 +148,3 @@ class SignUpViewModel(
 }
 
 
-sealed interface SignUpUiEvent {
-    object NavigateToHome : SignUpUiEvent
-    object NavigateToBack : SignUpUiEvent
-}

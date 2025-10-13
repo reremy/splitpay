@@ -24,7 +24,3 @@ class WelcomeViewModel : ViewModel() {
     }
 }
 
-sealed interface WelcomeUiEvent {
-    object NavigateToSignUp : WelcomeUiEvent
-    object NavigateToLogIn : WelcomeUiEvent
-}

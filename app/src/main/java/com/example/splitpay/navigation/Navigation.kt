@@ -1,8 +1,6 @@
 package com.example.splitpay.navigation
 
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
+
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -14,9 +12,9 @@ import com.example.splitpay.ui.welcome.WelcomeScreen
 
 // Navigation.kt
 @Composable
-fun SplitPayNavHost(
+fun Navigation(
     navController: NavHostController,
-    startDestination: String = "welcome",
+    startDestination: String = Screen.Welcome,
     onNavigateBack: () -> Unit
 ) {
     NavHost(
@@ -24,100 +22,45 @@ fun SplitPayNavHost(
         startDestination = startDestination
     ) {
         composable(
-            route = "welcome",
-//            enterTransition = {
-//                slideInHorizontally(
-//                    initialOffsetX = { it },
-//                    animationSpec = tween(durationMillis = 500)
-//                ) + fadeIn(animationSpec = tween(durationMillis = 500))
-//            },
-            exitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { -it },
-                    animationSpec = tween(durationMillis = 500)
-                )
-            },
-            popEnterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { -it },
-                    animationSpec = tween(durationMillis = 500)
-                )
-
-            },
-//            popExitTransition = {
-//                slideOutHorizontally(
-//                    targetOffsetX = { -it },
-//                    animationSpec = tween(durationMillis = 500)
-//                ) + fadeOut(animationSpec = tween(durationMillis = 500))
-//            }
+            route = Screen.Welcome,
+//            enterTransition = {slideInFromRight() + fadeIn(animationSpec = tween(durationMillis = 500)) },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+//            popExitTransition = { slideOutToLeft() + fadeOut(animationSpec = tween(durationMillis = 500)) }
         ) {
             WelcomeScreen(
-                onNavigateToSignUp = { navController.navigate("signup") },
-                onNavigateToLogIn = { navController.navigate("login") }
+                onNavigateToSignUp = { navController.navigate(Screen.SignUp) },
+                onNavigateToLogIn = { navController.navigate(Screen.Login) }
             )
         }
         composable(
-            route = "signup",
-            enterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { it },
-                    animationSpec = tween(durationMillis = 500)
-                )
-            },
-            exitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { it },
-                    animationSpec = tween(durationMillis = 500)
-                )
-            }
+            route = Screen.SignUp,
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToRight() }
         ) {
             SignUpScreen(
-                onNavigateToHome = { navController.navigate("home"){
-                    popUpTo("welcome"){inclusive = true}
-                    launchSingleTop = true
-                } },
-                onNavigateToBack = onNavigateBack
+                onNavigateToHome = {
+                    navController.navigateSingleTopTo(Screen.Home, Screen.Welcome)
+                },
+                onNavigateToBack = { navController.popBackStack() }
             )
         }
         composable(
-            route = "login",
-            enterTransition = {
-                slideInHorizontally(
-                    initialOffsetX = { it },
-                    animationSpec = tween(durationMillis = 500)
-                )
-            },
-            exitTransition = {
-                slideOutHorizontally(
-                    targetOffsetX = { it },
-                    animationSpec = tween(durationMillis = 500)
-                )
-            }
+            route = Screen.Login,
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToRight() }
         ) {
             LoginScreen(
-                onNavigateToHome = { navController.navigate("home"){
-                    popUpTo("welcome"){inclusive = true}
-                    launchSingleTop = true
-                } },
-                //onNavigateBack = onNavigateBack
+                onNavigateToHome = {
+                    navController.navigateSingleTopTo(Screen.Home, Screen.Welcome)
+                },
+                onNavigateToBack = { navController.popBackStack() }
             )
         }
         composable(
-            route = "home",
+            route = Screen.Home,
         ) {
             HomeScreen3(onNavigateBack = onNavigateBack)
-//            HomeScreen(
-//                onLogout = {
-//                    FirebaseAuth.getInstance().signOut()
-//                    navController.navigate("welcome"){
-//                        popUpTo("welcome"){
-//                            inclusive = true
-//                        }
-//                    }
-//                }
-//            )
         }
-
-
     }
 }
