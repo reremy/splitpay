@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.example.splitpay.ui.groups.CreateGroupScreen
 import com.example.splitpay.ui.home.HomeScreen3
 import com.example.splitpay.ui.login.LoginScreen
 import com.example.splitpay.ui.signup.SignUpScreen
@@ -68,6 +69,20 @@ fun Navigation(
             route = Screen.Home,
         ) {
             HomeScreen3(mainNavController = navController)
+        }
+
+        // Route for creating a group
+        composable(
+            route = Screen.CreateGroup,
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) {
+            CreateGroupScreen(
+                onGroupCreated = { navController.popBackStack() }, // Go back to Home/Groups on success
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
     }
 }

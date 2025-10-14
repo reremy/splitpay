@@ -1,12 +1,18 @@
 package com.example.splitpay.ui.home
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +28,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,6 +37,9 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.splitpay.navigation.Screen
+import com.example.splitpay.ui.groups.GroupsContent
+import com.example.splitpay.ui.groups.GroupsUiEvent
 import com.example.splitpay.ui.profile.UserProfileScreen
 
 
@@ -42,6 +52,10 @@ fun HomeScreen3(
     val uiState by viewModel.uiState.collectAsState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val homeNavController = rememberNavController()
+
+    // Determine if the current bottom nav item is the Groups screen, to show the FAB
+    val isGroupsSelected = uiState.items[uiState.selectedItemIndex].route == "groups_screen"
+
 
     Scaffold(
 
@@ -69,6 +83,20 @@ fun HomeScreen3(
             )
         },
 
+        // ADDED FAB logic
+        floatingActionButton = {
+            if (isGroupsSelected) {
+                FloatingActionButton(
+                    onClick = {
+                        mainNavController.navigate(Screen.CreateGroup)
+                    },
+                    containerColor = Color(0xFF66BB6A)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Create Group")
+                }
+            }
+        },
+
         bottomBar = {
             NavigationBar {
                 uiState.items.forEachIndexed { index, item ->
@@ -94,7 +122,17 @@ fun HomeScreen3(
             startDestination = "groups_screen",
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable("groups_screen") { GroupsContent(innerPadding) }
+            composable("groups_screen") {
+                GroupsContent(
+                    innerPadding = innerPadding,
+                    onNavigate = { event ->
+                        when (event) {
+                            GroupsUiEvent.NavigateToCreateGroup -> mainNavController.navigate(Screen.CreateGroup)
+                            is GroupsUiEvent.NavigateToGroupDetail -> { /*TODO: Navigate to Group Detail screen*/ }
+                        }
+                    }
+                )
+            }
             composable("friends_screen") { FriendsContent(innerPadding) }
             composable("activity_screen") { ActivityContent(innerPadding) }
             composable("profile_screen") {
@@ -106,7 +144,10 @@ fun HomeScreen3(
 
 
 @Composable
-fun GroupsContent(innerPadding: PaddingValues) {
+fun GroupsContent(
+    innerPadding: PaddingValues,
+    onNavigateToCreateGroup: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -114,7 +155,15 @@ fun GroupsContent(innerPadding: PaddingValues) {
             .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text("Groups Screen Content", style = MaterialTheme.typography.titleLarge)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Groups Screen Content", style = MaterialTheme.typography.titleLarge)
+            Spacer(modifier = Modifier.height(16.dp))
+            // Only keeping the FAB logic in the Scaffold as the preferred way.
+            // This button is kept for now as a temporary placeholder in the body.
+            Button(onClick = onNavigateToCreateGroup) {
+                Text("Create Group (FAB handles this)")
+            }
+        }
     }
 }
 

@@ -5,4 +5,5 @@ object Screen {
     const val SignUp = "signup"
     const val Login = "login"
     const val Home = "Home"
+    const val CreateGroup = "create_group"
 }
