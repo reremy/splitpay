@@ -25,9 +25,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.common.UiEventHandler
-import com.example.splitpay.ui.profile.ProfileUiEvent
-import com.example.splitpay.ui.profile.ProfileViewModel
-import com.example.splitpay.ui.signup.SignUpUiEvent
 
 @Composable
 fun UserProfileScreen(

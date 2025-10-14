@@ -48,14 +48,14 @@ fun HomeScreen(
            )
         }
         //Homescreen Body
-        Column(){
+        Column {
             Text(
                 text = "Content"
             )
         }
 
         //BottomNav
-        Row(){
+        Row {
             Text(
                 text = "BottomNav Icons"
             )

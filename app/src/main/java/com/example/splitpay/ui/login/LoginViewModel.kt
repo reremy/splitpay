@@ -3,8 +3,11 @@ package com.example.splitpay.ui.login
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.data.repository.UserRepositoryTry
+import com.example.splitpay.logger.logD
+import com.example.splitpay.logger.logE
+import com.example.splitpay.logger.logI
+import com.example.splitpay.logger.logW
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -63,19 +66,26 @@ class LoginViewModel(
             hasError = true
         }
 
-        if (hasError) return
+        if (hasError) {
+            logD("Login validation failed. Errors on screen.")
+            return
+        }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
+            logD("Starting login request for: ${state.email}")
             try {
                 val user = repository.signIn2(state.email, state.password)
                 if (user != null){
+                    logI("Login successful! Navigating to home.")
                     _uiState.update { it.copy(loginSuccess = true) }
                     _uiEvent.emit(LoginUiEvent.NavigateToHome)
                 } else {
+                    logW("Login returned null user, but no exception was thrown.")
                     _uiState.update { it.copy(generalError = "Login failed") }
                 }
             } catch (e: Exception) {
+                logE("Login failed with exception: ${e.message}")
                 when (e) {
                     is FirebaseAuthInvalidUserException ->
                         _uiState.update { it.copy(emailError = "No user found with this email") }
