@@ -4,23 +4,29 @@ import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.repository.UserRepository
+import com.example.splitpay.data.repository.UserRepositoryTry
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 
 class LoginViewModel(
-    private val repository: UserRepository = UserRepository()
+    private val repository: UserRepositoryTry = UserRepositoryTry()
 ) : ViewModel() {
 
-    private val currentUser = repository.getCurrentUser()
+    //private val currentUser = repository.getCurrentUser()
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState
+
+    private val _uiEvent = MutableSharedFlow<LoginUiEvent>()
+    val uiEvent = _uiEvent.asSharedFlow()
 
     fun onEmailChange(newEmail: String) {
         _uiState.update { it.copy(email = newEmail) }
@@ -31,6 +37,8 @@ class LoginViewModel(
     }
 
     fun onLoginClick() {
+        val state = _uiState.value
+
         _uiState.update {
             it.copy(
                 emailError = null,
@@ -40,7 +48,6 @@ class LoginViewModel(
             )
         }
 
-        val state = _uiState.value
         var hasError = false
 
         if (state.email.isBlank()) {
@@ -59,10 +66,15 @@ class LoginViewModel(
         if (hasError) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, generalError = null) }
+            _uiState.update { it.copy(isLoading = true) }
             try {
-                repository.signUp(state.email, state.password)
-                _uiState.update { it.copy(loginSuccess = true) }
+                val user = repository.signIn2(state.email, state.password)
+                if (user != null){
+                    _uiState.update { it.copy(loginSuccess = true) }
+                    _uiEvent.emit(LoginUiEvent.NavigateToHome)
+                } else {
+                    _uiState.update { it.copy(generalError = "Login failed") }
+                }
             } catch (e: Exception) {
                 when (e) {
                     is FirebaseAuthInvalidUserException ->

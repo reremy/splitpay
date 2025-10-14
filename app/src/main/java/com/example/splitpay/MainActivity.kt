@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
                 Navigation(
                     navController = navController,
                     startDestination = startDestination,
-                    onNavigateBack = { navController.popBackStack() }
+                    //onNavigateBack = { navController.popBackStack() }
                 )
             }
         }

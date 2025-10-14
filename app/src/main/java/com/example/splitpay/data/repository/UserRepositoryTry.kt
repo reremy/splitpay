@@ -2,6 +2,7 @@ package com.example.splitpay.data.repository
 
 import com.example.splitpay.data.model.User
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
@@ -39,4 +40,38 @@ class UserRepositoryTry(
             Result.failure(e)
         }
     }
+
+    suspend fun signIn2(email: String, password: String): FirebaseUser? {
+        return try {
+            val authResult = auth.signInWithEmailAndPassword(email, password).await()
+            authResult.user
+
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+    //return FirebaseUser if successful, caught exception if not.
+
+    fun signOut2() {
+        try {
+            auth.signOut()
+        } catch (e: Exception) {
+            throw e
+        }
+    }
+
+    fun getCurrentUser(): FirebaseUser? {
+        return auth.currentUser
+    }
+
+    suspend fun getUserProfile(uid: String): User? {
+        return try {
+            val snapshot = firestore.collection("users").document(uid).get().await()
+            snapshot.toObject(User::class.java)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+
 }

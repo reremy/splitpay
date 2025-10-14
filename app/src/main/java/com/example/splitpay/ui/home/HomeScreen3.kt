@@ -1,6 +1,5 @@
 package com.example.splitpay.ui.home
 
-import UserProfileScreen
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,15 +26,18 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.splitpay.navigation.Screen
+import com.example.splitpay.ui.profile.UserProfileScreen
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen3(
-    onNavigateBack: () -> Unit,
+    navController: NavHostController,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -98,12 +100,12 @@ fun HomeScreen3(
             composable("activity_screen") { ActivityContent(innerPadding) }
             composable("profile_screen") {
                 UserProfileScreen(
-                    onSignOut = {
-                        navController.navigate("welcome") {
-                            popUpTo("home") { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    }
+//                    onNavigateToWelcome = {
+//                        navController.navigate(Screen.Welcome) {
+//                            popUpTo(0) { inclusive = true } // clear back stack
+//                        }
+//                    }
+                    navController = navController
                 )
             }
 

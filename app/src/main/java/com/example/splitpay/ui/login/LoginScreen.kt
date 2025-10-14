@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.splitpay.ui.common.UiEventHandler
 
 
 @Composable
@@ -107,13 +108,20 @@ fun LoginScreen(
     onNavigateToBack: () -> Unit
 ) {
 
-    val uiState = viewModel.uiState.collectAsState().value
+//    LaunchedEffect(uiState.loginSuccess) {
+//        if (uiState.loginSuccess) {
+//            onNavigateToHome()
+//        }
+//    }
 
-    LaunchedEffect(uiState.loginSuccess) {
-        if (uiState.loginSuccess) {
-            onNavigateToHome()
+    UiEventHandler(viewModel.uiEvent) { event ->
+        when (event) {
+            LoginUiEvent.NavigateToHome -> onNavigateToHome()
+            LoginUiEvent.NavigateToBack -> onNavigateToBack()
         }
     }
+
+    val uiState = viewModel.uiState.collectAsState().value
 
     Column(
         modifier = Modifier

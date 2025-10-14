@@ -1,3 +1,5 @@
+package com.example.splitpay.ui.profile
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,13 +21,30 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import com.example.splitpay.navigation.Screen
+import com.example.splitpay.ui.common.UiEventHandler
+import com.example.splitpay.ui.profile.ProfileUiEvent
 import com.example.splitpay.ui.profile.ProfileViewModel
+import com.example.splitpay.ui.signup.SignUpUiEvent
 
 @Composable
 fun UserProfileScreen(
-    viewModel: ProfileViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
-    onSignOut: () -> Unit
+    viewModel: ProfileViewModel = viewModel(),
+    navController: NavHostController
 ) {
+    UiEventHandler(viewModel.uiEvent) { event ->
+        when (event) {
+            ProfileUiEvent.NavigateToWelcome -> {
+                navController.navigate(Screen.Welcome) {
+                    popUpTo(0) { inclusive = true } // clears back stack
+                }
+            }
+        }
+    }
+
+
     val uiState = viewModel.uiState.collectAsState().value
 
     LaunchedEffect(Unit) {
@@ -82,13 +101,6 @@ fun UserProfileScreen(
             ) {
                 Text("Sign Out")
             }
-        }
-    }
-
-    // 🔑 Handle sign-out side effect
-    LaunchedEffect(uiState.signedOut) {
-        if (uiState.signedOut) {
-            onSignOut()
         }
     }
 }

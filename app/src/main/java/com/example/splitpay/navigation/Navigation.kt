@@ -15,7 +15,7 @@ import com.example.splitpay.ui.welcome.WelcomeScreen
 fun Navigation(
     navController: NavHostController,
     startDestination: String = Screen.Welcome,
-    onNavigateBack: () -> Unit
+    //onNavigateBack: () -> Unit
 ) {
     NavHost(
         navController = navController,
@@ -60,7 +60,11 @@ fun Navigation(
         composable(
             route = Screen.Home,
         ) {
-            HomeScreen3(onNavigateBack = onNavigateBack)
+            HomeScreen3(
+                navController = navController,
+                //onNavigateBack = { navController.popBackStack() }
+
+            )
         }
     }
 }

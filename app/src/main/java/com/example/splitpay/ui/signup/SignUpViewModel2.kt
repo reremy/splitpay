@@ -14,6 +14,8 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.example.splitpay.data.repository.UserRepositoryTry
+import kotlinx.coroutines.flow.asSharedFlow
+
 class SignUpViewModel2(
     private val repository: UserRepositoryTry = UserRepositoryTry()
 ) : ViewModel() {
@@ -22,7 +24,7 @@ class SignUpViewModel2(
     val uiState: StateFlow<SignUpUiState> = _uiState
 
     private val _uiEvent = MutableSharedFlow<SignUpUiEvent>()
-    val uiEvent: SharedFlow<SignUpUiEvent> = _uiEvent
+    val uiEvent = _uiEvent.asSharedFlow()
 
     fun onFullNameChange(value: String) {
         _uiState.update { it.copy(fullName = value) }
@@ -63,18 +65,22 @@ class SignUpViewModel2(
             _uiState.update { it.copy(fullNameError = "Full name cannot be empty") }
             isValid = false
         }
+
         if (state.username.isBlank()) {
             _uiState.update { it.copy(usernameError = "Username cannot be empty") }
             isValid = false
         }
+
         if (state.email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(state.email).matches()) {
             _uiState.update { it.copy(emailError = "Invalid email") }
             isValid = false
         }
+
         if (state.password.length < 6) {
             _uiState.update { it.copy(passwordError = "Password must be at least 6 characters") }
             isValid = false
         }
+
         if (state.password != state.retypePassword) {
             _uiState.update { it.copy(retypePasswordError = "Passwords do not match") }
             isValid = false
