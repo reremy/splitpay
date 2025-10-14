@@ -3,8 +3,6 @@ package com.example.splitpay.ui.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.repository.UserRepository
-import com.example.splitpay.data.repository.UserRepositoryTry
-import com.example.splitpay.ui.signup.SignUpUiEvent
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,7 +11,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class ProfileViewModel(
-    private val repository: UserRepositoryTry = UserRepositoryTry()
+    private val repository: UserRepository = UserRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())

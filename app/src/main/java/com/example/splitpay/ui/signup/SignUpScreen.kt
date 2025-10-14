@@ -39,7 +39,7 @@ import com.example.splitpay.ui.theme.PrimaryBlue
 
 @Composable
 fun SignUpScreen(
-    viewModel: SignUpViewModel2 = viewModel(),
+    viewModel: SignUpViewModel = viewModel(),
     onNavigateToHome: () -> Unit,
     onNavigateToBack: () -> Unit
 ) {

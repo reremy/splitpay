@@ -3,7 +3,7 @@ package com.example.splitpay.ui.login
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.splitpay.data.repository.UserRepositoryTry
+import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logD
 import com.example.splitpay.logger.logE
 import com.example.splitpay.logger.logI
@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 
 
 class LoginViewModel(
-    private val repository: UserRepositoryTry = UserRepositoryTry()
+    private val repository: UserRepository = UserRepository()
 ) : ViewModel() {
 
     //private val currentUser = repository.getCurrentUser()
