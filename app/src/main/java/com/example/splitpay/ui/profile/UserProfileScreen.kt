@@ -32,18 +32,19 @@ import com.example.splitpay.ui.signup.SignUpUiEvent
 @Composable
 fun UserProfileScreen(
     viewModel: ProfileViewModel = viewModel(),
-    navController: NavHostController
+    mainNavController: NavHostController
 ) {
+
+// Handle UI events
     UiEventHandler(viewModel.uiEvent) { event ->
         when (event) {
             ProfileUiEvent.NavigateToWelcome -> {
-                navController.navigate(Screen.Welcome) {
-                    popUpTo(0) { inclusive = true } // clears back stack
+                mainNavController.navigate(Screen.Welcome) {
+                    popUpTo(0) { inclusive = true } // clears backstack
                 }
             }
         }
     }
-
 
     val uiState = viewModel.uiState.collectAsState().value
 

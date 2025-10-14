@@ -30,19 +30,18 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.profile.UserProfileScreen
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen3(
-    navController: NavHostController,
+    mainNavController: NavHostController,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
-    val navController = rememberNavController()
+    val homeNavController = rememberNavController()
 
     Scaffold(
 
@@ -77,8 +76,8 @@ fun HomeScreen3(
                         selected = uiState.selectedItemIndex == index,
                         onClick = {
                             viewModel.onItemSelected(index)
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            homeNavController.navigate(item.route) {
+                                popUpTo(homeNavController.graph.startDestinationId) { saveState = true }
                                 launchSingleTop = true
                                 restoreState = true
                             }
@@ -91,7 +90,7 @@ fun HomeScreen3(
         }
     ) { innerPadding ->
         NavHost(
-            navController = navController,
+            navController = homeNavController,
             startDestination = "groups_screen",
             modifier = Modifier.padding(innerPadding)
         ) {
@@ -99,16 +98,8 @@ fun HomeScreen3(
             composable("friends_screen") { FriendsContent(innerPadding) }
             composable("activity_screen") { ActivityContent(innerPadding) }
             composable("profile_screen") {
-                UserProfileScreen(
-//                    onNavigateToWelcome = {
-//                        navController.navigate(Screen.Welcome) {
-//                            popUpTo(0) { inclusive = true } // clear back stack
-//                        }
-//                    }
-                    navController = navController
-                )
+                UserProfileScreen(mainNavController = mainNavController)
             }
-
         }
     }
 }

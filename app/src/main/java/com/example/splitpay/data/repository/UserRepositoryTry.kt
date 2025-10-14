@@ -1,5 +1,6 @@
 package com.example.splitpay.data.repository
 
+import android.util.Log
 import com.example.splitpay.data.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -54,6 +55,7 @@ class UserRepositoryTry(
 
     fun signOut2() {
         try {
+            Log.d("signOut2", "Successfully logged out")
             auth.signOut()
         } catch (e: Exception) {
             throw e

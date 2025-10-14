@@ -9,14 +9,21 @@ import com.example.splitpay.ui.home.HomeScreen3
 import com.example.splitpay.ui.login.LoginScreen
 import com.example.splitpay.ui.signup.SignUpScreen
 import com.example.splitpay.ui.welcome.WelcomeScreen
+import com.google.firebase.auth.FirebaseAuth
 
 // Navigation.kt
 @Composable
 fun Navigation(
     navController: NavHostController,
-    startDestination: String = Screen.Welcome,
-    //onNavigateBack: () -> Unit
 ) {
+
+    // Reactive start destination
+    val startDestination = if (FirebaseAuth.getInstance().currentUser != null) {
+        Screen.Home
+    } else {
+        Screen.Welcome
+    }
+
     NavHost(
         navController = navController,
         startDestination = startDestination
@@ -60,11 +67,7 @@ fun Navigation(
         composable(
             route = Screen.Home,
         ) {
-            HomeScreen3(
-                navController = navController,
-                //onNavigateBack = { navController.popBackStack() }
-
-            )
+            HomeScreen3(mainNavController = navController)
         }
     }
 }
