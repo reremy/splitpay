@@ -12,6 +12,9 @@ navigation = "2.9.5"
 datastore = "1.1.7"
 material3 = "1.4.0"
 navigationRuntimeKtx = "2.9.5"
+firebaseBom = "34.4.0"
+coroutinesPlayServices = "1.10.2"
+composeMaterialIconsExtended = "1.7.8"
 
 
 [libraries]
@@ -33,6 +36,13 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-navigation-runtime-ktx = { group = "androidx.navigation", name = "navigation-runtime-ktx", version.ref = "navigationRuntimeKtx" }
+firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
+firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics" }
+firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended-android", version.ref = "composeMaterialIconsExtended" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
