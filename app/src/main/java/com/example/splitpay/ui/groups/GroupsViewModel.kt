@@ -50,14 +50,14 @@ class GroupsViewModel(
                     // Simplified calculation simulation for UI display
                     val groupsWithBalances = groups.map { group ->
                         // Placeholder: Generate a random balance for demonstration
-                        val balance = ((-500..500).random() / 10.0)
+                        val balance = 0.0
 
                         // Placeholder: Create a fake breakdown for demonstration
                         val breakdown = if (balance > 0) mapOf("FakeUserUID1" to balance / 2, "FakeUserUID2" to balance / 2) else emptyMap()
 
                         GroupWithBalance(
                             group = group,
-                            userNetBalance = balance,
+                            userNetBalance = 0.0,
                             simplifiedOwedBreakdown = breakdown
                         )
                     }.sortedByDescending { it.userNetBalance }
@@ -89,4 +89,6 @@ class GroupsViewModel(
             _uiEvent.emit(GroupsUiEvent.NavigateToCreateGroup)
         }
     }
+
+
 }

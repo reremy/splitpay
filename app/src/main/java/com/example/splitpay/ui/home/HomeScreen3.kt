@@ -1,26 +1,19 @@
 package com.example.splitpay.ui.home
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -30,15 +23,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.splitpay.navigation.Screen
+import com.example.splitpay.ui.groups.ActivityTopBarActions
+import com.example.splitpay.ui.groups.FriendsTopBarActions
 import com.example.splitpay.ui.groups.GroupsContent
+import com.example.splitpay.ui.groups.GroupsTopBarActions
 import com.example.splitpay.ui.groups.GroupsUiEvent
 import com.example.splitpay.ui.profile.UserProfileScreen
 
@@ -53,68 +49,57 @@ fun HomeScreen3(
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val homeNavController = rememberNavController()
 
-    // Determine if the current bottom nav item is the Groups screen, to show the FAB
-    val isGroupsSelected = uiState.items[uiState.selectedItemIndex].route == "groups_screen"
-
+    // Determine the current route for FAB/TopBar customization
+    val navBackStackEntry by homeNavController.currentBackStackEntryAsState()
+    val currentHomeRoute = navBackStackEntry?.destination?.route ?: uiState.items.first().route
+    val currentItem = uiState.items.firstOrNull { it.route == currentHomeRoute }
+    val title = currentItem?.label ?: "SplitPay"
 
     Scaffold(
 
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                title = {
-                    val currentItem = uiState.items[uiState.selectedItemIndex]
 
-                    Text(
-                        text = currentItem.label,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
+        // TOP BAR: Call the generic AppTopBar and inject the actions dynamically
+        topBar = {
+            AppTopBar(
+                title = title,
+                scrollBehavior = scrollBehavior,
                 actions = {
-                    IconButton(onClick = { /* open menu or settings */ }) {
-                        Icon(
-                            imageVector = Icons.Default.Menu,
-                            contentDescription = "Menu"
+                    when (currentHomeRoute) {
+                        "groups_screen" -> GroupsTopBarActions(
+                            onNavigateToCreateGroup = { mainNavController.navigate(Screen.CreateGroup) }
                         )
+                        "friends_screen" -> FriendsTopBarActions()
+                        "activity_screen" -> ActivityTopBarActions()
+                        // Use a general menu/settings icon for all other screens (like Profile)
+                        else -> {
+                            IconButton(onClick = { /* open menu or settings */ }) {
+                                Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu")
+                            }
+                        }
                     }
-                },
-                scrollBehavior = scrollBehavior
+                }
             )
         },
 
         // ADDED FAB logic
         floatingActionButton = {
-            if (isGroupsSelected) {
+            if (currentHomeRoute != "profile_screen") {
                 FloatingActionButton(
                     onClick = {
-                        mainNavController.navigate(Screen.CreateGroup)
+                        // **This FAB now directs to Add Expense (or other primary action)**
+                        // Replace Screen.CreateGroup with your new "Screen.AddExpense" route
+                        mainNavController.navigate(Screen.AddExpense) // TEMPORARY: Navigate to an expense/add screen
                     },
                     containerColor = Color(0xFF66BB6A)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Create Group")
+                    Icon(Icons.Default.Add, contentDescription = "Add Expense")
                 }
             }
         },
 
         bottomBar = {
-            NavigationBar {
-                uiState.items.forEachIndexed { index, item ->
-                    NavigationBarItem(
-                        selected = uiState.selectedItemIndex == index,
-                        onClick = {
-                            viewModel.onItemSelected(index)
-                            homeNavController.navigate(item.route) {
-                                popUpTo(homeNavController.graph.startDestinationId) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        label = { Text(item.label) },
-                        icon = { Icon(item.icon, contentDescription = item.label) }
-                    )
-                }
-            }
+            HomeBottomBar(uiState, homeNavController, viewModel)
         }
     ) { innerPadding ->
         NavHost(
@@ -128,7 +113,7 @@ fun HomeScreen3(
                     onNavigate = { event ->
                         when (event) {
                             GroupsUiEvent.NavigateToCreateGroup -> mainNavController.navigate(Screen.CreateGroup)
-                            is GroupsUiEvent.NavigateToGroupDetail -> { /*TODO: Navigate to Group Detail screen*/ }
+                            is GroupsUiEvent.NavigateToGroupDetail -> { mainNavController.navigate("group_detail/${event.groupId}") }
                         }
                     }
                 )
@@ -143,29 +128,7 @@ fun HomeScreen3(
 }
 
 
-@Composable
-fun GroupsContent(
-    innerPadding: PaddingValues,
-    onNavigateToCreateGroup: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Groups Screen Content", style = MaterialTheme.typography.titleLarge)
-            Spacer(modifier = Modifier.height(16.dp))
-            // Only keeping the FAB logic in the Scaffold as the preferred way.
-            // This button is kept for now as a temporary placeholder in the body.
-            Button(onClick = onNavigateToCreateGroup) {
-                Text("Create Group (FAB handles this)")
-            }
-        }
-    }
-}
+
 
 @Composable
 fun FriendsContent(innerPadding: PaddingValues) {
@@ -192,7 +155,3 @@ fun ActivityContent(innerPadding: PaddingValues) {
         Text("Activity Screen Content", style = MaterialTheme.typography.titleLarge)
     }
 }
-
-//@Composable
-//fun ProfileContent(innerPadding: PaddingValues) {UserProfileScreen()}
-

@@ -6,4 +6,6 @@ object Screen {
     const val Login = "login"
     const val Home = "Home"
     const val CreateGroup = "create_group"
+    const val GroupDetail = "group_detail/{groupId}"
+    const val AddExpense = "add_expense" // FAB Destination
 }

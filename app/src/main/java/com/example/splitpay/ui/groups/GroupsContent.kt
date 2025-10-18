@@ -1,6 +1,5 @@
 package com.example.splitpay.ui.groups
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,17 +18,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -38,7 +34,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,21 +64,25 @@ fun GroupsContent(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
+    // --- FIX: Relaying the Navigation Event to the main NavHost ---
     UiEventHandler(viewModel.uiEvent) { event ->
-        onNavigate(event)
+        // This relays the specific navigation event (including the groupId)
+        // up to HomeScreen3 for execution by the mainNavController.
+        when (event) {
+            is GroupsUiEvent.NavigateToGroupDetail -> onNavigate(event)
+            GroupsUiEvent.NavigateToCreateGroup -> onNavigate(event)
+        }
     }
+    // ----------------------------------------------------------------
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
-            .padding(innerPadding)
     ) {
-        // Top Section: Overall Balance, Search, and Filter
+        // Top Section: Overall Balance (Actions/Icons are now in the main AppTopBar)
         GroupsHeader(
             overallOwedBalance = uiState.overallOwedBalance,
-            onSearchClick = { /*TODO: Implement Search*/ },
-            onFilterClick = { /*TODO: Implement Filter*/ }
         )
 
         if (uiState.isLoading) {
@@ -98,16 +97,18 @@ fun GroupsContent(
             // Main List of Groups and Balances
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                // Applying padding to the LazyColumn content
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // Placeholder for non-group expenses (Q6 is deferred)
+                // Placeholder for non-group expenses
                 item {
                     NonGroupExpensesCard()
                     Spacer(Modifier.height(8.dp))
                 }
 
                 items(uiState.groupsWithBalances) { groupWithBalance ->
+                    // This triggers the onGroupCardClick in ViewModel (GroupsViewModel.kt)
                     GroupBalanceCard(
                         groupWithBalance = groupWithBalance,
                         onClick = { viewModel.onGroupCardClick(groupWithBalance.group.id) }
@@ -127,27 +128,13 @@ fun GroupsContent(
 @Composable
 fun GroupsHeader(
     overallOwedBalance: Double,
-    onSearchClick: () -> Unit,
-    onFilterClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onSearchClick) {
-                Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-            }
-            IconButton(onClick = onFilterClick) {
-                Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Filter/Sort", tint = Color.White)
-            }
-        }
-
+        // Directly show the balance summary here
         Text(
             text = "Overall, you are owed",
             color = Color.Gray,
