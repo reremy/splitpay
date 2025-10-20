@@ -31,10 +31,29 @@ import com.example.splitpay.ui.theme.PrimaryBlue
 @Composable
 fun AddExpenseBottomBar(
     selectedGroup: Group?,
-    isGroupSelected: Boolean, // NEW
+    initialGroupId: String?,
+    currentGroupId: String?,
     currency: String,
     onChooseGroupClick: () -> Unit
 ) {
+
+    val (buttonText, buttonColor) = when {
+        // 1. A specific group object has been selected/loaded.
+        selectedGroup != null -> selectedGroup.name to PrimaryBlue
+
+        // 2. "Non-group" has been explicitly selected (currentGroupId is null)
+        // AND it wasn't the initial state (initialGroupId was non-null when starting).
+        currentGroupId == null && initialGroupId != null -> "Non-group expense" to PrimaryBlue
+
+        // 3. User manually selected "Non-group" (currentGroupId is null) when starting from scratch (initialGroupId was also null).
+        // We know initialGroupId must be null if we reach here and currentGroupId is null.
+        // We also know selectedGroup is null from condition 1 failing.
+        currentGroupId == null -> "Non-group expense" to PrimaryBlue
+
+        // 4. Initial state: No group loaded/selected yet, OR group is loading.
+        else -> "Choose group" to Color.Gray
+    }
+
     BottomAppBar(
         containerColor = DarkBackground,
         modifier = Modifier.fillMaxWidth()
@@ -49,9 +68,8 @@ fun AddExpenseBottomBar(
                 Icon(Icons.Default.Group, contentDescription = "Group", tint = PrimaryBlue, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    // --- UPDATED TEXT ---
-                    text = selectedGroup?.name ?: "Non-group expense",
-                    color = if (isGroupSelected) PrimaryBlue else Color.Gray,
+                    text = buttonText,
+                    color = buttonColor,
                     fontWeight = FontWeight.SemiBold
                 )
             }

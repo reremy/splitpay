@@ -47,6 +47,7 @@ import androidx.compose.ui.platform.LocalSavedStateRegistryOwner // NEW IMPORT
 import androidx.lifecycle.AbstractSavedStateViewModelFactory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.navigation.NavBackStackEntry
 import com.example.splitpay.data.model.Participant
 import com.example.splitpay.data.model.Payer
 import com.example.splitpay.data.repository.GroupsRepository
@@ -55,35 +56,29 @@ import kotlin.collections.map
 
 @Composable
 fun AddExpenseScreen(
-    // --- UPDATED PARAMETERS ---
-    prefilledGroupId: String?, // This comes from Navigation.kt
+    navBackStackEntry: NavBackStackEntry,
+    prefilledGroupId: String?,
     onNavigateBack: () -> Unit,
-    onSaveSuccess: (AddExpenseUiEvent.SaveSuccess) -> Unit // Now expects the event
+    onSaveSuccess: (AddExpenseUiEvent.SaveSuccess) -> Unit
 ) {
 
-    // 1. Get the composable-scoped values *outside* the factory
-    val owner = LocalSavedStateRegistryOwner.current
-    val activity = (LocalActivity.current as ComponentActivity)
-
-    // 2. Use the viewModel() overload that accepts a factory
     val viewModel: AddExpenseViewModel = viewModel(
-        factory = object : AbstractSavedStateViewModelFactory(owner, activity.intent?.extras) {
+        factory = object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(
-                key: String,
-                modelClass: Class<T>,
-                handle: SavedStateHandle // This handle is now correctly provided to you
-            ): T {
-                // 3. Create the ViewModel with its dependencies AND the handle
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                // Manually create the SavedStateHandle from the NavBackStackEntry's arguments
+                val savedStateHandle = SavedStateHandle.createHandle(null, navBackStackEntry.arguments)
+
+                // Create the ViewModel, passing the manually created handle
+                // and instantiating the repositories
                 return AddExpenseViewModel(
-                    groupsRepository = GroupsRepository(),
-                    userRepository = UserRepository(),
-                    savedStateHandle = handle
+                    groupsRepository = GroupsRepository(), // Provide repository instances
+                    userRepository = UserRepository(),   // Provide repository instances
+                    savedStateHandle = savedStateHandle // Pass the handle we created
                 ) as T
             }
         }
     )
-
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
@@ -105,12 +100,12 @@ fun AddExpenseScreen(
         },
         bottomBar = {
             AddExpenseBottomBar(
-                // --- UPDATED: Use currentGroupId for "Non-group" text ---
                 selectedGroup = uiState.selectedGroup,
-                isGroupSelected = uiState.currentGroupId != null, // NEW
+                // Pass the necessary state variables
+                initialGroupId = uiState.initialGroupId,
+                currentGroupId = uiState.currentGroupId,
                 currency = uiState.currency,
                 onChooseGroupClick = { viewModel.showGroupSelector(true) }
-                // TODO: Calendar, Camera, Tags actions pending specific implementation
             )
         },
         containerColor = DarkBackground

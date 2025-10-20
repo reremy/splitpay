@@ -19,7 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Add // Keep this import
 import androidx.compose.material.icons.filled.Dining
 import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Group
@@ -32,8 +32,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton // NEW IMPORT
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold // NEW IMPORT
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,8 +53,11 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController // NEW IMPORT
+import androidx.navigation.compose.rememberNavController // NEW IMPORT (if needed, but usually passed in)
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.repository.GroupsRepository
+import com.example.splitpay.navigation.Screen // NEW IMPORT
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.PrimaryBlue
 import com.example.splitpay.ui.theme.TextWhite
@@ -78,6 +83,7 @@ val availableIconsMap = mapOf(
 fun GroupDetailScreen(
     groupId: String,
     viewModel: GroupDetailViewModel = viewModel(),
+    navController: NavHostController, // Add NavController parameter
     onNavigateBack: () -> Unit
 ) {
     val group by viewModel.group.collectAsState()
@@ -88,28 +94,48 @@ fun GroupDetailScreen(
         viewModel.loadGroup(groupId)
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(DarkBackground)
-    ) {
-        if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = PrimaryBlue)
+    // --- WRAP THE CONTENT IN A SCAFFOLD ---
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = DarkBackground,
+        floatingActionButton = {
+            // --- ADD THE FAB HERE ---
+            FloatingActionButton(
+                onClick = {
+                    // Navigate to Add Expense, pre-filling the current group ID
+                    navController.navigate("add_expense/$groupId")
+                },
+                containerColor = Color(0xFF66BB6A) // Green color like in HomeScreen
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add Expense")
             }
-        } else if (group != null) {
-            val currentGroup = group!!
-            GroupDetailContent(
-                group = currentGroup,
-                onNavigateBack = onNavigateBack
-            )
-        } else {
-            // Handle error or group not found
-            Text(
-                text = "Group not found or an error occurred.",
-                color = Color.Red,
-                modifier = Modifier.align(Alignment.Center)
-            )
+        }
+    ) { innerPadding -> // Use innerPadding provided by Scaffold
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding) // Apply innerPadding here
+                .background(DarkBackground)
+        ) {
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryBlue)
+                }
+            } else if (group != null) {
+                val currentGroup = group!!
+                GroupDetailContent(
+                    group = currentGroup,
+                    onNavigateBack = onNavigateBack
+                    // Pass innerPadding down if needed, but not strictly necessary here
+                )
+            } else {
+                // Handle error or group not found
+                Text(
+                    text = "Group not found or an error occurred.",
+                    color = Color.Red,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
         }
     }
 }
@@ -123,6 +149,7 @@ fun GroupDetailContent(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+        // No padding here, Scaffold handles it
     ) {
         // --- Custom Top Bar / Header ---
         GroupDetailHeader(group = group, onNavigateBack = onNavigateBack)
@@ -160,11 +187,15 @@ fun GroupDetailContent(
                         text = "Total spent: RM 0.00. You are all settled up!",
                         color = Color.Gray
                     )
+                    // TODO: Add LazyColumn here to display actual expenses
                 }
             }
+            Spacer(Modifier.height(72.dp)) // Add some space at the bottom for FAB visibility
         }
     }
 }
+
+// GroupDetailHeader, ActionButtonsRow, ActionButton, GroupMemberStatus remain the same...
 
 @Composable
 fun GroupDetailHeader(group: Group, onNavigateBack: () -> Unit) {

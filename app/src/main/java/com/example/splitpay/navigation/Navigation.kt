@@ -1,5 +1,6 @@
 package com.example.splitpay.navigation
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -115,16 +116,17 @@ fun Navigation(
             val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
             GroupDetailScreen(
                 groupId = groupId,
+                navController = navController,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
 
         // --- UPDATED ADD EXPENSE ROUTE ---
         composable(
-            route = Screen.AddExpense, // This will be "add_expense?groupId={groupId}"
+            route = "add_expense/{groupId}", // This will be "add_expense?groupId={groupId}"
             arguments = listOf(navArgument("groupId") {
                 type = NavType.StringType
-                nullable = true
+                //nullable = true
             }),
             enterTransition = { slideInFromRight() },
             exitTransition = { slideOutToLeft() },
@@ -134,14 +136,15 @@ fun Navigation(
             // Extract the optional groupId
             val groupId = backStackEntry.arguments?.getString("groupId")
 
+            val groupIdFromBackStack = backStackEntry.arguments?.getString("groupId")
+            Log.d("AddExpenseDebug", "Navigation composable: Received groupId = $groupIdFromBackStack")
+
+            val prefilledGroupId = groupIdFromBackStack
+
             AddExpenseScreen(
-                // Pass the prefilled groupId to the ViewModel
-                prefilledGroupId = groupId,
-
-                // Standard back navigation
+                prefilledGroupId = prefilledGroupId,
                 onNavigateBack = { navController.popBackStack() },
-
-                // Handle dynamic navigation on save
+                navBackStackEntry = backStackEntry,
                 onSaveSuccess = { navEvent ->
                     // This navEvent is the AddExpenseUiEvent.SaveSuccess
                     // We assume it has a boolean 'isGroupDetail'
@@ -152,6 +155,31 @@ fun Navigation(
                     } else {
                         // Otherwise, navigate to the main Groups page
                         // and clear the back stack.
+                        navController.navigate(Screen.Home) {
+                            popUpTo(Screen.Home) { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+
+        // Separate composable for the no-group case
+        composable(
+            route = "add_expense_no_group",
+            // ... transitions ...
+        ) {backStackEntry ->
+            Log.d("AddExpenseDebug", "Navigation composable: add_expense_no_group route entered") // Optional log here too
+
+            AddExpenseScreen(
+                prefilledGroupId = null,
+                onNavigateBack = { navController.popBackStack() },
+                navBackStackEntry = backStackEntry,
+                onSaveSuccess = { navEvent ->
+                    if (navEvent.isGroupDetail) {
+                        // This case shouldn't happen when starting with no group,
+                        // but handle defensively - just pop back
+                        navController.popBackStack()
+                    } else {
                         navController.navigate(Screen.Home) {
                             popUpTo(Screen.Home) { inclusive = true }
                         }

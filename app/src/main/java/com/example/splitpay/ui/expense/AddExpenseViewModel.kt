@@ -1,5 +1,6 @@
 package com.example.splitpay.ui.expense
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle // NEW IMPORT
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -23,7 +24,6 @@ import kotlin.math.absoluteValue
 class AddExpenseViewModel(
     private val groupsRepository: GroupsRepository = GroupsRepository(),
     private val userRepository: UserRepository = UserRepository(),
-    // --- NEW: Inject SavedStateHandle to read navigation args ---
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -42,6 +42,7 @@ class AddExpenseViewModel(
     init {
         // Read the prefilled groupId from the navigation arguments
         val prefilledGroupId: String? = savedStateHandle["groupId"]
+        Log.d("AddExpenseDebug", "ViewModel init: prefilledGroupId = $prefilledGroupId") // <-- ADD THIS
 
         _uiState.update {
             it.copy(
@@ -50,6 +51,7 @@ class AddExpenseViewModel(
                 // We'll set selectedGroup later in loadInitialData
             )
         }
+        Log.d("AddExpenseDebug", "ViewModel init: initialGroupId = ${_uiState.value.initialGroupId}, currentGroupId = ${_uiState.value.currentGroupId}") // <-- ADD THIS
 
         loadInitialData(prefilledGroupId)
     }
