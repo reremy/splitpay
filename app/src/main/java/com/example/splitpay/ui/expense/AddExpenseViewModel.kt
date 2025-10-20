@@ -3,7 +3,6 @@ package com.example.splitpay.ui.expense
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.Group
-import com.example.splitpay.data.model.User // Assuming we have a User model
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -12,12 +11,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.DecimalFormat
+import kotlin.math.roundToInt
+import kotlin.math.absoluteValue
 
 // --- Data Models for Internal State ---
 enum class SplitType(val label: String) {
     EQUALLY("Equally"),
-    UNEQUALLY("Unequally"),
+    UNEQUALLY("Unequally (by amount)"),
     PERCENTAGES("By Percentages"),
     SHARES("By Shares"),
     ADJUSTMENTS("By Adjustments")
@@ -27,12 +27,15 @@ data class Participant(
     val uid: String,
     val name: String,
     val isChecked: Boolean = true,
-    val splitValue: Double = 0.0 // Could be amount, percentage, or share count
+    val splitValue: String = "0.00", // Value used for unequal split (amount, percentage, or share count)
+    val owesAmount: Double = 0.0 // The calculated amount the participant owes
 )
 
 data class Payer(
     val uid: String,
-    val amount: Double
+    val name: String,
+    val amount: String = "0.00", // Amount paid by this user (String for input)
+    val isChecked: Boolean = false // Used in Payer selection UI
 )
 
 // --- UI State ---
@@ -51,7 +54,7 @@ data class AddExpenseUiState(
     // Flags for modular UIs (Dialogs, BottomSheets)
     val isGroupSelectorVisible: Boolean = false,
     val isPayerSelectorVisible: Boolean = false,
-    val isSplitSelectorVisible: Boolean = false,
+    val isSplitEditorVisible: Boolean = false,
 )
 
 // --- UI Events ---
@@ -72,9 +75,11 @@ class AddExpenseViewModel(
     private val _uiEvent = MutableSharedFlow<AddExpenseUiEvent>()
     val uiEvent = _uiEvent.asSharedFlow()
 
-    // Placeholder for all groups available to the user
     private val _availableGroups = MutableStateFlow<List<Group>>(emptyList())
     val availableGroups: StateFlow<List<Group>> = _availableGroups
+
+    private val _allUsers = MutableStateFlow<List<Payer>>(emptyList())
+    val allUsers: StateFlow<List<Payer>> = _allUsers
 
     init {
         loadInitialData()
@@ -82,21 +87,33 @@ class AddExpenseViewModel(
 
     private fun loadInitialData() {
         viewModelScope.launch {
-            // 1. Load groups
             groupsRepository.getGroups().collect { groups ->
                 _availableGroups.value = groups
             }
 
-            // 2. Set default participants (just the current user for now)
             val currentUser = userRepository.getCurrentUser()
-            if (currentUser != null) {
-                val initialPayer = Payer(currentUser.uid, 0.0)
-                val initialParticipant = Participant(currentUser.uid, currentUser.displayName ?: "You")
+            val currentUserName = currentUser?.displayName ?: "You"
+            val currentUid = currentUser?.uid ?: "current_user"
 
+            // Mock all potential payers/participants (should be real friends list)
+            val mockUsers = listOf(
+                Payer(currentUid, currentUserName, isChecked = true),
+                Payer("uid_A", "Person A"),
+                Payer("uid_B", "Person B")
+            )
+            _allUsers.value = mockUsers
+
+            if (currentUser != null) {
+                // Initialize state with only the current user as the payer and participant
                 _uiState.update {
+                    val initialParticipants = listOf(Participant(currentUid, currentUserName, splitValue = (100.0).toString()))
                     it.copy(
-                        paidByUsers = listOf(initialPayer),
-                        participants = listOf(initialParticipant)
+                        paidByUsers = listOf(Payer(currentUid, currentUserName, amount = "0.00", isChecked = true)),
+                        participants = calculateSplit(
+                            amount = it.amount.toDoubleOrNull() ?: 0.0,
+                            participants = initialParticipants,
+                            splitType = it.splitType
+                        )
                     )
                 }
             }
@@ -112,7 +129,6 @@ class AddExpenseViewModel(
     }
 
     fun onAmountChange(newAmount: String) {
-        // Validate as numeric with max 2 decimals
         val cleanAmount = newAmount.replace(Regex("[^0-9.]"), "")
         val decimalIndex = cleanAmount.indexOf('.')
 
@@ -123,44 +139,167 @@ class AddExpenseViewModel(
         }
 
         _uiState.update { it.copy(amount = validAmount) }
+        recalculateSplit(validAmount.toDoubleOrNull() ?: 0.0, uiState.value.splitType)
+    }
+
+    // --- Core Logic: Split Recalculation ---
+
+    // Function to calculate the distribution based on split type
+    private fun calculateSplit(amount: Double, participants: List<Participant>, splitType: SplitType): List<Participant> {
+        val activeParticipants = participants.filter { it.isChecked }
+        if (activeParticipants.isEmpty() || amount <= 0) return participants
+
+        // Helper for rounding to 2 decimal places
+        fun roundToCents(value: Double) = (value * 100.0).roundToInt() / 100.0
+
+        return when (splitType) {
+            SplitType.EQUALLY -> {
+                val share = amount / activeParticipants.size
+                participants.map { p ->
+                    if (p.isChecked) p.copy(owesAmount = roundToCents(share)) else p.copy(owesAmount = 0.0)
+                }
+            }
+
+            SplitType.UNEQUALLY, SplitType.ADJUSTMENTS -> {
+                // UNEQUALLY/ADJUSTMENTS: Assumes splitValue holds the exact amount owed.
+                participants.map { p ->
+                    val owes = p.splitValue.toDoubleOrNull() ?: 0.0
+                    p.copy(owesAmount = roundToCents(owes))
+                }
+            }
+
+            SplitType.PERCENTAGES -> {
+                val totalPercent = activeParticipants.sumOf { it.splitValue.toDoubleOrNull() ?: 0.0 }
+                if (totalPercent == 0.0) return participants.map { it.copy(owesAmount = 0.0) }
+
+                participants.map { p ->
+                    if (p.isChecked) {
+                        val percent = p.splitValue.toDoubleOrNull() ?: 0.0
+                        val owes = (percent / 100.0) * amount
+                        p.copy(owesAmount = roundToCents(owes))
+                    } else {
+                        p.copy(owesAmount = 0.0)
+                    }
+                }
+            }
+
+            SplitType.SHARES -> {
+                val totalShares = activeParticipants.sumOf { it.splitValue.toDoubleOrNull() ?: 0.0 }
+                if (totalShares == 0.0) return participants.map { it.copy(owesAmount = 0.0) }
+
+                val perShareCost = amount / totalShares
+
+                participants.map { p ->
+                    if (p.isChecked) {
+                        val shares = p.splitValue.toDoubleOrNull() ?: 0.0
+                        val owes = shares * perShareCost
+                        p.copy(owesAmount = roundToCents(owes))
+                    } else {
+                        p.copy(owesAmount = 0.0)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun recalculateSplit(newAmount: Double, newSplitType: SplitType) {
+        _uiState.update { state ->
+            val updatedParticipants = calculateSplit(
+                amount = newAmount,
+                participants = state.participants,
+                splitType = newSplitType
+            )
+            state.copy(participants = updatedParticipants)
+        }
+    }
+
+    fun onParticipantSplitValueChanged(uid: String, newValue: String) {
+        _uiState.update { state ->
+            val updatedParticipants = state.participants.map { p ->
+                if (p.uid == uid) p.copy(splitValue = newValue) else p
+            }
+            // Recalculate split immediately after input changes
+            val calculatedParticipants = calculateSplit(
+                amount = state.amount.toDoubleOrNull() ?: 0.0,
+                participants = updatedParticipants,
+                splitType = state.splitType
+            )
+            state.copy(participants = calculatedParticipants)
+        }
     }
 
     // --- Selectors ---
 
     fun onSelectGroup(group: Group) {
         // When a group is selected, update the group and participants (default: all members)
-        val participantsFromGroup = group.members.map { uid ->
-            // In a real app, fetch user details using UID here. For now, mock name.
-            Participant(uid, "User ${uid.take(4)}")
+        val participantsFromGroup = _allUsers.value.filter { group.members.contains(it.uid) }.map { payer ->
+            // Use Payer object properties to create Participant
+            Participant(
+                uid = payer.uid,
+                name = payer.name,
+                isChecked = true,
+                // Default split value: 1.0 for share/unequal, 100/N for percentage
+                splitValue = if (uiState.value.splitType == SplitType.PERCENTAGES) (100.0 / group.members.size).toString() else "1.0"
+            )
         }
 
         _uiState.update {
+            // FIX APPLIED HERE: Only calculate and assign once.
+            val calculatedParticipants = calculateSplit(
+                amount = it.amount.toDoubleOrNull() ?: 0.0,
+                participants = participantsFromGroup,
+                splitType = it.splitType
+            )
             it.copy(
                 selectedGroup = group,
                 isGroupSelectorVisible = false,
-                participants = participantsFromGroup
+                participants = calculatedParticipants
             )
         }
     }
 
-    fun onSelectPayer(payers: List<Payer>) {
-        // Update the paidByUsers list and hide the selector
+    fun onPayerSelectionChanged(updatedPayerList: List<Payer>) {
         _uiState.update {
-            it.copy(
-                paidByUsers = payers,
-                isPayerSelectorVisible = false
-            )
+            it.copy(paidByUsers = updatedPayerList.filter { p -> p.isChecked })
         }
+    }
+
+    fun onPayerAmountChanged(uid: String, newAmount: String) {
+        _uiState.update { state ->
+            val updatedPayers = state.paidByUsers.map { payer ->
+                if (payer.uid == uid) payer.copy(amount = newAmount) else payer
+            }
+            state.copy(paidByUsers = updatedPayers)
+        }
+    }
+
+    fun finalizePayerSelection() {
+        _uiState.update { it.copy(isPayerSelectorVisible = false) }
     }
 
     fun onSelectSplitType(type: SplitType) {
-        // Update the split type and hide the selector
         _uiState.update {
+            // When changing split type, reset splitValue to a reasonable default (e.g., 1 for shares, or 100/N for %)
+            val newParticipants = it.participants.map { p ->
+                if (type == SplitType.EQUALLY) {
+                    p.copy(splitValue = "0.00")
+                } else if (type == SplitType.PERCENTAGES) {
+                    val defaultPercent = (100.0 / it.participants.size)
+                    p.copy(splitValue = "%.2f".format(defaultPercent))
+                } else { // UNEQUALLY, SHARES, ADJUSTMENTS
+                    p.copy(splitValue = "1.0")
+                }
+            }
             it.copy(
                 splitType = type,
-                isSplitSelectorVisible = false
+                participants = newParticipants
             )
         }
+        recalculateSplit(uiState.value.amount.toDoubleOrNull() ?: 0.0, type)
+    }
+
+    fun finalizeSplitTypeSelection() {
+        _uiState.update { it.copy(isSplitEditorVisible = false) }
     }
 
     // --- UI Visibility Handlers ---
@@ -173,25 +312,41 @@ class AddExpenseViewModel(
         _uiState.update { it.copy(isPayerSelectorVisible = isVisible) }
     }
 
-    fun showSplitSelector(isVisible: Boolean) {
-        _uiState.update { it.copy(isSplitSelectorVisible = isVisible) }
+    fun showSplitEditor(isVisible: Boolean) {
+        _uiState.update { it.copy(isSplitEditorVisible = isVisible) }
     }
 
     fun onSaveExpenseClick() {
-        // 1. Basic validation check
-        if (uiState.value.description.isBlank() || uiState.value.amount.toDoubleOrNull() == 0.0) {
+        val totalAmount = uiState.value.amount.toDoubleOrNull() ?: 0.0
+        val paidAmount = uiState.value.paidByUsers.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
+        val allocatedSplit = uiState.value.participants.sumOf { it.owesAmount }
+
+        if (uiState.value.description.isBlank() || totalAmount <= 0.0) {
             _uiState.update { it.copy(error = "Please fill in description and amount.") }
             return
         }
 
-        // 2. Perform mock save (actual implementation deferred)
+        if (uiState.value.paidByUsers.isEmpty()) {
+            _uiState.update { it.copy(error = "Please select a payer.") }
+            return
+        }
+
+        // 1. Validate Paid Amount matches Total Amount (if multi-payer)
+        if (uiState.value.paidByUsers.size > 1 && paidAmount != totalAmount) {
+            _uiState.update { it.copy(error = "Total paid amount must equal expense amount.") }
+            return
+        }
+
+        // 2. Validate Split Allocation matches Total Amount
+        if (allocatedSplit.roundToInt() != totalAmount.roundToInt()) {
+            _uiState.update { it.copy(error = "Split allocation (RM %.2f) must match total expense.".format(allocatedSplit)) }
+            return
+        }
+
+        // 3. Perform mock save
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            // In a real app: groupsRepository.addExpense(expenseModel)
-
-            // Simulate success
             kotlinx.coroutines.delay(1000)
-
             _uiEvent.emit(AddExpenseUiEvent.SaveSuccess)
             _uiState.update { it.copy(isLoading = false) }
         }

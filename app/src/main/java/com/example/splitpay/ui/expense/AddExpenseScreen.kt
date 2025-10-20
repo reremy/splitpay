@@ -3,6 +3,8 @@ package com.example.splitpay.ui.expense
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -12,10 +14,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.OutlinedTextFieldDefaults.contentPadding
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -29,7 +33,8 @@ import com.example.splitpay.ui.theme.ErrorRed
 import com.example.splitpay.ui.theme.PrimaryBlue
 import com.example.splitpay.ui.theme.TextPlaceholder
 import com.example.splitpay.ui.theme.TextWhite
-import java.util.*
+import kotlin.math.roundToInt
+import kotlin.math.absoluteValue
 
 @Composable
 fun AddExpenseScreen(
@@ -78,7 +83,7 @@ fun AddExpenseScreen(
             PaidSplitSelector(
                 uiState = uiState,
                 onPaidByClick = { viewModel.showPayerSelector(true) },
-                onSplitClick = { viewModel.showSplitSelector(true) }
+                onSplitClick = { viewModel.showSplitEditor(true) }
             )
 
             Spacer(Modifier.height(16.dp))
@@ -118,25 +123,31 @@ fun AddExpenseScreen(
         )
     }
 
-    // Payer Selector Dialog (Placeholder)
+    // Payer Selector Dialog (Handles single/multi-payer logic)
     if (uiState.isPayerSelectorVisible) {
-        // This would be a dialog allowing single/multiple payers and amounts
-        PlaceholderSelectorDialog(
-            title = "Paid By Selector",
-            content = "Select who paid for the expense.",
-            onDismiss = { viewModel.showPayerSelector(false) }
+        PayerSelectorDialog(
+            allUsers = viewModel.allUsers.collectAsState().value,
+            paidByUsers = uiState.paidByUsers,
+            totalAmount = uiState.amount.toDoubleOrNull() ?: 0.0,
+            onSelectionChanged = viewModel::onPayerSelectionChanged,
+            onAmountChanged = viewModel::onPayerAmountChanged,
+            onDismiss = { viewModel.showPayerSelector(false) },
+            onDone = viewModel::finalizePayerSelection
         )
     }
 
-    // Split Selector Dialog (Placeholder)
-    if (uiState.isSplitSelectorVisible) {
-        SplitSelectorDialog(
-            currentType = uiState.splitType,
-            onDismiss = { viewModel.showSplitSelector(false) },
-            onSelect = viewModel::onSelectSplitType
+    // Split Selector Dialog (The editor for choosing split type and setting values)
+    if (uiState.isSplitEditorVisible) {
+        SplitSelectorEditor(
+            uiState = uiState,
+            onDismiss = { viewModel.showSplitEditor(false) },
+            onDone = viewModel::finalizeSplitTypeSelection,
+            onSelectSplitType = viewModel::onSelectSplitType,
+            onParticipantValueChange = viewModel::onParticipantSplitValueChanged
         )
     }
 }
+
 
 // --- Top Bar ---
 @OptIn(ExperimentalMaterial3Api::class)
@@ -196,7 +207,7 @@ fun PaidSplitSelector(
                     fontSize = 16.sp
                 )
                 Text(
-                    text = uiState.paidByUsers.firstOrNull()?.uid ?: "You", // Display first payer's name
+                    text = uiState.paidByUsers.firstOrNull()?.name ?: "You", // FIX: Use name instead of UID
                     color = PrimaryBlue,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
@@ -271,7 +282,7 @@ fun AmountAndDescriptionFields(
                     value = uiState.amount,
                     onValueChange = onAmountChange,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    textStyle = LocalTextStyle.current.copy(
+                    textStyle = TextStyle(
                         color = Color(0xFF66BB6A), // Green text for amount
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
@@ -351,9 +362,9 @@ fun ParticipantsList(participants: List<Participant>) {
                         color = TextWhite,
                         modifier = Modifier.weight(1f)
                     )
-                    // Display split value placeholder
+                    // Display calculated amount owed
                     Text(
-                        "RM 0.00",
+                        "RM %.2f".format(participant.owesAmount),
                         color = Color.Gray
                     )
                 }
@@ -365,7 +376,6 @@ fun ParticipantsList(participants: List<Participant>) {
                 placeholder = { Text("Enter names, emails, or phone #s", color = TextPlaceholder) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                // FIX: Use the unified 'colors' function with parameters specific to OutlinedTextField styling.
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color(0xFF3C3C3C), // Set container color
                     unfocusedContainerColor = Color(0xFF3C3C3C),
@@ -466,60 +476,335 @@ fun GroupSelectorDialog(
 }
 
 @Composable
-fun PlaceholderSelectorDialog(
-    title: String,
-    content: String,
-    onDismiss: () -> Unit
+fun PayerSelectorDialog(
+    allUsers: List<Payer>,
+    paidByUsers: List<Payer>,
+    totalAmount: Double,
+    onSelectionChanged: (List<Payer>) -> Unit,
+    onAmountChanged: (uid: String, amount: String) -> Unit,
+    onDismiss: () -> Unit,
+    onDone: () -> Unit
 ) {
+    // Merge all users with current paidBy state for selection UI
+    val selectedUsersMap = paidByUsers.associateBy { it.uid }
+    val selectionState by remember(paidByUsers, allUsers) {
+        mutableStateOf(allUsers.map { user ->
+            selectedUsersMap[user.uid]?.copy(isChecked = true) ?: user.copy(isChecked = false, amount = "0.00")
+        })
+    }
+
+    // Recalculate total paid amount whenever selection changes
+    val totalPaid = selectionState.filter { it.isChecked }.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
+    val isMultiPayer = selectionState.count { it.isChecked } > 1
+    val isAmountBalanced = if (isMultiPayer) totalPaid.roundToInt() == totalAmount.roundToInt() else true
+
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title, color = TextWhite) },
+        title = { Text("Who Paid?", color = TextWhite) },
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("OK", color = PrimaryBlue)
+            Button(
+                onClick = onDone,
+                enabled = isAmountBalanced && selectionState.any { it.isChecked },
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            ) {
+                Text("Done")
             }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = Color.Gray) }
         },
         containerColor = Color(0xFF2D2D2D),
         text = {
-            Text(content, color = Color.Gray)
+            Column(Modifier.heightIn(max = 400.dp)) {
+                // Multi-Payer Status Message
+                if (isMultiPayer) {
+                    Text(
+                        text = if (totalAmount > 0.0 && !isAmountBalanced) {
+                            "Total paid (RM %.2f) does not match expense (RM %.2f)".format(totalPaid, totalAmount)
+                        } else {
+                            "Total Paid: RM %.2f".format(totalPaid)
+                        },
+                        color = if (isAmountBalanced) Color(0xFF66BB6A) else ErrorRed,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
+                // List of Users
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    selectionState.forEach { payer ->
+                        PayerListItem(
+                            payer = payer,
+                            isMultiPayer = isMultiPayer,
+                            onCheckChanged = { isChecked ->
+                                // Logic to maintain selection for multi-payer
+                                val newPayerList = selectionState.map {
+                                    if (it.uid == payer.uid) it.copy(isChecked = isChecked)
+                                    // If single payer mode, uncheck others
+                                    else if (!isMultiPayer && isChecked) it.copy(isChecked = false)
+                                    else it
+                                }
+                                onSelectionChanged(newPayerList)
+                            },
+                            onAmountChanged = { amount ->
+                                onAmountChanged(payer.uid, amount)
+                            }
+                        )
+                    }
+                }
+            }
         }
     )
 }
 
 @Composable
-fun SplitSelectorDialog(
-    currentType: SplitType,
-    onDismiss: () -> Unit,
-    onSelect: (SplitType) -> Unit
+fun PayerListItem(
+    payer: Payer,
+    isMultiPayer: Boolean,
+    onCheckChanged: (Boolean) -> Unit,
+    onAmountChanged: (String) -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Select Split Method", color = TextWhite) },
-        confirmButton = { },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel", color = PrimaryBlue)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckChanged(!payer.isChecked) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = payer.isChecked,
+            onCheckedChange = onCheckChanged,
+            colors = CheckboxDefaults.colors(checkedColor = PrimaryBlue)
+        )
+        Text(payer.name, color = TextWhite, modifier = Modifier.weight(1f).padding(start = 8.dp))
+
+        // Amount Input for Multi-Payer
+        if (payer.isChecked && isMultiPayer) {
+            OutlinedTextField(
+                value = payer.amount,
+                onValueChange = onAmountChanged,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                singleLine = true,
+                modifier = Modifier.width(80.dp),
+                textStyle = TextStyle(textAlign = TextAlign.End, color = TextWhite, fontSize = 14.sp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color(0xFF3C3C3C),
+                    unfocusedContainerColor = Color(0xFF3C3C3C),
+                    focusedIndicatorColor = PrimaryBlue,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                shape = RoundedCornerShape(8.dp),
+                //contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+// --- Split Selector Implementation ---
+
+@Composable
+fun SplitSelectorEditor(
+    uiState: AddExpenseUiState,
+    onDismiss: () -> Unit,
+    onDone: () -> Unit,
+    onSelectSplitType: (SplitType) -> Unit,
+    onParticipantValueChange: (uid: String, value: String) -> Unit
+) {
+    Scaffold(
+        topBar = {
+            SplitEditorTopBar(
+                title = "Split ${uiState.splitType.label}",
+                onDismiss = onDismiss,
+                onDone = onDone
+            )
+        },
+        containerColor = DarkBackground
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // 1. Split Type Selector (Dropdown/Segmented Control)
+            SplitTypeChooser(
+                currentType = uiState.splitType,
+                onSelect = onSelectSplitType
+            )
+            Spacer(Modifier.height(16.dp))
+
+            // 2. Participants List for editing split values
+            SplitParticipantsList(
+                participants = uiState.participants,
+                totalAmount = uiState.amount.toDoubleOrNull() ?: 0.0,
+                splitType = uiState.splitType,
+                onValueChange = onParticipantValueChange
+            )
+            // 3. Balance/Summary (Total amount vs Sum of splits)
+            SplitSummary(uiState.participants, uiState.amount.toDoubleOrNull() ?: 0.0)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SplitEditorTopBar(
+    title: String,
+    onDismiss: () -> Unit,
+    onDone: () -> Unit
+) {
+    TopAppBar(
+        title = { Text(title, color = TextWhite, fontWeight = FontWeight.Bold) },
+        navigationIcon = {
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
             }
         },
-        containerColor = Color(0xFF2D2D2D),
-        text = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                SplitType.entries.forEach { type ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelect(type) }
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(type.label, color = TextWhite, modifier = Modifier.weight(1f))
-                        if (type == currentType) {
-                            Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color(0xFF66BB6A))
-                        }
+        actions = {
+            Button(onClick = onDone, colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)) {
+                Text("Done")
+            }
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF2D2D2D))
+    )
+}
+
+@Composable
+fun SplitTypeChooser(
+    currentType: SplitType,
+    onSelect: (SplitType) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Column(Modifier.padding(8.dp)) {
+            SplitType.entries.forEach { type ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(type) }
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(type.label, color = TextWhite, modifier = Modifier.weight(1f))
+                    if (type == currentType) {
+                        Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color(0xFF66BB6A))
                     }
+                }
+                if (type != SplitType.entries.last()) {
                     Divider(color = Color(0xFF454545))
                 }
             }
         }
-    )
+    }
+}
+
+@Composable
+fun SplitParticipantsList(
+    participants: List<Participant>,
+    totalAmount: Double,
+    splitType: SplitType,
+    onValueChange: (uid: String, value: String) -> Unit
+) {
+    val unit = when (splitType) {
+        SplitType.PERCENTAGES -> "%"
+        SplitType.SHARES -> " shares"
+        SplitType.EQUALLY, SplitType.ADJUSTMENTS, SplitType.UNEQUALLY -> " RM"
+    }
+
+    // Determine if input is needed for the current split type
+    val isInputNeeded = splitType != SplitType.EQUALLY && splitType != SplitType.ADJUSTMENTS
+
+    LazyColumn(
+        modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        items(participants) { participant ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Participant Name
+                    Text(participant.name, color = TextWhite, modifier = Modifier.weight(1f))
+
+                    // Split Input / Display
+                    if (isInputNeeded) {
+                        // Input field for editing split value (amount, percentage, or shares)
+                        OutlinedTextField(
+                            value = participant.splitValue,
+                            onValueChange = { onValueChange(participant.uid, it) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.width(80.dp),
+                            textStyle = TextStyle(textAlign = TextAlign.End, color = TextWhite, fontSize = 14.sp),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color(0xFF3C3C3C),
+                                unfocusedContainerColor = Color(0xFF3C3C3C),
+                                focusedIndicatorColor = PrimaryBlue,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            // FIX 1: Removed contentPadding parameter as it caused the candidate error
+                            trailingIcon = { if (unit != " RM") Text(unit, color = Color.Gray) }
+                        )
+                    } else { // EQUALLY or ADJUSTMENTS/UNEQUALLY (Display calculated amount owed)
+                        Text("RM %.2f".format(participant.owesAmount), color = Color.Gray)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SplitSummary(
+    participants: List<Participant>,
+    totalAmount: Double
+) {
+    val totalOwed = participants.sumOf { it.owesAmount }
+    val isBalanced = totalOwed.roundToInt() == totalAmount.roundToInt()
+    val difference = totalAmount - totalOwed
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        shape = RoundedCornerShape(10.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Total Expense:", color = Color.Gray)
+                Text("RM %.2f".format(totalAmount), color = TextWhite)
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Total Allocated:", color = Color.Gray)
+                Text(
+                    "RM %.2f".format(totalOwed),
+                    color = if (isBalanced) Color(0xFF66BB6A) else ErrorRed
+                )
+            }
+            if (!isBalanced) {
+                Text(
+                    "Difference: RM %.2f".format(difference.absoluteValue),
+                    color = ErrorRed,
+                    fontSize = 12.sp,
+                    modifier = Modifier.align(Alignment.End)
+                )
+            }
+        }
+    }
 }
