@@ -14,7 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.splitpay.ui.groups.CreateGroupScreen
-import com.example.splitpay.ui.groups.GroupDetailScreen // <--- NEW IMPORT
+import com.example.splitpay.ui.groups.GroupDetailScreen
 import com.example.splitpay.ui.home.HomeScreen3
 import com.example.splitpay.ui.login.LoginScreen
 import com.example.splitpay.ui.signup.SignUpScreen
@@ -24,6 +24,8 @@ import com.example.splitpay.navigation.slideInFromLeft
 import com.example.splitpay.navigation.slideInFromRight
 import com.example.splitpay.navigation.slideOutToLeft
 import com.example.splitpay.navigation.slideOutToRight
+import com.example.splitpay.ui.expense.AddExpenseScreen
+import com.example.splitpay.ui.expense.AddExpenseUiEvent // NEW IMPORT
 
 // Navigation.kt
 @Composable
@@ -117,19 +119,44 @@ fun Navigation(
             )
         }
 
-        // Route for Add Expense (FAB Destination)
+        // --- UPDATED ADD EXPENSE ROUTE ---
         composable(
-            route = Screen.AddExpense,
+            route = Screen.AddExpense, // This will be "add_expense?groupId={groupId}"
+            arguments = listOf(navArgument("groupId") {
+                type = NavType.StringType
+                nullable = true
+            }),
             enterTransition = { slideInFromRight() },
             exitTransition = { slideOutToLeft() },
             popEnterTransition = { slideInFromLeft() },
             popExitTransition = { slideOutToRight() }
-        ) {
-            com.example.splitpay.ui.expense.AddExpenseScreen(
-                // Navigate back to the previous screen (which is likely the main home tab)
+        ) { backStackEntry ->
+            // Extract the optional groupId
+            val groupId = backStackEntry.arguments?.getString("groupId")
+
+            AddExpenseScreen(
+                // Pass the prefilled groupId to the ViewModel
+                prefilledGroupId = groupId,
+
+                // Standard back navigation
                 onNavigateBack = { navController.popBackStack() },
-                // On successful save, navigate back to the main Home screen (or Group Detail if applicable)
-                onSaveSuccess = { navController.navigate(Screen.Home) }
+
+                // Handle dynamic navigation on save
+                onSaveSuccess = { navEvent ->
+                    // This navEvent is the AddExpenseUiEvent.SaveSuccess
+                    // We assume it has a boolean 'isGroupDetail'
+                    if (navEvent.isGroupDetail) {
+                        // If user was on GroupDetail and didn't change group,
+                        // just pop back to it.
+                        navController.popBackStack()
+                    } else {
+                        // Otherwise, navigate to the main Groups page
+                        // and clear the back stack.
+                        navController.navigate(Screen.Home) {
+                            popUpTo(Screen.Home) { inclusive = true }
+                        }
+                    }
+                }
             )
         }
     }

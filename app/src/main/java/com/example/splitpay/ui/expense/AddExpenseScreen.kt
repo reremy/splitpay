@@ -25,7 +25,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.compose.viewModel // STANDARD IMPORT
+import androidx.lifecycle.createSavedStateHandle // NEW IMPORT
+import androidx.lifecycle.viewmodel.compose.viewModel // NEW IMPORT
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.DarkBackground
@@ -35,20 +37,61 @@ import com.example.splitpay.ui.theme.TextPlaceholder
 import com.example.splitpay.ui.theme.TextWhite
 import kotlin.math.roundToInt
 import kotlin.math.absoluteValue
+import androidx.lifecycle.ViewModelProvider // NEW IMPORT
+import androidx.lifecycle.ViewModelStoreOwner // NEW IMPORT
+import androidx.compose.ui.platform.LocalContext // NEW IMPORT
+import androidx.lifecycle.SavedStateViewModelFactory // NEW IMPORT
+import androidx.activity.ComponentActivity // NEW IMPORT
+import androidx.activity.compose.LocalActivity
+import androidx.compose.ui.platform.LocalSavedStateRegistryOwner // NEW IMPORT
+import androidx.lifecycle.AbstractSavedStateViewModelFactory
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import com.example.splitpay.data.model.Participant
+import com.example.splitpay.data.model.Payer
+import com.example.splitpay.data.repository.GroupsRepository
+import com.example.splitpay.data.repository.UserRepository
+import kotlin.collections.map
 
 @Composable
 fun AddExpenseScreen(
-    viewModel: AddExpenseViewModel = viewModel(),
+    // --- UPDATED PARAMETERS ---
+    prefilledGroupId: String?, // This comes from Navigation.kt
     onNavigateBack: () -> Unit,
-    onSaveSuccess: () -> Unit
+    onSaveSuccess: (AddExpenseUiEvent.SaveSuccess) -> Unit // Now expects the event
 ) {
+
+    // 1. Get the composable-scoped values *outside* the factory
+    val owner = LocalSavedStateRegistryOwner.current
+    val activity = (LocalActivity.current as ComponentActivity)
+
+    // 2. Use the viewModel() overload that accepts a factory
+    val viewModel: AddExpenseViewModel = viewModel(
+        factory = object : AbstractSavedStateViewModelFactory(owner, activity.intent?.extras) {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(
+                key: String,
+                modelClass: Class<T>,
+                handle: SavedStateHandle // This handle is now correctly provided to you
+            ): T {
+                // 3. Create the ViewModel with its dependencies AND the handle
+                return AddExpenseViewModel(
+                    groupsRepository = GroupsRepository(),
+                    userRepository = UserRepository(),
+                    savedStateHandle = handle
+                ) as T
+            }
+        }
+    )
+
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
     UiEventHandler(viewModel.uiEvent) { event ->
         when (event) {
             AddExpenseUiEvent.NavigateBack -> onNavigateBack()
-            AddExpenseUiEvent.SaveSuccess -> onSaveSuccess()
+            // --- UPDATED ---
+            is AddExpenseUiEvent.SaveSuccess -> onSaveSuccess(event)
         }
     }
 
@@ -62,10 +105,12 @@ fun AddExpenseScreen(
         },
         bottomBar = {
             AddExpenseBottomBar(
+                // --- UPDATED: Use currentGroupId for "Non-group" text ---
                 selectedGroup = uiState.selectedGroup,
+                isGroupSelected = uiState.currentGroupId != null, // NEW
                 currency = uiState.currency,
                 onChooseGroupClick = { viewModel.showGroupSelector(true) }
-                // Calendar, Camera, Tags actions pending specific implementation
+                // TODO: Calendar, Camera, Tags actions pending specific implementation
             )
         },
         containerColor = DarkBackground
@@ -119,7 +164,9 @@ fun AddExpenseScreen(
         GroupSelectorDialog(
             groups = viewModel.availableGroups.collectAsState().value,
             onDismiss = { viewModel.showGroupSelector(false) },
-            onSelect = viewModel::onSelectGroup
+            onSelect = viewModel::onSelectGroup,
+            // --- NEW: Add handler for "Non-group" selection ---
+            onSelectNonGroup = { viewModel.onSelectGroup(null) }
         )
     }
 
@@ -149,37 +196,7 @@ fun AddExpenseScreen(
 }
 
 
-// --- Top Bar ---
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddExpenseTopBar(
-    onNavigateBack: () -> Unit,
-    onSave: () -> Unit,
-    isLoading: Boolean
-) {
-    TopAppBar(
-        title = { Text("Add expense", color = TextWhite, fontWeight = FontWeight.Bold) },
-        navigationIcon = {
-            IconButton(onClick = onNavigateBack, enabled = !isLoading) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextWhite)
-            }
-        },
-        actions = {
-            IconButton(onClick = onSave, enabled = !isLoading) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp,
-                        color = TextWhite
-                    )
-                } else {
-                    Icon(Icons.Default.Check, contentDescription = "Save Expense", tint = Color(0xFF66BB6A))
-                }
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
-    )
-}
+
 
 // --- Middle Paid By / Split Selector ---
 @Composable
@@ -394,56 +411,14 @@ fun ParticipantsList(participants: List<Participant>) {
     }
 }
 
-// --- Bottom Bar ---
-@Composable
-fun AddExpenseBottomBar(
-    selectedGroup: Group?,
-    currency: String,
-    onChooseGroupClick: () -> Unit
-) {
-    BottomAppBar(
-        containerColor = DarkBackground,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Choose Group Button
-            TextButton(onClick = onChooseGroupClick) {
-                Icon(Icons.Default.Group, contentDescription = "Group", tint = PrimaryBlue, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = selectedGroup?.name ?: "Choose group",
-                    color = if (selectedGroup != null) PrimaryBlue else Color.Gray,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            // Action Icons (Calendar, Camera, Tags)
-            Row {
-                IconButton(onClick = { /* TODO: Date picker */ }) {
-                    Icon(Icons.Default.CalendarToday, contentDescription = "Calendar", tint = Color.Gray)
-                }
-                IconButton(onClick = { /* TODO: Receipt camera */ }) {
-                    Icon(Icons.Default.Receipt, contentDescription = "Receipt", tint = Color.Gray)
-                }
-                IconButton(onClick = { /* TODO: Tags picker */ }) {
-                    Icon(Icons.Default.LocalOffer, contentDescription = "Tags", tint = Color.Gray)
-                }
-            }
-        }
-    }
-}
-
 // --- Modals ---
 
 @Composable
 fun GroupSelectorDialog(
     groups: List<Group>,
     onDismiss: () -> Unit,
-    onSelect: (Group) -> Unit
+    onSelect: (Group) -> Unit,
+    onSelectNonGroup: () -> Unit // NEW
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -457,6 +432,20 @@ fun GroupSelectorDialog(
         containerColor = Color(0xFF2D2D2D),
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
+                // --- NEW: Non-group option ---
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelectNonGroup() }
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Non-group expense", color = TextWhite, modifier = Modifier.weight(1f))
+                    Icon(Icons.Default.Person, contentDescription = "Non-group", tint = Color.Gray)
+                }
+                Divider(color = Color(0xFF454545))
+
+                // Existing groups
                 groups.forEach { group ->
                     Row(
                         modifier = Modifier
@@ -496,7 +485,10 @@ fun PayerSelectorDialog(
     // Recalculate total paid amount whenever selection changes
     val totalPaid = selectionState.filter { it.isChecked }.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
     val isMultiPayer = selectionState.count { it.isChecked } > 1
-    val isAmountBalanced = if (isMultiPayer) totalPaid.roundToInt() == totalAmount.roundToInt() else true
+
+    // --- UPDATED: Balance logic ---
+    val finalTotalPaid = if (isMultiPayer) totalPaid else totalAmount
+    val isAmountBalanced = finalTotalPaid.roundToInt() == totalAmount.roundToInt()
 
 
     AlertDialog(
@@ -505,7 +497,7 @@ fun PayerSelectorDialog(
         confirmButton = {
             Button(
                 onClick = onDone,
-                enabled = isAmountBalanced && selectionState.any { it.isChecked },
+                enabled = (isMultiPayer && isAmountBalanced) || (!isMultiPayer && selectionState.any { it.isChecked }),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
             ) {
                 Text("Done")

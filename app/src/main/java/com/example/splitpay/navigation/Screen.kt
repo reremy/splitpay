@@ -7,5 +7,5 @@ object Screen {
     const val Home = "Home"
     const val CreateGroup = "create_group"
     const val GroupDetail = "group_detail/{groupId}"
-    const val AddExpense = "add_expense" // FAB Destination
+    const val AddExpense = "add_expense?groupId={groupId}" // FAB Destination
 }

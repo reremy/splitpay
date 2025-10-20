@@ -16,18 +16,18 @@ data class ExpensePayer(
 )
 
 data class Expense(
-    val id: String = "", // Unique ID (Firestore Document ID)
-    val groupId: String = "", // Which group this expense belongs to
+    val id: String = "",
+    val groupId: String? = null, // Make nullable for "Non-group"
     val description: String = "",
     val totalAmount: Double = 0.0,
-    val createdByUid: String = "", // The UID of the user who created the expense
-    val date: Long = System.currentTimeMillis(),
+    val createdByUid: String = "",
+    val date: Long = System.currentTimeMillis(), // This field already exists!
 
-    val splitType: String = "EQUALLY", // e.g., "EQUALLY", "PERCENTAGES"
-
-    // List of users who paid and how much
+    val splitType: String = "EQUALLY",
     val paidBy: List<ExpensePayer> = emptyList(),
-
-    // List of users in the expense and how much they owe (calculated share)
     val participants: List<ExpenseParticipant> = emptyList(),
+
+    // --- ADD THESE ---
+    val memo: String = "",
+    val imageUrls: List<String> = emptyList()
 )
