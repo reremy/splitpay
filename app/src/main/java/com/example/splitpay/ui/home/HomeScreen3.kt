@@ -36,6 +36,7 @@ import com.example.splitpay.ui.groups.FriendsTopBarActions
 import com.example.splitpay.ui.groups.GroupsContent
 import com.example.splitpay.ui.groups.GroupsTopBarActions
 import com.example.splitpay.ui.groups.GroupsUiEvent
+import com.example.splitpay.ui.profile.ProfileTopBarActions
 import com.example.splitpay.ui.profile.UserProfileScreen
 
 
@@ -72,6 +73,7 @@ fun HomeScreen3(
                         "friends_screen" -> FriendsTopBarActions()
                         "activity_screen" -> ActivityTopBarActions()
                         // Use a general menu/settings icon for all other screens (like Profile)
+                        "profile_screen" -> ProfileTopBarActions(onEditProfile = { /* TODO: Navigate to Edit Profile */ })
                         else -> {
                             IconButton(onClick = { /* open menu or settings */ }) {
                                 Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu")

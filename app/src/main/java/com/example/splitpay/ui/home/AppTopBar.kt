@@ -28,6 +28,9 @@ fun AppTopBar(
             // 1. TOP BAR BACKGROUND COLOR
             containerColor = Color(0xFF1E1E1E), // Example hardcoded background (DarkBackground)
 
+            // FIX: Explicitly set the Scrolled Container Color to the same dark color.
+            scrolledContainerColor = Color(0xFF1E1E1E), // <-- ADDED/FIXED THIS LINE
+
             // 2. TITLE TEXT COLOR
             titleContentColor = Color(0xFFFFFFFF), // Example title text color (TextWhite)
 

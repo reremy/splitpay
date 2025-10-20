@@ -13,6 +13,7 @@ import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.example.splitpay.data.repository.UserRepository
+import com.example.splitpay.logger.logE
 import kotlinx.coroutines.flow.asSharedFlow
 
 class SignUpViewModel(
@@ -60,6 +61,7 @@ class SignUpViewModel(
 
         val state = _uiState.value
 
+        // --- Validation Checks (Duplicated logic from Validator.kt for simplicity in current structure) ---
         if (state.fullName.isBlank()) {
             _uiState.update { it.copy(fullNameError = "Full name cannot be empty") }
             isValid = false
@@ -84,12 +86,14 @@ class SignUpViewModel(
             _uiState.update { it.copy(retypePasswordError = "Passwords do not match") }
             isValid = false
         }
+        // --- End Validation Checks ---
 
         if (!isValid) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
+                // The repository method signUp2 returns a Result<Unit> which is good for handling success/failure
                 val result = repository.signUp2(
                     fullName = state.fullName,
                     username = state.username,
@@ -100,6 +104,7 @@ class SignUpViewModel(
                 result.onSuccess {
                     _uiEvent.emit(SignUpUiEvent.NavigateToHome)
                 }.onFailure { e ->
+                    // Handle specific Firebase errors
                     when (e) {
                         is FirebaseAuthUserCollisionException ->
                             _uiState.update { it.copy(emailError = "Email already in use") }
@@ -113,11 +118,19 @@ class SignUpViewModel(
                         is FirebaseNetworkException ->
                             _uiState.update { it.copy(errorMessage = "No internet connection") }
 
-                        else ->
-                            _uiState.update { it.copy(errorMessage = e.message ?: "Sign-up failed") }
+                        else -> {
+                            // Log the unexpected error and update generic message
+                            logE("Unexpected sign-up error: ${e.message}")
+                            _uiState.update { it.copy(errorMessage = e.message ?: "Sign-up failed due to an unknown error.") }
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                // Catch any exceptions not handled within the try block (less likely, but safer)
+                logE("Critical error during sign-up launch: ${e.message}")
+                _uiState.update { it.copy(errorMessage = "A critical error occurred: ${e.message}") }
             } finally {
+                // Ensure isLoading is reset regardless of success or failure
                 _uiState.update { it.copy(isLoading = false) }
             }
         }

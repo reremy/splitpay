@@ -125,15 +125,12 @@ fun Navigation(
             popEnterTransition = { slideInFromLeft() },
             popExitTransition = { slideOutToRight() }
         ) {
-            // Placeholder Screen for Add Expense
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color(0xFF1E1E1E)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Add Expense Screen (WIP)", color = Color.White)
-            }
+            com.example.splitpay.ui.expense.AddExpenseScreen(
+                // Navigate back to the previous screen (which is likely the main home tab)
+                onNavigateBack = { navController.popBackStack() },
+                // On successful save, navigate back to the main Home screen (or Group Detail if applicable)
+                onSaveSuccess = { navController.navigate(Screen.Home) }
+            )
         }
     }
 }
