@@ -22,10 +22,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import kotlin.math.absoluteValue
-import kotlin.math.absoluteValue // <-- ADD THIS IMPORT
-
-
-
 
 
 class AddExpenseViewModel(
@@ -43,8 +39,8 @@ class AddExpenseViewModel(
     val uiEvent = _uiEvent.asSharedFlow()
     private val _availableGroups = MutableStateFlow<List<Group>>(emptyList())
     val availableGroups: StateFlow<List<Group>> = _availableGroups
-    private val _allUsers = MutableStateFlow<List<Payer>>(emptyList()) // Will hold friends + group members
-    val allUsers: StateFlow<List<Payer>> = _allUsers
+    private val _relevantUsersForSelection = MutableStateFlow<List<Payer>>(emptyList()) // Will hold friends + group members
+    val relevantUsersForSelection: StateFlow<List<Payer>> = _relevantUsersForSelection
 
     init {
         val prefilledGroupId: String? = savedStateHandle["groupId"]
@@ -64,49 +60,117 @@ class AddExpenseViewModel(
 
     private fun loadInitialData(prefilledGroupId: String?) {
         viewModelScope.launch {
-            // Fetch groups first to potentially pre-select one
-            groupsRepository.getGroups().collect { groups ->
-                _availableGroups.value = groups
-                // Check if a group needs pre-selection and hasn't been selected yet
-                if (prefilledGroupId != null && _uiState.value.selectedGroup == null) {
-                    groups.find { it.id == prefilledGroupId }?.let { group ->
-                        // Call onSelectGroup internally to set initial state
-                        onSelectGroup(group, initialLoad = true)
-                    }
-                }
-            }
-        }
-        viewModelScope.launch { // Separate launch for users/friends
-            // TODO: Replace this mock data with a real fetch from UserRepository (e.g., getFriends())
-            // and potentially combine with group members if a group is selected.
+            // --- Fetch current user info ONCE ---
             val currentUser = userRepository.getCurrentUser()
-            val currentUserName = currentUser?.displayName ?: "You"
-            val currentUid = currentUser?.uid ?: "current_user" // Use a placeholder if user is null
+            val currentUserName = currentUser?.displayName?.takeIf { it.isNotBlank() } ?: currentUser?.email ?: "You" // Use email as fallback
+            val currentUid = currentUser?.uid ?: "current_user_placeholder" // Should not happen if logged in
+            val currentUserPayer = Payer(currentUid, currentUserName, isChecked = true) // Default state
 
-            val mockUsers = listOf(
-                Payer(currentUid, currentUserName, isChecked = true), // Current user first
+            // --- Mock friends list (Replace with actual fetch later) ---
+            val mockFriends = listOf(
                 Payer("uid_A", "Person A"),
                 Payer("uid_B", "Person B")
             )
-            _allUsers.value = mockUsers
 
-            // If no group was prefilled AND participants haven't been set yet (important for initial setup)
-            // AND currentUser is available
-            if (prefilledGroupId == null && uiState.value.participants.isEmpty() && currentUser != null) {
-                _uiState.update { currentState ->
-                    val initialParticipants = listOf(Participant(currentUid, currentUserName, splitValue = "1.0"))
-                    currentState.copy(
-                        // Default payer is the current user
-                        paidByUsers = listOf(Payer(currentUid, currentUserName, amount = "0.00", isChecked = true)),
-                        // Default participant is the current user
-                        participants = calculateSplit(
-                            amount = currentState.amount.toDoubleOrNull() ?: 0.0,
-                            participants = initialParticipants,
-                            splitType = currentState.splitType
-                        )
-                    )
+            // --- Load relevant users based on prefilled group ---
+            if (prefilledGroupId != null) {
+                // Fetch the specific group (assuming groupsRepository.getGroupById exists)
+                val group = groupsRepository.getGroupById(prefilledGroupId) // Need to make this suspend or change repo
+                if (group != null) {
+                    // TODO: Fetch actual member details (names) based on group.members UIDs
+                    val groupMembersAsPayers = group.members.mapNotNull { memberUid ->
+                        // Find user details (mock for now)
+                        (listOf(currentUserPayer) + mockFriends).find { it.uid == memberUid }
+                    }
+                    _relevantUsersForSelection.value = groupMembersAsPayers
+                    // Also call onSelectGroup to set initial participants
+                    handleGroupSelection(group, initialLoad = true)
+                } else {
+                    // Group not found, default to user + friends
+                    _relevantUsersForSelection.value = listOf(currentUserPayer) + mockFriends
+                    setDefaultParticipantsAndPayers(currentUserPayer) // Set defaults if group load fails
                 }
+            } else {
+                // No prefilled group, default to user + friends
+                _relevantUsersForSelection.value = listOf(currentUserPayer) + mockFriends
+                setDefaultParticipantsAndPayers(currentUserPayer) // Set defaults for non-group start
             }
+
+            // Fetch available groups for the dropdown selector (can run concurrently)
+            groupsRepository.getGroups().collect { groups ->
+                _availableGroups.value = groups
+            }
+        }
+    }
+
+    //Helper to set default payer/participant when no group is pre-selected
+    private fun setDefaultParticipantsAndPayers(currentUserPayer: Payer) {
+        if (uiState.value.participants.isEmpty()) { // Only if not already set
+            _uiState.update { currentState ->
+                val initialParticipants = listOf(Participant(currentUserPayer.uid, currentUserPayer.name, splitValue = "1.0"))
+                currentState.copy(
+                    paidByUsers = listOf(currentUserPayer.copy(amount = "0.00", isChecked = true)),
+                    participants = calculateSplit(
+                        amount = currentState.amount.toDoubleOrNull() ?: 0.0,
+                        participants = initialParticipants,
+                        splitType = currentState.splitType
+                    )
+                )
+            }
+        }
+    }
+
+    // --- Modified onSelectGroup ---
+    fun onSelectGroup(group: Group?, initialLoad: Boolean = false) {
+        // --- Fetch relevant users based on selection ---
+        val currentUser = _relevantUsersForSelection.value.firstOrNull() // Assume current user is loaded
+        // --- Mock friends list (Replace with actual fetch later) ---
+        val mockFriends = listOf(
+            Payer("uid_A", "Person A"),
+            Payer("uid_B", "Person B")
+        )
+
+        val newRelevantUsers = if (group != null) {
+            // TODO: Fetch actual member details based on group.members UIDs
+            group.members.mapNotNull { memberUid ->
+                (_relevantUsersForSelection.value + mockFriends).find { it.uid == memberUid } // Find from current/friends list
+            }.distinctBy { it.uid } // Ensure uniqueness
+        } else {
+            // Non-group: User + Friends
+            (currentUser?.let { listOf(it) } ?: emptyList()) + mockFriends
+        }
+        _relevantUsersForSelection.value = newRelevantUsers
+
+        // --- Determine participants based on the new relevant users ---
+        val participantsList = newRelevantUsers.map { payer ->
+            Participant(
+                uid = payer.uid,
+                name = payer.name,
+                isChecked = true, // Default all participants to checked
+                splitValue = if (uiState.value.splitType == SplitType.PERCENTAGES && newRelevantUsers.isNotEmpty()) {
+                    "%.2f".format(100.0 / newRelevantUsers.size)
+                } else "1.0"
+            )
+        }
+
+        // --- Update state ---
+        _uiState.update { currentState ->
+            val calculatedParticipants = calculateSplit(
+                amount = currentState.amount.toDoubleOrNull() ?: 0.0,
+                participants = participantsList,
+                splitType = currentState.splitType
+            )
+            // Reset payer to current user when group changes
+            val defaultPayer = currentUser?.copy(amount = "0.00", isChecked = true)?.let { listOf(it) } ?: emptyList()
+
+            currentState.copy(
+                selectedGroup = group,
+                currentGroupId = group?.id,
+                isGroupSelectorVisible = if (initialLoad) currentState.isGroupSelectorVisible else false,
+                participants = calculatedParticipants, // Update participants list
+                paidByUsers = defaultPayer, // Reset payer
+                error = null
+            )
         }
     }
 
@@ -293,11 +357,11 @@ class AddExpenseViewModel(
 
     // --- Selectors ---
 
-    fun onSelectGroup(group: Group?, initialLoad: Boolean = false) {
+    fun handleGroupSelection(group: Group?, initialLoad: Boolean = false) {
         // TODO: Fetch real members/friends based on group selection
         // For now, use _allUsers, filtering if a group is selected
         val participantsList = if (group != null) {
-            _allUsers.value
+            _relevantUsersForSelection.value
                 .filter { p -> group.members.contains(p.uid) } // Filter by group members
                 .map { payer ->
                     Participant(
@@ -311,7 +375,7 @@ class AddExpenseViewModel(
                     )
                 }
         } else { // Non-group selected
-            val currentUser = _allUsers.value.firstOrNull() // Default to current user
+            val currentUser = _relevantUsersForSelection.value.firstOrNull() // Default to current user
             currentUser?.let {
                 listOf(Participant(it.uid, it.name, isChecked = true, splitValue = "1.0"))
             } ?: emptyList()
