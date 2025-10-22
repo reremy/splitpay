@@ -25,7 +25,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.data.model.GroupWithBalance
+import com.example.splitpay.ui.common.OverallBalanceHeader
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.ErrorRed
@@ -81,8 +81,10 @@ fun GroupsContent(
             .background(DarkBackground)
     ) {
         // Top Section: Overall Balance (Actions/Icons are now in the main AppTopBar)
-        GroupsHeader(
-            overallOwedBalance = uiState.overallOwedBalance,
+        OverallBalanceHeader(
+            totalBalance = uiState.totalNetBalance,
+            // Pass only the top padding from the Scaffold's innerPadding
+            //topPadding = innerPadding.calculateTopPadding()
         )
 
         if (uiState.isLoading) {
@@ -124,32 +126,6 @@ fun GroupsContent(
         }
     }
 }
-
-@Composable
-fun GroupsHeader(
-    overallOwedBalance: Double,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        // Directly show the balance summary here
-        Text(
-            text = "Overall, you are owed",
-            color = Color.Gray,
-            fontSize = 18.sp,
-        )
-        Text(
-            text = formatCurrency(overallOwedBalance),
-            color = if (overallOwedBalance >= 0) Color(0xFF66BB6A) else ErrorRed, // Green for positive balance
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(16.dp))
-    }
-}
-
 
 @Composable
 fun GroupBalanceCard(

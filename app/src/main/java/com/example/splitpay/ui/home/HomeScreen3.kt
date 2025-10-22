@@ -31,6 +31,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.splitpay.navigation.Screen
+import com.example.splitpay.ui.friends.FriendsScreenContent
+import com.example.splitpay.ui.friends.FriendsTopBarActions
+import com.example.splitpay.ui.friends.FriendsViewModel
 import com.example.splitpay.ui.groups.ActivityTopBarActions
 import com.example.splitpay.ui.groups.FriendsTopBarActions
 import com.example.splitpay.ui.groups.GroupsContent
@@ -56,6 +59,9 @@ fun HomeScreen3(
     val currentItem = uiState.items.firstOrNull { it.route == currentHomeRoute }
     val title = currentItem?.label ?: "SplitPay"
 
+    val friendsViewModel: FriendsViewModel = viewModel()
+    val friendsUiState by friendsViewModel.uiState.collectAsState()
+
     Scaffold(
 
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -70,7 +76,12 @@ fun HomeScreen3(
                         "groups_screen" -> GroupsTopBarActions(
                             onNavigateToCreateGroup = { mainNavController.navigate(Screen.CreateGroup) }
                         )
-                        "friends_screen" -> FriendsTopBarActions()
+                        "friends_screen" -> FriendsTopBarActions(
+                            onSearchClick = { /* TODO */ },
+                            onAddFriendClick = { /* TODO */ },
+                            // --- PASS the action from FriendsViewModel ---
+                            onFilterClick = friendsViewModel::onFilterIconClick
+                        )
                         "activity_screen" -> ActivityTopBarActions()
                         // Use a general menu/settings icon for all other screens (like Profile)
                         "profile_screen" -> ProfileTopBarActions(onEditProfile = { /* TODO: Navigate to Edit Profile */ })
@@ -120,7 +131,13 @@ fun HomeScreen3(
                     }
                 )
             }
-            composable("friends_screen") { FriendsContent(innerPadding) }
+            composable("friends_screen") {
+                // Pass the same friendsViewModel instance down
+                FriendsScreenContent(
+                    innerPadding = innerPadding,
+                    viewModel = friendsViewModel // Pass the instance
+                )
+            }
             composable("activity_screen") { ActivityContent(innerPadding) }
             composable("profile_screen") {
                 UserProfileScreen(mainNavController = mainNavController)

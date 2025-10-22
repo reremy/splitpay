@@ -23,7 +23,8 @@ data class GroupsUiState(
     val isLoading: Boolean = true,
     val groupsWithBalances: List<GroupWithBalance> = emptyList(),
     val overallOwedBalance: Double = 0.0,
-    val error: String? = null
+    val error: String? = null,
+    val totalNetBalance: Double = 0.0, // Overall balance across all friends
 )
 
 class GroupsViewModel(

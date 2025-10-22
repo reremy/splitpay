@@ -17,3 +17,6 @@ val TextPlaceholder = Color(0xFFAAAAAA)
 val ErrorRed = Color(0xFFFF4D4F)
 val TextWhite = Color(0xFFFFFFFF)
 
+ val PositiveGreen = Color(0xFF66BB6A)
+ val NegativeRed = Color(0xFFE57373)
+
