@@ -24,7 +24,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Search // Added import
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -62,14 +62,18 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AbstractSavedStateViewModelFactory // Keep this
 import androidx.lifecycle.SavedStateHandle // Keep this
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider // Keep this
+import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner // Keep this
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry // Keep this
 import com.example.splitpay.data.model.Group
-import com.example.splitpay.data.model.Participant
-import com.example.splitpay.data.model.Payer
+import com.example.splitpay.data.model.Participant // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
+import com.example.splitpay.data.model.Payer // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
 import com.example.splitpay.data.repository.GroupsRepository // Keep this
 import com.example.splitpay.data.repository.UserRepository // Keep this
 import com.example.splitpay.ui.common.UiEventHandler
+import com.example.splitpay.ui.expense.AddExpenseBottomBar // Import AddExpenseBottomBar
+import com.example.splitpay.ui.expense.AddExpenseTopBar // Import AddExpenseTopBar
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.ErrorRed
 import com.example.splitpay.ui.theme.PrimaryBlue
@@ -77,6 +81,11 @@ import com.example.splitpay.ui.theme.TextPlaceholder
 import com.example.splitpay.ui.theme.TextWhite
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
+
+// Import local Participant/Payer if they are defined in ViewModel file
+// For this example, assume they are defined locally or passed correctly
+// import com.example.splitpay.ui.expense.Participant as UiParticipant
+// import com.example.splitpay.ui.expense.Payer as UiPayer
 
 @Composable
 fun AddExpenseScreen(
@@ -179,7 +188,7 @@ fun AddExpenseScreen(
 
             // 3. Participants / Group Members
             ParticipantsList(
-                participants = uiState.participants,
+                participants = uiState.participants, // Use local Participant type from ViewModel's state
                 // Pass the event handler from the ViewModel
                 onParticipantCheckedChange = viewModel::onParticipantCheckedChange
             )
@@ -204,10 +213,12 @@ fun AddExpenseScreen(
         GroupSelectorDialog(
             groups = viewModel.availableGroups.collectAsState().value,
             onDismiss = { viewModel.showGroupSelector(false) },
+            // Use the renamed function with correct lambda
             onSelect = { selectedGroup ->
                 viewModel.handleGroupSelection(selectedGroup)
-            }, // Pass Group object
-            onSelectNonGroup = { viewModel.handleGroupSelection(null) } // Pass null for non-group
+            },
+            // Use the renamed function with correct lambda
+            onSelectNonGroup = { viewModel.handleGroupSelection(null) }
         )
     }
 
@@ -215,8 +226,8 @@ fun AddExpenseScreen(
     // Payer Selector Dialog (Handles single/multi-payer logic)
     if (uiState.isPayerSelectorVisible) {
         PayerSelectorDialog(
-            relevantUsers = viewModel.relevantUsersForSelection.collectAsState().value, // Pass the dynamic list
-            paidByUsers = uiState.paidByUsers,
+            relevantUsers = viewModel.relevantUsersForSelection.collectAsState().value, // Pass the dynamic list (uses local Payer type)
+            paidByUsers = uiState.paidByUsers, // Uses local Payer type
             totalAmount = uiState.amount.toDoubleOrNull() ?: 0.0,
             onSelectionChanged = viewModel::onPayerSelectionChanged,
             onAmountChanged = viewModel::onPayerAmountChanged,
@@ -383,24 +394,24 @@ fun AmountAndDescriptionFields(
                 isError = uiState.error?.contains("description", ignoreCase = true) == true,
                 supportingText = if (uiState.description.length > 100) {
                     { Text("Max 100 characters", color = ErrorRed) }
-                } else null, // Show general error if needed?
+                } else null,
                 modifier = Modifier.fillMaxWidth(),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     errorContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent, // Added
-                    cursorColor = PrimaryBlue, // Added
+                    disabledContainerColor = Color.Transparent,
+                    cursorColor = PrimaryBlue,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
                     errorIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent, // Added
+                    disabledIndicatorColor = Color.Transparent,
                     focusedTextColor = TextWhite,
                     unfocusedTextColor = TextWhite,
-                    errorTextColor = TextWhite, // Added
-                    disabledTextColor = Color.Gray, // Added
-                    focusedPlaceholderColor = TextPlaceholder, // Added
-                    unfocusedPlaceholderColor = TextPlaceholder // Added
+                    errorTextColor = TextWhite,
+                    disabledTextColor = Color.Gray,
+                    focusedPlaceholderColor = TextPlaceholder,
+                    unfocusedPlaceholderColor = TextPlaceholder
                 )
             )
 
@@ -411,8 +422,8 @@ fun AmountAndDescriptionFields(
 // --- Participants List ---
 @Composable
 fun ParticipantsList(
-    participants: List<Participant>,
-    onParticipantCheckedChange: (uid: String, isChecked: Boolean) -> Unit // Add handler
+    participants: List<Participant>, // Expects local Participant type
+    onParticipantCheckedChange: (uid: String, isChecked: Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -432,13 +443,11 @@ fun ParticipantsList(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
-                        // Make the whole row clickable to toggle checkbox
                         .clickable { onParticipantCheckedChange(participant.uid, !participant.isChecked) },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
                         checked = participant.isChecked,
-                        // Pass the handler to the Checkbox as well
                         onCheckedChange = { isChecked -> onParticipantCheckedChange(participant.uid, isChecked) },
                         colors = CheckboxDefaults.colors(
                             checkedColor = PrimaryBlue,
@@ -448,20 +457,18 @@ fun ParticipantsList(
                     Text(
                         participant.name,
                         color = TextWhite,
-                        modifier = Modifier.weight(1f).padding(start = 8.dp) // Add padding for better spacing
+                        modifier = Modifier.weight(1f).padding(start = 8.dp)
                     )
-                    // Display calculated amount owed
                     Text(
-                        // Format currency consistently
                         "RM %.2f".format(participant.owesAmount),
-                        color = if (participant.isChecked) Color.Gray else Color.DarkGray // Dim if unchecked
+                        color = if (participant.isChecked) Color.Gray else Color.DarkGray
                     )
                 }
             }
-            // Add participants field placeholder (Functionality TBD)
+            // Add participants field placeholder
             OutlinedTextField(
                 value = "",
-                onValueChange = { /* TODO: Handle adding more members by searching/pasting */ },
+                onValueChange = { /* TODO: Handle adding more members */ },
                 placeholder = { Text("Add participants (e.g., search name)", color = TextPlaceholder) },
                 singleLine = true,
                 modifier = Modifier
@@ -482,7 +489,7 @@ fun ParticipantsList(
                     unfocusedPlaceholderColor = TextPlaceholder
                 ),
                 shape = RoundedCornerShape(8.dp),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Participants", tint = TextPlaceholder)} // Added search icon
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Participants", tint = TextPlaceholder)} // Use filled Search
             )
         }
     }
@@ -495,57 +502,51 @@ fun ParticipantsList(
 fun GroupSelectorDialog(
     groups: List<Group>,
     onDismiss: () -> Unit,
-    onSelect: (Group) -> Unit, // Changed signature
+    onSelect: (Group) -> Unit, // Expects non-null Group
     onSelectNonGroup: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Select Group", color = TextWhite) },
-        confirmButton = { }, // No confirm needed, selection is immediate
+        confirmButton = { },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.Gray) // Changed color for consistency
+                Text("Cancel", color = Color.Gray)
             }
         },
         containerColor = Color(0xFF2D2D2D),
         text = {
-            LazyColumn(modifier = Modifier.fillMaxWidth()) { // Use LazyColumn for potentially long lists
-                // Non-group option first
+            LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
                                 onSelectNonGroup()
-                                onDismiss() // Dismiss dialog on selection
+                                onDismiss()
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Person, contentDescription = "Non-group", tint = Color.Gray, modifier = Modifier.padding(end = 16.dp)) // Add icon
+                        Icon(Icons.Default.Person, contentDescription = "Non-group", tint = Color.Gray, modifier = Modifier.padding(end = 16.dp))
                         Text("Non-group expense", color = TextWhite, modifier = Modifier.weight(1f))
                     }
                     Divider(color = Color(0xFF454545))
                 }
-
-                // Existing groups
                 items(groups) { group ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                onSelect(group) // Pass the selected Group object
-                                onDismiss() // Dismiss dialog on selection
+                                onSelect(group) // Pass the selected Group
+                                onDismiss()
                             }
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // TODO: Display group icon based on group.iconIdentifier
                         Icon(Icons.Default.Group, contentDescription = "Group Icon", tint = Color.Gray, modifier = Modifier.padding(end = 16.dp))
                         Text(group.name, color = TextWhite, modifier = Modifier.weight(1f))
-
                     }
-                    // Only add divider if not the last item? Might need index check. For now, always add.
                     Divider(color = Color(0xFF454545))
                 }
             }
@@ -555,29 +556,27 @@ fun GroupSelectorDialog(
 
 @Composable
 fun PayerSelectorDialog(
-    relevantUsers: List<Payer>,
-    paidByUsers: List<Payer>,
+    relevantUsers: List<Payer>, // Uses local Payer
+    paidByUsers: List<Payer>, // Uses local Payer
     totalAmount: Double,
-    onSelectionChanged: (List<Payer>) -> Unit,
+    onSelectionChanged: (List<Payer>) -> Unit, // Expects List<local Payer>
     onAmountChanged: (uid: String, amount: String) -> Unit,
     onDismiss: () -> Unit,
     onDone: () -> Unit
 ) {
     val currentSelectionMap = paidByUsers.associateBy { it.uid }
-    // Remember the state within the dialog
     val selectionState = remember {
-        mutableStateListOf<Payer>().apply {
+        mutableStateListOf<Payer>().apply { // Uses local Payer
             addAll(relevantUsers.map { user ->
                 currentSelectionMap[user.uid]?.copy(isChecked = true) ?: user.copy(isChecked = false, amount = "0.00")
             })
         }
     }
 
-    // Derived state based on the dialog's internal selectionState
     val isMultiPayer = selectionState.count { it.isChecked } > 1
     val totalPaidInDialog = selectionState.filter { it.isChecked }.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
     val finalTotalPaidCheck = if (isMultiPayer) totalPaidInDialog else totalAmount
-    val isAmountBalanced = finalTotalPaidCheck.roundToInt() == totalAmount.roundToInt()
+    val isAmountBalanced = (finalTotalPaidCheck - totalAmount).absoluteValue < 0.01
     val enableDoneButton = (isMultiPayer && isAmountBalanced) || (!isMultiPayer && selectionState.any { it.isChecked })
 
     AlertDialog(
@@ -586,22 +585,18 @@ fun PayerSelectorDialog(
         confirmButton = {
             Button(
                 onClick = onDone,
-                enabled = enableDoneButton, // Use derived state
+                enabled = enableDoneButton,
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-            ) {
-                Text("Done")
-            }
+            ) { Text("Done") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel", color = Color.Gray) }
         },
         containerColor = Color(0xFF2D2D2D),
         text = {
-            Column(Modifier.heightIn(max = 400.dp)) { // Limit dialog height
-                // Multi-Payer Status Message
+            Column(Modifier.heightIn(max = 400.dp)) {
                 if (isMultiPayer) {
                     Text(
-                        // Use totalPaidInDialog for display
                         text = if (totalAmount > 0.0 && !isAmountBalanced) {
                             "Total paid (RM %.2f) doesn't match expense (RM %.2f)".format(totalPaidInDialog, totalAmount)
                         } else {
@@ -611,27 +606,20 @@ fun PayerSelectorDialog(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
                 }
-
-                // List of Users using LazyColumn
-                LazyColumn(Modifier.weight(1f)) { // Allow list to take available space
+                LazyColumn(Modifier.weight(1f)) {
                     items(selectionState.size) { index ->
-                        val payer = selectionState[index]
+                        val payer = selectionState[index] // Uses local Payer
                         PayerListItem(
                             payer = payer,
-                            isMultiPayer = isMultiPayer, // Pass derived state
+                            isMultiPayer = isMultiPayer,
                             onCheckChanged = { isChecked ->
-                                // Update local dialog state
                                 selectionState[index] = payer.copy(isChecked = isChecked)
-                                // Notify ViewModel immediately of the change in selection list
-                                onSelectionChanged(selectionState.toList())
+                                onSelectionChanged(selectionState.toList()) // Notify ViewModel
                             },
                             onAmountChanged = { newAmount ->
-                                // Update local dialog state
                                 selectionState[index] = payer.copy(amount = newAmount)
-                                // Notify ViewModel of specific amount change
-                                onAmountChanged(payer.uid, newAmount)
-                                // Notify ViewModel of selection list change (needed if balance check depends on it)
-                                onSelectionChanged(selectionState.toList())
+                                onAmountChanged(payer.uid, newAmount) // Notify ViewModel of specific change
+                                onSelectionChanged(selectionState.toList()) // Notify ViewModel list changed
                             }
                         )
                     }
@@ -643,7 +631,7 @@ fun PayerSelectorDialog(
 
 @Composable
 fun PayerListItem(
-    payer: Payer,
+    payer: Payer, // Uses local Payer
     isMultiPayer: Boolean,
     onCheckChanged: (Boolean) -> Unit,
     onAmountChanged: (String) -> Unit
@@ -651,44 +639,41 @@ fun PayerListItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // Make row clickable only if needed, Checkbox handles its own click
-            // .clickable { onCheckChanged(!payer.isChecked) }
+            .clickable { onCheckChanged(!payer.isChecked) } // Make row clickable too
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
             checked = payer.isChecked,
-            onCheckedChange = onCheckChanged, // Directly use the lambda
+            onCheckedChange = onCheckChanged,
             colors = CheckboxDefaults.colors(checkedColor = PrimaryBlue)
         )
         Text(payer.name, color = TextWhite, modifier = Modifier.weight(1f).padding(start = 8.dp))
 
-        // Amount Input for Multi-Payer
         if (payer.isChecked && isMultiPayer) {
             OutlinedTextField(
                 value = payer.amount,
                 onValueChange = onAmountChanged,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true,
-                modifier = Modifier.width(90.dp), // Slightly wider?
+                modifier = Modifier.width(90.dp),
                 textStyle = TextStyle(textAlign = TextAlign.End, color = TextWhite, fontSize = 14.sp),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color(0xFF3C3C3C),
                     unfocusedContainerColor = Color(0xFF3C3C3C),
                     disabledContainerColor = Color(0xFF3C3C3C),
                     cursorColor = PrimaryBlue,
-                    focusedIndicatorColor = PrimaryBlue, // Show indicator when focused
+                    focusedIndicatorColor = PrimaryBlue,
                     unfocusedIndicatorColor = Color.Transparent,
                     disabledIndicatorColor = Color.Transparent,
-                    errorIndicatorColor = ErrorRed, // Show error indicator
-                    errorCursorColor = ErrorRed, // Error cursor color
+                    errorIndicatorColor = ErrorRed,
+                    errorCursorColor = ErrorRed,
                     focusedTextColor = TextWhite,
                     unfocusedTextColor = TextWhite,
                     disabledTextColor = Color.Gray,
                     errorTextColor = ErrorRed
                 ),
                 shape = RoundedCornerShape(8.dp),
-                // Add prefix/suffix if desired
                 prefix = { Text("RM", color = Color.Gray, fontSize = 14.sp) }
             )
         }
@@ -706,15 +691,13 @@ fun SplitSelectorEditor(
     onSelectSplitType: (SplitType) -> Unit,
     onParticipantValueChange: (uid: String, value: String) -> Unit
 ) {
-    // Use ModalBottomSheetLayout or similar for better UX? For now, Scaffold.
     Scaffold(
         topBar = {
             SplitEditorTopBar(
                 title = "Split ${uiState.splitType.label}",
                 onDismiss = onDismiss,
                 onDone = {
-                    // TODO: Add validation within the editor before calling onDone?
-                    onDone() // Call ViewModel's finalize function
+                    onDone()
                 }
             )
         },
@@ -727,27 +710,24 @@ fun SplitSelectorEditor(
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. Split Type Selector (Dropdown/Segmented Control)
             SplitTypeChooser(
                 currentType = uiState.splitType,
                 onSelect = onSelectSplitType
             )
             Spacer(Modifier.height(16.dp))
 
-            // 2. Participants List for editing split values
             SplitParticipantsList(
-                participants = uiState.participants.filter { it.isChecked }, // Only show checked participants
+                participants = uiState.participants.filter { it.isChecked }, // Filter here
                 totalAmount = uiState.amount.toDoubleOrNull() ?: 0.0,
                 splitType = uiState.splitType,
                 onValueChange = onParticipantValueChange
             )
-            Spacer(Modifier.height(16.dp)) // Add space before summary
+            Spacer(Modifier.height(16.dp))
 
-            // 3. Balance/Summary (Total amount vs Sum of splits)
             SplitSummary(
-                participants = uiState.participants.filter { it.isChecked }, // Use filtered list for summary
+                participants = uiState.participants.filter { it.isChecked }, // Filter here too
                 totalAmount = uiState.amount.toDoubleOrNull() ?: 0.0,
-                splitType = uiState.splitType // Pass split type for context
+                splitType = uiState.splitType
             )
         }
     }
@@ -758,7 +738,7 @@ fun SplitSelectorEditor(
 fun SplitEditorTopBar(
     title: String,
     onDismiss: () -> Unit,
-    onDone: () -> Unit // Consider adding validation check param: onDone: (isValid: Boolean) -> Unit
+    onDone: () -> Unit
 ) {
     TopAppBar(
         title = { Text(title, color = TextWhite, fontWeight = FontWeight.Bold) },
@@ -770,13 +750,10 @@ fun SplitEditorTopBar(
         actions = {
             Button(
                 onClick = onDone,
-                // enabled = validation check from ViewModel?
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-            ) {
-                Text("Done")
-            }
+            ) { Text("Done") }
         },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF2D2D2D)) // Slightly different color?
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF2D2D2D))
     )
 }
 
@@ -790,27 +767,22 @@ fun SplitTypeChooser(
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
         shape = RoundedCornerShape(10.dp)
     ) {
-        Column(Modifier.padding(vertical = 4.dp)) { // Reduced vertical padding
+        Column(Modifier.padding(vertical = 4.dp)) {
             SplitType.entries.forEach { type ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onSelect(type) }
-                        .padding(horizontal = 16.dp, vertical = 12.dp), // Consistent padding
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // TODO: Add icons for each split type?
                     Text(type.label, color = TextWhite, modifier = Modifier.weight(1f))
                     if (type == currentType) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = "Selected",
-                            tint = Color(0xFF66BB6A)
-                        )
+                        Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color(0xFF66BB6A))
                     }
                 }
                 if (type != SplitType.entries.last()) {
-                    Divider(color = Color(0xFF454545), modifier = Modifier.padding(horizontal = 16.dp)) // Indent divider
+                    Divider(color = Color(0xFF454545), modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
         }
@@ -819,58 +791,48 @@ fun SplitTypeChooser(
 
 @Composable
 fun SplitParticipantsList(
-    participants: List<Participant>, // Expecting already filtered list
+    participants: List<Participant>, // Expects local Participant type, already filtered
     totalAmount: Double,
     splitType: SplitType,
     onValueChange: (uid: String, value: String) -> Unit
 ) {
     val unitLabel = when (splitType) {
         SplitType.PERCENTAGES -> "%"
-        SplitType.SHARES -> if (participants.size == 1) " share" else " shares" // Handle pluralization
-        else -> null // For RM, we use prefix/suffix in TextField
+        SplitType.SHARES -> if (participants.size == 1) " share" else " shares"
+        else -> null
     }
-
-    // Only show input fields if needed
     val isInputEnabled = splitType != SplitType.EQUALLY
 
-    // Use LazyColumn for performance if list can be long
     LazyColumn(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(max = 300.dp), // Max height to prevent taking too much space
-        verticalArrangement = Arrangement.spacedBy(8.dp) // Space between items
+        modifier = Modifier.fillMaxWidth().heightIn(max = 300.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(participants, key = { it.uid }) { participant -> // Use key for better performance
+        items(participants, key = { it.uid }) { participant ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)), // Slightly lighter card?
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween // Space between name and input/value
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Participant Name
                     Text(
                         participant.name,
                         color = TextWhite,
-                        modifier = Modifier.weight(1f).padding(end = 8.dp), // Add padding
-                        maxLines = 1 // Prevent wrapping
+                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                        maxLines = 1
                     )
-
-                    // Split Input / Display
                     if (isInputEnabled) {
                         OutlinedTextField(
                             value = participant.splitValue,
                             onValueChange = { onValueChange(participant.uid, it) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), // Use Decimal
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), // Use Decimal keyboard
                             singleLine = true,
-                            modifier = Modifier.width(100.dp), // Wider input
+                            modifier = Modifier.width(100.dp),
                             textStyle = TextStyle(textAlign = TextAlign.End, color = TextWhite, fontSize = 14.sp),
-                            colors = TextFieldDefaults.colors( // Use same colors as Payer input
+                            colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color(0xFF3C3C3C),
                                 unfocusedContainerColor = Color(0xFF3C3C3C),
                                 disabledContainerColor = Color(0xFF3C3C3C),
@@ -886,18 +848,11 @@ fun SplitParticipantsList(
                                 errorTextColor = ErrorRed
                             ),
                             shape = RoundedCornerShape(8.dp),
-                            // Use prefix for RM, suffix for %/shares
-                            prefix = if (unitLabel == null) { { Text("RM", color = Color.Gray, fontSize = 14.sp) } } else null,
+                            prefix = if (unitLabel == null && splitType != SplitType.SHARES && splitType != SplitType.PERCENTAGES) { { Text("RM", color = Color.Gray, fontSize = 14.sp) } } else null,
                             suffix = if (unitLabel != null) { { Text(unitLabel, color = Color.Gray, fontSize = 14.sp) } } else null,
-                            // TODO: Add error state indication based on ViewModel validation
-                            // isError = participant.splitValueError != null
                         )
-                    } else { // EQUALLY (Display calculated amount owed)
-                        Text(
-                            "RM %.2f".format(participant.owesAmount),
-                            color = Color.Gray,
-                            fontSize = 14.sp // Consistent font size
-                        )
+                    } else {
+                        Text("RM %.2f".format(participant.owesAmount), color = Color.Gray, fontSize = 14.sp)
                     }
                 }
             }
@@ -907,48 +862,32 @@ fun SplitParticipantsList(
 
 @Composable
 fun SplitSummary(
-    participants: List<Participant>, // Expecting filtered list
+    participants: List<Participant>, // Expects filtered list
     totalAmount: Double,
-    splitType: SplitType // Added for context
+    splitType: SplitType
 ) {
-    // Calculate totals based *only* on the participants shown (who are checked)
     val totalOwed = participants.sumOf { it.owesAmount }
-    // Calculate total input value for relevant types
     val totalInputValue = when (splitType) {
         SplitType.PERCENTAGES, SplitType.SHARES, SplitType.UNEQUALLY, SplitType.ADJUSTMENTS ->
             participants.sumOf { it.splitValue.toDoubleOrNull() ?: 0.0 }
-        else -> 0.0 // Not applicable for EQUALLY
+        else -> 0.0
     }
-
-    // Use tolerance for balance check
     val isBalanced = (totalOwed - totalAmount).absoluteValue < 0.01
     val difference = totalAmount - totalOwed
-
-    // Specific check for percentages
     val isPercentCorrect = splitType != SplitType.PERCENTAGES || (totalInputValue - 100.0).absoluteValue < 0.01
 
-
     Card(
-        modifier = Modifier.fillMaxWidth(), // Removed top padding, handle outside
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
         shape = RoundedCornerShape(10.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
-            // Row for Total Expense
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Total Expense:", color = Color.Gray)
                 Text("RM %.2f".format(totalAmount), color = TextWhite, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(4.dp))
-
-            // Row for Total Allocated (Owed)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Total Allocated:", color = Color.Gray)
                 Text(
                     "RM %.2f".format(totalOwed),
@@ -956,13 +895,8 @@ fun SplitSummary(
                     fontWeight = FontWeight.SemiBold
                 )
             }
-
-            // Show Remaining/Difference only if not balanced
             if (!isBalanced) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(if (difference > 0) "Remaining:" else "Over allocated:", color = ErrorRed)
                     Text(
                         "RM %.2f".format(difference.absoluteValue),
@@ -971,19 +905,13 @@ fun SplitSummary(
                     )
                 }
             }
-
-            // Show Total Input Value (Percentages/Shares) if relevant
             if (splitType == SplitType.PERCENTAGES || splitType == SplitType.SHARES) {
                 Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     val label = if (splitType == SplitType.PERCENTAGES) "Total %:" else "Total Shares:"
                     Text(label, color = Color.Gray)
                     Text(
                         if (splitType == SplitType.PERCENTAGES) "%.2f %%".format(totalInputValue) else "%.2f".format(totalInputValue),
-                        // Highlight if percentage total is not 100%
                         color = if (splitType == SplitType.PERCENTAGES && !isPercentCorrect) ErrorRed else TextWhite,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -992,5 +920,3 @@ fun SplitSummary(
         }
     }
 }
-
-
