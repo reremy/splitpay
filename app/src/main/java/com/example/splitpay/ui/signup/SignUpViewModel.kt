@@ -94,7 +94,7 @@ class SignUpViewModel(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 // The repository method signUp2 returns a Result<Unit> which is good for handling success/failure
-                val result = repository.signUp2(
+                val result = repository.signUp(
                     fullName = state.fullName,
                     username = state.username,
                     email = state.email,

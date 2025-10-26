@@ -8,14 +8,23 @@ import com.example.splitpay.logger.logI
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class UserRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ){
-    suspend fun signUp2(
+
+    private val usersCollection = firestore.collection("users")
+
+    // --- Authentication Functions ---
+
+    suspend fun signUp(
         fullName: String,
         username: String,
         email: String,
@@ -60,7 +69,7 @@ class UserRepository(
         }
     }
 
-    suspend fun signIn2(email: String, password: String): FirebaseUser? {
+    suspend fun signIn(email: String, password: String): FirebaseUser? {
         return try {
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
             authResult.user
@@ -71,15 +80,18 @@ class UserRepository(
     }
     //return FirebaseUser if successful, caught exception if not.
 
-    fun signOut2() {
+    // This is the preferred approach
+    suspend fun signOut() {
         try {
-            logD("Attempting sign out for ${auth.currentUser?.email}")
-            Log.d("signOut2", "Successfully logged out")
-            auth.signOut()
-            logI("Successfully signed out")
+            val userEmail = auth.currentUser?.email
+            logD("Attempting sign out for $userEmail")
+
+            auth.signOut() // No withContext needed
+
+            logI("Successfully signed out user: $userEmail")
         } catch (e: Exception) {
             logE("Sign out failed: ${e.message}")
-            throw e
+            throw e // Re-throw so the ViewModel can catch it
         }
     }
 
@@ -87,15 +99,166 @@ class UserRepository(
         return auth.currentUser
     }
 
+    // --- User Profile Functions ---
+
+    suspend fun createUserProfile(user: User): Result<Unit> {
+        return try {
+            // Use set with merge to create or update
+            usersCollection.document(user.uid).set(user, SetOptions.merge()).await()
+            logD("User profile created/updated in Firestore for ${user.uid}")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error creating/updating user profile for ${user.uid}: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
     suspend fun getUserProfile(uid: String): User? {
         return try {
-            val snapshot = firestore.collection("users").document(uid).get().await()
-            snapshot.toObject(User::class.java)
+            val document = usersCollection.document(uid).get().await()
+            document.toObject(User::class.java)
         } catch (e: Exception) {
-            logE("Failed to fetch user profile for UID: $uid. Error: ${e.message}")
+            logE("Error getting user profile for $uid: ${e.message}")
             null
         }
     }
 
+    // Gets the current user's profile, including the friends list field
+    suspend fun getCurrentUserProfileWithFriends(): User? {
+        val currentUser = getCurrentUser() ?: return null
+        return getUserProfile(currentUser.uid)
+    }
 
+    // --- Friend Functions ---
+
+    /**
+     * Fetches the list of friend UIDs for the currently logged-in user.
+     */
+    suspend fun getCurrentUserFriendIds(): List<String> {
+        return try {
+            val profile = getCurrentUserProfileWithFriends()
+            logD("Fetched friend IDs: ${profile?.friends}")
+            profile?.friends ?: emptyList() // Return the friends list or an empty list
+        } catch (e: Exception) {
+            logE("Error getting current user's friend IDs: ${e.message}")
+            emptyList() // Return empty list on error
+        }
+    }
+
+    /**
+     * Fetches the User profiles for a given list of friend UIDs.
+     * Handles Firestore's 'whereIn' query limit by chunking.
+     */
+    suspend fun getProfilesForFriends(friendUids: List<String>): List<User> {
+        if (friendUids.isEmpty()) {
+            return emptyList()
+        }
+
+        return try {
+            // Chunk the list into queries of 10 UIDs max for 'whereIn'
+            val friendChunks = friendUids.chunked(10)
+            val profiles = mutableListOf<User>()
+
+            for (chunk in friendChunks) {
+                if (chunk.isEmpty()) continue // Skip empty chunks if any
+                val querySnapshot = usersCollection.whereIn("uid", chunk).get().await()
+                profiles.addAll(querySnapshot.toObjects(User::class.java))
+            }
+
+            logD("Fetched profiles for ${profiles.size} friends.")
+            profiles
+        } catch (e: Exception) {
+            logE("Error getting friend profiles: ${e.message}")
+            emptyList() // Return empty list on error
+        }
+    }
+
+    /**
+     * Adds a friend relationship reciprocally between the current user and the target friend UID.
+     * Uses a WriteBatch for atomicity. Returns failure if users are already friends or on error.
+     */
+    suspend fun addFriend(friendUidToAdd: String): Result<Unit> {
+        val currentUser = getCurrentUser() ?: return Result.failure(Exception("User not logged in."))
+        val currentUserUid = currentUser.uid
+
+        // Prevent adding self
+        if (currentUserUid == friendUidToAdd) {
+            return Result.failure(IllegalArgumentException("You cannot add yourself as a friend."))
+        }
+
+        // Optional: Check if already friends (arrayUnion handles this, but explicit check gives better feedback)
+        val currentUserProfile = getUserProfile(currentUserUid)
+        if (currentUserProfile?.friends?.contains(friendUidToAdd) == true) {
+            return Result.failure(IllegalArgumentException("You are already friends with this user."))
+        }
+
+        return try {
+            // Use a WriteBatch for atomicity
+            val batch = firestore.batch()
+
+            // 1. Add friendUidToAdd to the current user's friends list
+            val currentUserDocRef = usersCollection.document(currentUserUid)
+            batch.update(currentUserDocRef, "friends", FieldValue.arrayUnion(friendUidToAdd))
+
+            // 2. Add currentUserUid to the friend's friends list
+            val friendUserDocRef = usersCollection.document(friendUidToAdd)
+            batch.update(friendUserDocRef, "friends", FieldValue.arrayUnion(currentUserUid))
+
+            // Commit the batch
+            batch.commit().await()
+
+            logD("Successfully added friend: $currentUserUid <-> $friendUidToAdd")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error adding friend $friendUidToAdd: ${e.message}")
+            // Consider checking specific Firestore exceptions if needed
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Searches for users by username prefix (case-sensitive).
+     * Excludes the current user from the results.
+     */
+    suspend fun searchUsersByUsername(query: String, limit: Long = 5): List<User> {
+        if (query.isBlank()) {
+            return emptyList()
+        }
+        val currentUserUid = getCurrentUser()?.uid // Get current user ID to exclude them
+
+        return try {
+            // Firestore query for username starting with the query string (case-sensitive)
+            val endQuery = query + "\uf8ff" // High-codepoint character for prefix matching
+            val querySnapshot = usersCollection
+                .whereGreaterThanOrEqualTo("username", query)
+                .whereLessThanOrEqualTo("username", endQuery)
+                .limit(limit + 1) // Fetch one extra to potentially exclude self later
+                .get()
+                .await()
+
+            val users = querySnapshot.toObjects(User::class.java)
+            // Filter out the current user and take the desired limit
+            val filteredUsers = users.filterNot { it.uid == currentUserUid }.take(limit.toInt())
+            logD("Username search for '$query' found ${filteredUsers.size} potential friends.")
+            filteredUsers
+
+        } catch (e: Exception) {
+            logE("Error searching users by username '$query': ${e.message}")
+            emptyList()
+        }
+        // NOTE: For case-insensitive search, you'd typically add a lowercase 'username_lowercase'
+        // field to your User model and query that field instead, converting the input query to lowercase.
+    }
+
+    // --- Other Utility Functions ---
+
+    suspend fun checkUsernameExists(username: String): Boolean {
+        return try {
+            val querySnapshot = usersCollection.whereEqualTo("username", username).limit(1).get().await()
+            !querySnapshot.isEmpty
+        } catch (e: Exception) {
+            logE("Error checking username existence: ${e.message}")
+            false // Assume doesn't exist on error
+        }
+    }
 }

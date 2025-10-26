@@ -55,7 +55,7 @@ class ProfileViewModel(
     fun signOut() {
         viewModelScope.launch {
             try {
-                repository.signOut2()
+                repository.signOut()
                 _uiEvent.emit(ProfileUiEvent.NavigateToWelcome)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Sign out failed") }

@@ -4,6 +4,7 @@ import com.example.splitpay.data.model.Group
 import com.example.splitpay.logger.logD
 import com.example.splitpay.logger.logE
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.toObjects
 import kotlinx.coroutines.channels.awaitClose
@@ -82,6 +83,35 @@ class GroupsRepository(
         awaitClose {
             logD("Stopping Firestore listener for groups.")
             listenerRegistration.remove()
+        }
+    }
+
+    // --- NEW suspend function to get groups once ---
+    /**
+     * Fetches the list of groups the current user is a member of once.
+     */
+    suspend fun getGroupsSuspend(): List<Group> {
+        val currentUser = userRepository.getCurrentUser()
+        if (currentUser == null) {
+            logE("User not logged in, cannot fetch groups.")
+            return emptyList()
+        }
+        val uid = currentUser.uid
+
+        return try {
+            logD("Fetching groups once for user: $uid")
+            val querySnapshot = groupsCollection
+                .whereArrayContains("members", uid)
+                .orderBy("createdAt", Query.Direction.DESCENDING) // Optional order
+                .get() // Perform a one-time fetch
+                .await() // Wait for the result
+
+            val groups = querySnapshot.toObjects(Group::class.java)
+            logD("Fetched ${groups.size} groups.")
+            groups
+        } catch (e: Exception) {
+            logE("Error fetching groups once: ${e.message}")
+            emptyList() // Return empty list on error
         }
     }
 

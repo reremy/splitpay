@@ -12,19 +12,18 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun FriendsTopBarActions(
     onSearchClick: () -> Unit = {},
-    onAddFriendClick: () -> Unit = {},
-    onFilterClick: () -> Unit // <-- ADD Filter click lambda
+    onAddFriendClick: () -> Unit,
+    onFilterClick: () -> Unit
 ) {
     // Filter Button
-    IconButton(onClick = onFilterClick) { // <-- Use the lambda
+    IconButton(onClick = onFilterClick) {
         Icon(
-            imageVector = Icons.Default.FilterList, // <-- Use FilterList icon
+            imageVector = Icons.Default.FilterList,
             contentDescription = "Filter Friends",
             tint = Color.White // Or your theme color
         )
     }
 
-    // Existing Search Button (Placeholder)
     IconButton(onClick = onSearchClick) {
         Icon(
             imageVector = Icons.Default.Search,
@@ -32,7 +31,7 @@ fun FriendsTopBarActions(
             tint = Color.White // Or your theme color
         )
     }
-    // Existing Add Friend Button (Placeholder)
+
     IconButton(onClick = onAddFriendClick) {
         Icon(
             imageVector = Icons.Default.PersonAdd,

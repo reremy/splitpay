@@ -14,15 +14,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.LayoutDirection // Import LayoutDirection
-import androidx.lifecycle.viewmodel.compose.viewModel // Default viewModel import
 import com.example.splitpay.data.model.FriendWithBalance
 import com.example.splitpay.ui.common.OverallBalanceHeader
 import com.example.splitpay.ui.theme.* // Import your theme colors
-import java.util.Locale
 import kotlin.math.absoluteValue
 
 // Define DialogBackground if it doesn't exist in Color.kt
@@ -32,7 +29,8 @@ val DialogBackground = Color(0xFF2D2D2D) // Example
 fun FriendsScreenContent(
     innerPadding: PaddingValues,
     // --- Receive ViewModel instance passed from HomeScreen3 ---
-    viewModel: FriendsViewModel
+    viewModel: FriendsViewModel,
+    onFriendClick: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -63,31 +61,17 @@ fun FriendsScreenContent(
                     bottom = innerPadding.calculateBottomPadding()
                 )
             ) {
-                if (uiState.isLoading) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = PrimaryBlue)
-                    }
-                } else if (uiState.filteredFriends.isEmpty()) {
-                    Text(
-                        "No friends found matching the filter.",
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .align(Alignment.Center), // Align within the Box
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center // Center text
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        // Padding within the list itself
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(uiState.filteredFriends, key = { it.uid }) { friend ->
-                            FriendListItem(
-                                friend = friend,
-                                onFriendClick = { /* TODO: Navigate to Friend Detail */ }
-                            )
+                when {
+                    // ... (Loading, Empty states) ...
+                    else -> {
+                        LazyColumn( /* ... */ ) {
+                            items(uiState.filteredAndSearchedFriends, key = { it.uid }) { friend ->
+                                FriendListItem(
+                                    friend = friend,
+                                    // --- Pass the click lambda ---
+                                    onFriendClick = { onFriendClick(friend.uid) } // Pass ID back up
+                                )
+                            }
                         }
                     }
                 }

@@ -75,7 +75,7 @@ class LoginViewModel(
             _uiState.update { it.copy(isLoading = true) }
             logD("Starting login request for: ${state.email}")
             try {
-                val user = repository.signIn2(state.email, state.password)
+                val user = repository.signIn(state.email, state.password)
                 if (user != null){
                     logI("Login successful! Navigating to home.")
                     _uiState.update { it.copy(loginSuccess = true) }

@@ -7,5 +7,12 @@ object Screen {
     const val Home = "Home"
     const val CreateGroup = "create_group"
     const val GroupDetail = "group_detail/{groupId}"
-    const val AddExpense = "add_expense/{groupId}" // FAB Destination
+    const val AddExpenseWithGroup = "add_expense/{groupId}" // Route for adding with prefilled group
+    const val AddExpenseNoGroup = "add_expense_no_group" // Route for adding without prefilled group
+    const val AddFriend = "add_friend"
+    const val FriendProfilePreview = "friend_profile_preview" // Base path
+    // Route with arguments for preview screen
+    const val FriendProfilePreviewRoute = "$FriendProfilePreview/{userId}?username={username}"
+    const val FriendDetail = "friend_detail" // Base path
+    const val FriendDetailRoute = "$FriendDetail/{friendId}"
 }

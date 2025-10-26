@@ -17,12 +17,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -30,6 +34,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.splitpay.logger.logE
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.friends.FriendsScreenContent
 import com.example.splitpay.ui.friends.FriendsTopBarActions
@@ -41,6 +46,7 @@ import com.example.splitpay.ui.groups.GroupsTopBarActions
 import com.example.splitpay.ui.groups.GroupsUiEvent
 import com.example.splitpay.ui.profile.ProfileTopBarActions
 import com.example.splitpay.ui.profile.UserProfileScreen
+import kotlinx.coroutines.delay
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,34 +68,57 @@ fun HomeScreen3(
     val friendsViewModel: FriendsViewModel = viewModel()
     val friendsUiState by friendsViewModel.uiState.collectAsState()
 
+    // --- Focus Requester for Search Field ---
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // Request focus and show keyboard when search becomes active
+    LaunchedEffect(friendsUiState.isSearchActive) {
+        if (friendsUiState.isSearchActive) {
+            // Slight delay might be needed for UI to recompose before requesting focus
+            delay(100)
+            try {
+                focusRequester.requestFocus()
+                keyboardController?.show()
+            } catch (e: Exception) {
+                // Log error if focus request fails
+                logE("Focus request failed: ${e.message}")
+            }
+        } else {
+            keyboardController?.hide() // Hide keyboard when search closes
+        }
+    }
+
     Scaffold(
-
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-
         // TOP BAR: Call the generic AppTopBar and inject the actions dynamically
         topBar = {
+            // --- Use SINGLE AppTopBar, pass search state conditionally ---
+            val isFriendsScreen = currentHomeRoute == "friends_screen"
             AppTopBar(
-                title = title,
+                title = title, // Standard title (hidden during search by AppTopBar)
                 scrollBehavior = scrollBehavior,
+                // Pass search state ONLY if on friends screen
+                isSearchActive = isFriendsScreen && friendsUiState.isSearchActive,
+                searchQuery = if (isFriendsScreen) friendsUiState.searchQuery else "",
+                onSearchQueryChange = if (isFriendsScreen) friendsViewModel::onSearchQueryChange else { {} },
+                onSearchClose = if (isFriendsScreen) friendsViewModel::onSearchCloseClick else { {} },
+                focusRequester = focusRequester, // Pass focus requester
+                // Standard actions (hidden during search by AppTopBar)
                 actions = {
+                    // Define actions based on route
                     when (currentHomeRoute) {
                         "groups_screen" -> GroupsTopBarActions(
                             onNavigateToCreateGroup = { mainNavController.navigate(Screen.CreateGroup) }
                         )
                         "friends_screen" -> FriendsTopBarActions(
-                            onSearchClick = { /* TODO */ },
-                            onAddFriendClick = { /* TODO */ },
-                            // --- PASS the action from FriendsViewModel ---
+                            onSearchClick = friendsViewModel::onSearchIconClick, // To activate search
+                            onAddFriendClick = { mainNavController.navigate(Screen.AddFriend) },
                             onFilterClick = friendsViewModel::onFilterIconClick
                         )
                         "activity_screen" -> ActivityTopBarActions()
-                        // Use a general menu/settings icon for all other screens (like Profile)
-                        "profile_screen" -> ProfileTopBarActions(onEditProfile = { /* TODO: Navigate to Edit Profile */ })
-                        else -> {
-                            IconButton(onClick = { /* open menu or settings */ }) {
-                                Icon(imageVector = Icons.Default.Menu, contentDescription = "Menu")
-                            }
-                        }
+                        "profile_screen" -> ProfileTopBarActions(onEditProfile = { /* TODO */ })
+                        else -> { /* Default Menu */ }
                     }
                 }
             )
@@ -135,7 +164,12 @@ fun HomeScreen3(
                 // Pass the same friendsViewModel instance down
                 FriendsScreenContent(
                     innerPadding = innerPadding,
-                    viewModel = friendsViewModel // Pass the instance
+                    viewModel = friendsViewModel,
+                    // --- Add friend click navigation ---
+                    onFriendClick = { friendId ->
+                        // Navigate to detail screen, passing the friend's UID
+                        mainNavController.navigate("${Screen.FriendDetail}/$friendId")
+                    }
                 )
             }
             composable("activity_screen") { ActivityContent(innerPadding) }

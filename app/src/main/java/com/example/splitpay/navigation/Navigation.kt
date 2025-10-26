@@ -3,30 +3,37 @@ package com.example.splitpay.navigation
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.Button
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.example.splitpay.ui.addfriend.AddFriendScreen
+import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
+import com.example.splitpay.ui.expense.AddExpenseScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
 import com.example.splitpay.ui.groups.GroupDetailScreen
 import com.example.splitpay.ui.home.HomeScreen3
 import com.example.splitpay.ui.login.LoginScreen
 import com.example.splitpay.ui.signup.SignUpScreen
+import com.example.splitpay.ui.theme.DarkBackground
+import com.example.splitpay.ui.theme.TextWhite
 import com.example.splitpay.ui.welcome.WelcomeScreen
 import com.google.firebase.auth.FirebaseAuth
-import com.example.splitpay.navigation.slideInFromLeft
-import com.example.splitpay.navigation.slideInFromRight
-import com.example.splitpay.navigation.slideOutToLeft
-import com.example.splitpay.navigation.slideOutToRight
-import com.example.splitpay.ui.expense.AddExpenseScreen
-import com.example.splitpay.ui.expense.AddExpenseUiEvent // NEW IMPORT
+import kotlinx.coroutines.launch
 
 // Navigation.kt
 @Composable
@@ -39,6 +46,15 @@ fun Navigation(
         Screen.Home
     } else {
         Screen.Welcome
+    }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // Helper function to show snackbar
+    val showSnackbar: (String) -> Unit = { message ->
+        scope.launch {
+            snackbarHostState.showSnackbar(message)
+        }
     }
 
     NavHost(
@@ -82,7 +98,7 @@ fun Navigation(
         composable(
             route = Screen.Home,
         ) {
-            HomeScreen3(mainNavController = navController)
+            HomeScreen3(mainNavController = navController/*, snackbarHostState = snackbarHostState */)
         }
 
         // Route for creating a group
@@ -122,70 +138,90 @@ fun Navigation(
         }
 
         // --- UPDATED ADD EXPENSE ROUTE ---
+        // --- Add Expense Routes ---
         composable(
-            route = "add_expense/{groupId}", // This will be "add_expense?groupId={groupId}"
-            arguments = listOf(navArgument("groupId") {
-                type = NavType.StringType
-                //nullable = true
-            }),
-            enterTransition = { slideInFromRight() },
-            exitTransition = { slideOutToLeft() },
-            popEnterTransition = { slideInFromLeft() },
-            popExitTransition = { slideOutToRight() }
+            route = Screen.AddExpenseWithGroup, // Use constant from Screen.kt
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+            // ... transitions ...
         ) { backStackEntry ->
-            // Extract the optional groupId
-            val groupId = backStackEntry.arguments?.getString("groupId")
-
             val groupIdFromBackStack = backStackEntry.arguments?.getString("groupId")
-            Log.d("AddExpenseDebug", "Navigation composable: Received groupId = $groupIdFromBackStack")
-
-            val prefilledGroupId = groupIdFromBackStack
-
+            Log.d(
+                "AddExpenseDebug",
+                "Nav->AddExpenseWithGroup: Received groupId = $groupIdFromBackStack"
+            )
             AddExpenseScreen(
-                prefilledGroupId = prefilledGroupId,
-                onNavigateBack = { navController.popBackStack() },
                 navBackStackEntry = backStackEntry,
-                onSaveSuccess = { navEvent ->
-                    // This navEvent is the AddExpenseUiEvent.SaveSuccess
-                    // We assume it has a boolean 'isGroupDetail'
-                    if (navEvent.isGroupDetail) {
-                        // If user was on GroupDetail and didn't change group,
-                        // just pop back to it.
-                        navController.popBackStack()
-                    } else {
-                        // Otherwise, navigate to the main Groups page
-                        // and clear the back stack.
-                        navController.navigate(Screen.Home) {
-                            popUpTo(Screen.Home) { inclusive = true }
-                        }
-                    }
-                }
+                prefilledGroupId = groupIdFromBackStack,
+                onNavigateBack = { navController.popBackStack() },
+                onSaveSuccess = { navEvent -> /* ... */ }
             )
         }
-
-        // Separate composable for the no-group case
         composable(
-            route = "add_expense_no_group",
+            route = Screen.AddExpenseNoGroup, // Use constant from Screen.kt
             // ... transitions ...
-        ) {backStackEntry ->
-            Log.d("AddExpenseDebug", "Navigation composable: add_expense_no_group route entered") // Optional log here too
-
+        ) { backStackEntry ->
+            Log.d("AddExpenseDebug", "Nav->AddExpenseNoGroup route entered")
             AddExpenseScreen(
+                navBackStackEntry = backStackEntry,
                 prefilledGroupId = null,
                 onNavigateBack = { navController.popBackStack() },
-                navBackStackEntry = backStackEntry,
-                onSaveSuccess = { navEvent ->
-                    if (navEvent.isGroupDetail) {
-                        // This case shouldn't happen when starting with no group,
-                        // but handle defensively - just pop back
-                        navController.popBackStack()
-                    } else {
-                        navController.navigate(Screen.Home) {
-                            popUpTo(Screen.Home) { inclusive = true }
-                        }
-                    }
+                onSaveSuccess = { navEvent -> /* ... */ }
+            )
+        }
+
+        // --- Add Friend Flow Routes ---
+        composable(
+            route = Screen.AddFriend,
+            // ... transitions ...
+        ) { // NavBackStackEntry not strictly needed here unless viewModel uses it
+            AddFriendScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToProfilePreview = { userId, username ->
+                    // Encode username if it might contain special characters (safer)
+                    val encodedUsername = java.net.URLEncoder.encode(username, "UTF-8")
+                    navController.navigate("${Screen.FriendProfilePreview}/$userId?username=$encodedUsername")
                 }
             )
         }
-    }
+
+        composable(
+            route = Screen.FriendProfilePreviewRoute, // Use constant from Screen.kt
+            arguments = listOf(
+                navArgument("userId") { type = NavType.StringType },
+                // Username is technically optional in the route, handle null if needed
+                navArgument("username") { type = NavType.StringType; nullable = true }
+            ),
+            // ... transitions ...
+        ) { backStackEntry ->
+            // Pass the NavBackStackEntry for ViewModel factory
+            FriendProfilePreviewScreen(
+                navBackStackEntry = backStackEntry,
+                onNavigateBack = { navController.popBackStack() },
+                showSnackbar = showSnackbar // Pass the snackbar lambda
+            )
+        }
+        composable(
+            route = Screen.FriendDetailRoute,
+            arguments = listOf(navArgument("friendId") { type = NavType.StringType })
+            // Add transitions if desired
+        ) { backStackEntry ->
+            val friendId = backStackEntry.arguments?.getString("friendId") ?: "N/A"
+            // Replace with your actual FriendDetailScreen composable later
+            Box(
+                modifier = Modifier.fillMaxSize().background(DarkBackground), // Add background
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) { // Wrap in column for button
+                    Text("Friend Detail Screen for ID: $friendId (Placeholder)", color = TextWhite)
+                    Spacer(Modifier.height(16.dp))
+                    // Add a back button for testing navigation
+                    Button(onClick = { navController.popBackStack() }) {
+                        Text("Go Back")
+                    }
+                }
+            }
+        }
+    } // End NavHost
+    // } // End Scaffold (if used here)
 }
+
