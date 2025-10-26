@@ -15,6 +15,7 @@ import com.example.splitpay.data.model.Payer
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
+import com.example.splitpay.domain.usecase.CalculateSplitUseCase
 import com.example.splitpay.logger.logE // Import logger if needed
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +37,8 @@ class AddExpenseViewModel(
     private val expenseRepository: ExpenseRepository = ExpenseRepository(),
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private val calculateSplitUseCase = CalculateSplitUseCase()
 
     // --- StateFlows and SharedFlow ---
     private val _uiState = MutableStateFlow(AddExpenseUiState())
@@ -139,7 +142,7 @@ class AddExpenseViewModel(
                 currentState.copy(
                     // Uses local Payer
                     paidByUsers = listOf(currentUserPayer.copy(amount = "0.00", isChecked = true)),
-                    participants = calculateSplit(
+                    participants = calculateSplitUseCase( // <-- USECASE CALLED HERE
                         amount = currentState.amount.toDoubleOrNull() ?: 0.0,
                         participants = initialParticipants,
                         splitType = currentState.splitType
@@ -194,7 +197,7 @@ class AddExpenseViewModel(
 
         // --- 4. Update the UI State ---
         _uiState.update { currentState ->
-            val calculatedParticipants = calculateSplit(
+            val calculatedParticipants = calculateSplitUseCase(
                 amount = currentState.amount.toDoubleOrNull() ?: 0.0,
                 participants = participantsList,
                 splitType = currentState.splitType
@@ -254,80 +257,9 @@ class AddExpenseViewModel(
     }
 
 
-    // --- Core Split Logic (Remains the same, uses local Participant) ---
-    private fun calculateSplit(amount: Double, participants: List<Participant>, splitType: SplitType): List<Participant> {
-        val activeParticipants = participants.filter { it.isChecked }
-        if (activeParticipants.isEmpty() || amount <= 0) return participants.map { it.copy(owesAmount = 0.0) }
-
-        fun roundToCents(value: Double) = (value * 100.0).roundToInt() / 100.0
-
-        val calculatedParticipants = when (splitType) {
-            SplitType.EQUALLY -> {
-                // Ensure division by zero doesn't happen (though checked above)
-                val share = if (activeParticipants.isNotEmpty()) roundToCents(amount / activeParticipants.size) else 0.0
-                participants.map { p ->
-                    if (p.isChecked) p.copy(owesAmount = share) else p.copy(owesAmount = 0.0)
-                }
-            }
-            SplitType.UNEQUALLY, SplitType.ADJUSTMENTS -> {
-                participants.map { p ->
-                    val owes = if (p.isChecked) roundToCents(p.splitValue.toDoubleOrNull() ?: 0.0) else 0.0
-                    p.copy(owesAmount = owes)
-                }
-            }
-            SplitType.PERCENTAGES -> {
-                val totalPercent = activeParticipants.sumOf { it.splitValue.toDoubleOrNull() ?: 0.0 }
-                if (totalPercent == 0.0) return participants.map { it.copy(owesAmount = 0.0) }
-
-                participants.map { p ->
-                    if (p.isChecked) {
-                        val percent = p.splitValue.toDoubleOrNull() ?: 0.0
-                        val owes = roundToCents((percent / 100.0) * amount)
-                        p.copy(owesAmount = owes)
-                    } else {
-                        p.copy(owesAmount = 0.0)
-                    }
-                }
-            }
-            SplitType.SHARES -> {
-                val totalShares = activeParticipants.sumOf { it.splitValue.toDoubleOrNull() ?: 0.0 }
-                if (totalShares == 0.0) return participants.map { it.copy(owesAmount = 0.0) }
-
-                val costPerShare = amount / totalShares // Keep precision for intermediate calculation
-
-                participants.map { p ->
-                    if (p.isChecked) {
-                        val shares = p.splitValue.toDoubleOrNull() ?: 0.0
-                        val owes = roundToCents(shares * costPerShare)
-                        p.copy(owesAmount = owes)
-                    } else {
-                        p.copy(owesAmount = 0.0)
-                    }
-                }
-            }
-        }
-
-        // --- Adjustment for rounding errors ---
-        val currentTotalOwed = calculatedParticipants.filter { it.isChecked }.sumOf { it.owesAmount }
-        val difference = roundToCents(amount - currentTotalOwed)
-
-        if (difference != 0.0 && activeParticipants.isNotEmpty()) {
-            val firstActiveParticipantIndex = calculatedParticipants.indexOfFirst { it.isChecked }
-            if (firstActiveParticipantIndex != -1) {
-                val adjustedParticipant = calculatedParticipants[firstActiveParticipantIndex]
-                val adjustedList = calculatedParticipants.toMutableList()
-                adjustedList[firstActiveParticipantIndex] = adjustedParticipant.copy(
-                    owesAmount = roundToCents(adjustedParticipant.owesAmount + difference)
-                )
-                return adjustedList.toList()
-            }
-        }
-        return calculatedParticipants
-    }
-
     private fun recalculateSplit(newAmount: Double, newSplitType: SplitType) {
         _uiState.update { state ->
-            val updatedParticipants = calculateSplit(
+            val updatedParticipants = calculateSplitUseCase(
                 amount = newAmount,
                 participants = state.participants, // Use current participants list
                 splitType = newSplitType
@@ -343,7 +275,7 @@ class AddExpenseViewModel(
                 if (it.uid == uid) it.copy(isChecked = isChecked) else it
             }
             // Recalculate immediately after checking/unchecking
-            val recalculatedParticipants = calculateSplit(
+            val recalculatedParticipants = calculateSplitUseCase(
                 amount = state.amount.toDoubleOrNull() ?: 0.0,
                 participants = updatedParticipants,
                 splitType = state.splitType
@@ -372,7 +304,7 @@ class AddExpenseViewModel(
             val updatedParticipants = state.participants.map { p ->
                 if (p.uid == uid) p.copy(splitValue = validValue) else p
             }
-            val calculatedParticipants = calculateSplit(
+            val calculatedParticipants = calculateSplitUseCase(
                 amount = state.amount.toDoubleOrNull() ?: 0.0,
                 participants = updatedParticipants,
                 splitType = state.splitType
@@ -474,7 +406,7 @@ class AddExpenseViewModel(
         if ((paidByTotal - totalAmount).absoluteValue > 0.01) { /* ... error handling ... */ return }
 
         // --- Split Validation ---
-        val finalParticipants = calculateSplit(totalAmount, state.participants, state.splitType)
+        val finalParticipants = calculateSplitUseCase(totalAmount, state.participants, state.splitType)
         val finalAllocatedSplit = finalParticipants.filter { it.isChecked }.sumOf { it.owesAmount }
         if ((finalAllocatedSplit - totalAmount).absoluteValue > 0.01) { /* ... error handling ... */ return }
 

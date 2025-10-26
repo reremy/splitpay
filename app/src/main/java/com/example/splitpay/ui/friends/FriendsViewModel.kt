@@ -188,6 +188,50 @@ class FriendsViewModel(
         }
     }
 
+    /**
+     * Called when the filter dropdown menu is dismissed.
+     */
+    fun onDismissFilterMenu() {
+        _isFilterMenuExpanded.update { false }
+    }
+
+    /**
+     * Called when a new filter option is selected from the dropdown.
+     */
+    fun applyFilter(filterType: FriendFilterType) {
+        _currentFilter.update { filterType }
+        onDismissFilterMenu() // Close the menu after selection
+    }
+
+    /**
+     * Called when the search icon in the top bar is clicked.
+     */
+    fun onSearchIconClick() {
+        _isSearchActive.update { true }
+    }
+
+    /**
+     * Called when the close (X) icon in the search bar is clicked.
+     */
+    fun onSearchCloseClick() {
+        _isSearchActive.update { false }
+        _searchQuery.update { "" } // Clear the search query
+    }
+
+    /**
+     * Called when the text in the search bar changes.
+     */
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.update { query }
+    }
+
+    /**
+     * Called when the filter icon in the top bar is clicked.
+     */
+    fun onFilterIconClick() {
+        _isFilterMenuExpanded.update { true }
+    }
+
     // --- Balance Calculation Function ---
     private suspend fun calculateNetBalanceWithFriend(
         currentUserUid: String,
