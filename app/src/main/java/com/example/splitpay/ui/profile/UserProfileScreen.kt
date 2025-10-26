@@ -58,7 +58,7 @@ import com.example.splitpay.ui.theme.TextWhite
 import com.example.splitpay.ui.home.AppTopBar // Import AppTopBar and TopBarActions from Home package
 import java.util.Locale
 
-// Placeholder for the Profile Top Bar Actions (now defined in HomeScreen3.kt)
+// Placeholder for the Profile Top Bar Actions (now defined in HomeScreen.kt)
 
 
 @Composable

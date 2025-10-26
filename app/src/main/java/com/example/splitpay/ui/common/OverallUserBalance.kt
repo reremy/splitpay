@@ -21,31 +21,6 @@ import com.example.splitpay.ui.theme.PositiveGreen
 import java.util.Locale
 import kotlin.math.absoluteValue
 
-//@Composable
-//fun OverallUserBalance(
-//    overallOwedBalance: Double,
-//) {
-//    Column(
-//        modifier = Modifier
-//            .fillMaxWidth()
-//            .padding(horizontal = 16.dp, vertical = 8.dp)
-//    ) {
-//        // Directly show the balance summary here
-//        Text(
-//            text = "Overall, you are owed",
-//            color = Color.Gray,
-//            fontSize = 18.sp,
-//        )
-//        Text(
-//            text = formatCurrency(overallOwedBalance),
-//            color = if (overallOwedBalance >= 0) Color(0xFF66BB6A) else ErrorRed, // Green for positive balance
-//            fontSize = 32.sp,
-//            fontWeight = FontWeight.Bold
-//        )
-//        Spacer(Modifier.height(16.dp))
-//    }
-//}
-
 @Composable
 fun OverallBalanceHeader(
     totalBalance: Double,

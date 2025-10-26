@@ -24,16 +24,6 @@ fun GroupsTopBarActions(
     }
 }
 
-@Composable
-fun FriendsTopBarActions() {
-    // Example for Friends: maybe just a search icon and a general menu/settings icon
-    IconButton(onClick = { /* TODO: Search Friends */ }) {
-        Icon(Icons.Default.Search, contentDescription = "Search Friends", tint = Color.White)
-    }
-    IconButton(onClick = { /* TODO: Add Friend */ }) {
-        Icon(Icons.Default.Add, contentDescription = "Add Friend", tint = Color.White)
-    }
-}
 
 @Composable
 fun ActivityTopBarActions() {
