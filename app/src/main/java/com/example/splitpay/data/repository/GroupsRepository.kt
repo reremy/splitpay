@@ -3,6 +3,7 @@ package com.example.splitpay.data.repository
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.logger.logD
 import com.example.splitpay.logger.logE
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
@@ -116,30 +117,101 @@ class GroupsRepository(
     }
 
     /**
-     * Gets a single Group document by ID.
+     * Gets a Flow that emits the Group document whenever it changes in Firestore.
+     * Emits null if the document doesn't exist or an error occurs.
      */
-    suspend fun getGroupById(groupId: String): Group? {
-        return try {
-            val snapshot = groupsCollection.document(groupId).get().await()
-            val group = snapshot.toObject(Group::class.java)
+    fun getGroupFlow(groupId: String): Flow<Group?> = callbackFlow {
+        if (groupId.isBlank()) {
+            trySend(null) // Send null immediately if ID is invalid
+            awaitClose { }
+            return@callbackFlow
+        }
 
-            // CRITICAL MOCK/FIX: If the group is not found in Firestore (because the mock environment
-            // doesn't persist properly or we haven't loaded it), we fall back to a reasonable mock
-            // derived from the ID to prevent crash.
-            if (group == null) {
-                logE("Group not found in Firestore for ID: $groupId. Using fallback mock.")
-                return Group(
-                    id = groupId,
-                    name = "Fallback Group ${groupId.take(4)}",
-                    createdByUid = userRepository.getCurrentUser()?.uid ?: "",
-                    members = listOf(userRepository.getCurrentUser()?.uid ?: ""),
-                    iconIdentifier = "group"
-                )
+        val docRef = groupsCollection.document(groupId)
+        val listenerRegistration = docRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                logE("Listen failed for group $groupId: ${error.message}")
+                // Close the flow with the error? Or just send null? Sending null for simplicity.
+                trySend(null)
+                close(error) // Close the flow on error
+                return@addSnapshotListener
             }
-            group
+
+            if (snapshot != null && snapshot.exists()) {
+                val group = snapshot.toObject(Group::class.java)
+                logD("Group data updated for $groupId, emitting...")
+                trySend(group) // Emit the latest group data
+            } else {
+                logD("Group document $groupId does not exist or was deleted.")
+                trySend(null) // Emit null if document doesn't exist
+            }
+        }
+
+        // This is called when the flow collection stops
+        awaitClose {
+            logD("Stopping Firestore listener for group $groupId.")
+            listenerRegistration.remove()
+        }
+    }
+
+    suspend fun updateGroupName(groupId: String, newName: String): Result<Unit> {
+        return try {
+            groupsCollection.document(groupId).update("name", newName).await()
+            logD("Updated group name for $groupId")
+            Result.success(Unit)
         } catch (e: Exception) {
-            logE("Failed to fetch group by ID: $groupId. Error: ${e.message}")
-            null
+            logE("Error updating group name for $groupId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateGroupIcon(groupId: String, newIconIdentifier: String): Result<Unit> {
+        return try {
+            groupsCollection.document(groupId).update("iconIdentifier", newIconIdentifier).await()
+            logD("Updated group icon for $groupId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error updating group icon for $groupId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addMembersToGroup(groupId: String, memberUids: List<String>): Result<Unit> {
+        if (memberUids.isEmpty()) return Result.success(Unit) // Nothing to add
+        return try {
+            val groupRef = groupsCollection.document(groupId)
+            // Use FieldValue.arrayUnion to add elements without duplicates
+            groupRef.update("members", FieldValue.arrayUnion(*memberUids.toTypedArray())).await()
+            logD("Added ${memberUids.size} members to group $groupId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error adding members to group $groupId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun removeMemberFromGroup(groupId: String, memberUid: String): Result<Unit> {
+        return try {
+            val groupRef = groupsCollection.document(groupId)
+            // Use FieldValue.arrayRemove to remove elements
+            groupRef.update("members", FieldValue.arrayRemove(memberUid)).await()
+            logD("Removed member $memberUid from group $groupId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error removing member $memberUid from group $groupId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteGroup(groupId: String): Result<Unit> {
+        return try {
+            groupsCollection.document(groupId).delete().await()
+            logD("Deleted group $groupId")
+            // Note: Does not delete associated expenses yet
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error deleting group $groupId: ${e.message}")
+            Result.failure(e)
         }
     }
 }

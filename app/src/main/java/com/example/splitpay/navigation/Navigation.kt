@@ -26,6 +26,7 @@ import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
 import com.example.splitpay.ui.expense.AddExpenseScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
 import com.example.splitpay.ui.groups.GroupDetailScreen
+import com.example.splitpay.ui.groups.GroupSettingsScreen
 import com.example.splitpay.ui.home.HomeScreen3
 import com.example.splitpay.ui.login.LoginScreen
 import com.example.splitpay.ui.signup.SignUpScreen
@@ -34,6 +35,8 @@ import com.example.splitpay.ui.theme.TextWhite
 import com.example.splitpay.ui.welcome.WelcomeScreen
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
+import com.example.splitpay.ui.groups.AddGroupMembersScreen // <-- ADD THIS IMPORT
+import com.example.splitpay.ui.groups.GroupSettingsScreen
 
 // Navigation.kt
 @Composable
@@ -137,7 +140,6 @@ fun Navigation(
             )
         }
 
-        // --- UPDATED ADD EXPENSE ROUTE ---
         // --- Add Expense Routes ---
         composable(
             route = Screen.AddExpenseWithGroup, // Use constant from Screen.kt
@@ -221,7 +223,38 @@ fun Navigation(
                 }
             }
         }
+        composable(
+            route = Screen.GroupSettings, // Use constant from Screen.kt
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+            enterTransition = { slideInFromRight() }, // Example transition
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            GroupSettingsScreen(
+                groupId = groupId,
+                onNavigateBack = { navController.popBackStack() },
+                // --- Pass navigation action for adding members ---
+                onNavigateToAddMembers = { navController.navigate("add_group_members/$groupId") }
+            )
+        }
+
+        composable(
+            route = Screen.AddGroupMembers, // Use constant
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+            enterTransition = { slideInFromRight() }, // Example transitions
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            AddGroupMembersScreen(
+                groupId = groupId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
     } // End NavHost
-    // } // End Scaffold (if used here)
 }
 

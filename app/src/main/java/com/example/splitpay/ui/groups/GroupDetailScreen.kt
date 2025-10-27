@@ -22,11 +22,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add // Keep this import
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dining
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.GroupRemove
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart // NEW IMPORT (Placeholder)
 import androidx.compose.material.icons.filled.SyncAlt // NEW IMPORT (Placeholder)
@@ -36,15 +44,25 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +70,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -80,7 +99,7 @@ val availableIconsMap = mapOf(
     "place" to Icons.Default.Place,
 )
 
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
     groupId: String,
@@ -88,16 +107,49 @@ fun GroupDetailScreen(
     navController: NavHostController,
     onNavigateBack: () -> Unit
 ) {
-    val group by viewModel.group.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
+    // --- Collect the entire UI state ---
+    val uiState by viewModel.uiState.collectAsState()
+    val group = uiState.group // Convenience variable
+    val isLoading = uiState.isLoading // Convenience variable
+
+    // --- Bottom sheet state ---
+    val sheetState = rememberModalBottomSheetState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(groupId) {
-        viewModel.loadGroup(groupId)
+        viewModel.loadAndListenForGroupUpdates(groupId)
     }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = DarkBackground,
+        topBar = {
+            // --- Add TopAppBar ---
+            TopAppBar(
+                title = {
+                    Text(
+                        group?.name ?: "Group Details", // Show group name or default
+                        color = TextWhite,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis // Handle long names
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextWhite)
+                    }
+                },
+                actions = {
+                    IconButton(onClick = {
+                        // --- Navigate to the new settings screen ---
+                        navController.navigate("group_settings/$groupId")
+                    }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Group Settings", tint = TextWhite)
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF2D2D2D)) // Match header color
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -109,32 +161,82 @@ fun GroupDetailScreen(
             }
         }
     ) { innerPadding ->
+        // --- Main Content Box ---
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // --- APPLY PADDING HERE ---
-                // We apply padding to the Box so the FAB doesn't overlap the list bottom
-                .padding(innerPadding)
+                .padding(innerPadding) // Apply padding from Scaffold
                 .background(DarkBackground)
         ) {
-            if (isLoading) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = PrimaryBlue)
+            when {
+                isLoading -> {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = PrimaryBlue)
+                    }
                 }
-            } else if (group != null) {
-                val currentGroup = group!!
-                GroupDetailContent(
-                    group = currentGroup,
-                    onNavigateBack = onNavigateBack
-                )
-            } else {
-                Text(
-                    text = "Group not found or an error occurred.",
-                    color = NegativeRed, // Use theme color
-                    modifier = Modifier.align(Alignment.Center)
-                )
+                group != null -> {
+                    // Pass group and padding down
+                    GroupDetailContent(
+                        group = group
+                        // No need to pass onNavigateBack here anymore, handled by TopAppBar
+                    )
+                }
+                else -> {
+                    Text(
+                        // Use error from state or default message
+                        text = uiState.error ?: "Group not found.",
+                        color = NegativeRed,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
             }
+        } // End Main Content Box
+    } // End Scaffold
+}
+
+// --- REINTRODUCE GroupDetailHeader Composable ---
+// (Or create a similar composable to display icon/name below TopAppBar)
+@Composable
+fun GroupDetailHeaderDisplay(group: Group) { // Renamed to avoid confusion
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF2D2D2D)) // Match TopAppBar color
+            .padding(bottom = 16.dp, top = 16.dp), // Add padding
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Group Icon
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(CircleShape)
+                .background(PrimaryBlue),
+            contentAlignment = Alignment.Center
+        ) {
+            val icon = availableIconsMap[group.iconIdentifier] ?: Icons.Default.Group
+            Icon(icon, contentDescription = "Group Icon", tint = TextWhite, modifier = Modifier.size(40.dp))
         }
+
+        Spacer(Modifier.height(12.dp))
+
+        // Group Name
+        Text(
+            text = group.name,
+            color = TextWhite,
+            fontSize = 24.sp, // Larger font size for prominence
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        // Group Balance (Placeholder from example)
+        Text(
+            text = "Stevie owes you MYR18.00", // Example text - Replace with actual data later
+            color = PositiveGreen,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -186,7 +288,6 @@ val mockActivities = listOf(
 @Composable
 fun GroupDetailContent(
     group: Group,
-    onNavigateBack: () -> Unit,
 ) {
     // --- CHANGED: Use LazyColumn for the whole screen content ---
     LazyColumn(
@@ -196,14 +297,15 @@ fun GroupDetailContent(
     ) {
         // --- 1. Custom Top Bar / Header ---
         item {
-            GroupDetailHeader(group = group, onNavigateBack = onNavigateBack)
+            GroupDetailHeaderDisplay(group = group) // Call the header composable
+            Spacer(Modifier.height(16.dp)) // Add space after the header
         }
 
         // --- 2. Action Buttons ---
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 ActionButtonsRow()
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(16.dp))
             }
         }
 
@@ -213,10 +315,11 @@ fun GroupDetailContent(
                 GroupMemberStatus(
                     memberCount = group.members.size,
                     groupName = group.name,
-                    onAddMemberClick = { /*TODO*/ },
+                    // Pass the ViewModel functions (or keep TODOs for now)
+                    onAddMemberClick = { /* TODO: Call ViewModel.onShowAddMemberDialog() */ },
                     onShareLinkClick = { /*TODO*/ }
                 )
-                Spacer(Modifier.height(24.dp)) // Space before activity list
+                Spacer(Modifier.height(24.dp))
             }
         }
 
@@ -324,61 +427,7 @@ fun ActivityCard(
 }
 
 
-@Composable
-fun GroupDetailHeader(group: Group, onNavigateBack: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF2D2D2D))
-            .padding(bottom = 16.dp, top = 16.dp), // Adjusted padding
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onNavigateBack, modifier = Modifier.size(48.dp).padding(end = 16.dp)) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextWhite)
-            }
-            // Spacer to help center the title, assuming back button is the only item on left
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = group.name,
-                color = TextWhite,
-                fontSize = 20.sp, // Slightly smaller title to fit
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.weight(1f))
-            // Placeholder for potential right-side actions
-            Spacer(Modifier.width(48.dp))
-        }
 
-        Spacer(Modifier.height(16.dp))
-
-        // Group Icon (Smaller)
-        Box(
-            modifier = Modifier
-                .size(80.dp) // Smaller icon
-                .clip(CircleShape)
-                .background(PrimaryBlue),
-            contentAlignment = Alignment.Center
-        ) {
-            val icon = availableIconsMap[group.iconIdentifier] ?: Icons.Default.Group
-            Icon(icon, contentDescription = "Group Icon", tint = TextWhite, modifier = Modifier.size(40.dp)) // Smaller icon
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // Group Balance (Placeholder from example)
-        Text(
-            text = "Stevie owes you MYR18.00", // Example text
-            color = PositiveGreen, // Use theme color
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}
 
 @Composable
 fun ActionButtonsRow() {
@@ -417,7 +466,7 @@ fun GroupMemberStatus(
     onAddMemberClick: () -> Unit,
     onShareLinkClick: () -> Unit
 ) {
-    val isOnlyUser = memberCount == 1
+    val showAddMemberButtonInStatus = memberCount <= 1
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -431,11 +480,11 @@ fun GroupMemberStatus(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (isOnlyUser) Color(0xFF454545) else Color(0xFF3C3C3C))
+                    .background(if (showAddMemberButtonInStatus) Color(0xFF454545) else Color(0xFF3C3C3C))
                     .padding(12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                val message = if (isOnlyUser) {
+                val message = if (showAddMemberButtonInStatus) {
                     "You're the only person in '$groupName'. Add members to split expenses."
                 } else {
                     "$memberCount members in this group."
@@ -449,6 +498,7 @@ fun GroupMemberStatus(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                if (showAddMemberButtonInStatus) {
                 Button(
                     onClick = onAddMemberClick,
                     shape = RoundedCornerShape(10.dp),
@@ -474,3 +524,4 @@ fun GroupMemberStatus(
         }
     }
 }
+    }
