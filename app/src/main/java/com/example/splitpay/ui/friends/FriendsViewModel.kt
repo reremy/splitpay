@@ -1,5 +1,6 @@
 package com.example.splitpay.ui.friends
 
+import android.util.Log.e
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.BalanceDetail // Keep this import
@@ -148,11 +149,17 @@ class FriendsViewModel(
             try {
                 // 1. Fetch friend UIDs and profiles
                 val friendUids = userRepository.getCurrentUserFriendIds()
-                if (friendUids.isEmpty()) { /* ... handle no friends ... */ return@launch }
+                if (friendUids.isEmpty()) {
+                    logD("No friends found for current user.")
+                    _friends.value = emptyList() // Update state to show no friends
+                    _isLoading.value = false
+                    return@launch // Early exit if no friends
+                }
                 val friendProfiles = userRepository.getProfilesForFriends(friendUids)
 
                 // 2. Fetch all groups the current user is in
-                val allUserGroups = groupsRepository.getGroups().firstOrNull() ?: emptyList()
+                // **FIX:** Use suspend version to fetch groups once
+                val allUserGroups = groupsRepository.getGroupsSuspend()
                 logD("Fetched ${allUserGroups.size} groups for current user.")
 
 
@@ -160,23 +167,20 @@ class FriendsViewModel(
                 val friendsWithBalances = coroutineScope { // <<< CHANGE HERE
                     val deferreds = friendProfiles.map { friend ->
                         async(Dispatchers.IO) { // 'async' is now called within the coroutineScope
-                            val netBalance = calculateNetBalanceWithFriend(currentUid, friend.uid, allUserGroups)
+                            val (netBalance, breakdown) = calculateNetBalanceWithFriend(currentUid, friend.uid, allUserGroups)
                             FriendWithBalance(
                                 uid = friend.uid,
-                                username = friend.username.takeIf { it.isNotBlank() } ?: friend.fullName,
+                                username = friend.username.takeIf { it.isNotBlank() } ?: friend.fullName, // Prefer username
                                 netBalance = netBalance,
-                                balanceBreakdown = emptyList()
+                                // **NEW:** Assign the calculated breakdown
+                                balanceBreakdown = breakdown
                             )
                         }
                     }
                     deferreds.awaitAll() // awaitAll remains inside the scope
                 }
 
-
-                // 4. Wait for all calculations and combine results
-                // val friendsWithBalances = friendsWithBalancesDeferred.awaitAll() // This line is now inside the coroutineScope block
-
-                _friends.value = friendsWithBalances
+                _friends.value = friendsWithBalances.sortedByDescending { it.netBalance.absoluteValue } // Sort by balance magnitude
                 _isLoading.value = false
                 logD("Successfully calculated balances for ${friendsWithBalances.size} friends.")
 
@@ -184,6 +188,7 @@ class FriendsViewModel(
                 logE("Error loading friends and balances: ${e.message}") // Log exception too
                 _error.value = "Failed to load friend balances."
                 _isLoading.value = false
+
             }
         }
     }
@@ -233,119 +238,136 @@ class FriendsViewModel(
     }
 
     // --- Balance Calculation Function ---
+    // **MODIFIED:** Returns Pair<Double, List<BalanceDetail>>
     private suspend fun calculateNetBalanceWithFriend(
         currentUserUid: String,
         friendUid: String,
         allUserGroups: List<Group>
-    ): Double {
-        // Use a coroutineScope for structured concurrency within this function as well
-        return coroutineScope { // <<< CHANGE HERE
-            var netBalance = 0.0
-            logD("Calculating balance between $currentUserUid and $friendUid")
+    ): Pair<Double, List<BalanceDetail>> {
+        val balanceDetails = mutableListOf<BalanceDetail>()
+        var netBalance = 0.0
+        logD("Calculating balance between $currentUserUid and $friendUid")
 
-            try {
-                // --- 1. Calculate balance from SHARED GROUP expenses ---
-                val sharedGroupIds = allUserGroups
-                    .filter { it.members.contains(currentUserUid) && it.members.contains(friendUid) }
-                    .map { it.id }
-                logD("Found ${sharedGroupIds.size} shared groups with $friendUid")
+        try {
+            // --- 1. Calculate balance from SHARED GROUP expenses ---
+            val sharedGroups = allUserGroups
+                .filter { it.members.contains(currentUserUid) && it.members.contains(friendUid) }
+            val sharedGroupIds = sharedGroups.map { it.id }
+            logD("Found ${sharedGroupIds.size} shared groups with $friendUid")
 
-                val groupExpensesDeferred = async { // Fetch group expenses concurrently
-                    if (sharedGroupIds.isNotEmpty()) expenseRepository.getExpensesForGroups(sharedGroupIds) else emptyList()
-                }
-
-                // --- 2. Calculate balance from NON-GROUP expenses ---
-                val nonGroupExpensesDeferred = async { // Fetch non-group expenses concurrently
-                    expenseRepository.getNonGroupExpensesBetweenUsers(currentUserUid, friendUid)
-                }
-
-                // Await both expense lists
-                val groupExpenses = groupExpensesDeferred.await()
-                val nonGroupExpenses = nonGroupExpensesDeferred.await()
-                logD("Fetched ${groupExpenses.size} shared group expenses and ${nonGroupExpenses.size} non-group expenses with $friendUid")
-
-
-                // --- 3. Sum balance changes from all relevant expenses ---
-                (groupExpenses + nonGroupExpenses).forEach { expense ->
-                    netBalance += calculateBalanceChangeForExpense(expense, currentUserUid, friendUid)
-                }
-
-                // Round the final balance to 2 decimal places
-                val finalBalance = (netBalance * 100).roundToInt() / 100.0
-                logD("Final calculated balance between $currentUserUid and $friendUid: $finalBalance")
-                finalBalance // Return the value from the scope
-
-            } catch (e: Exception) {
-                logE("Error calculating balance between $currentUserUid and $friendUid: ${e.message}")
-                0.0 // Return 0 on error during calculation for one friend
+            val groupExpensesDeferred = viewModelScope.async(Dispatchers.IO) { // Fetch group expenses concurrently
+                if (sharedGroupIds.isNotEmpty()) expenseRepository.getExpensesForGroups(sharedGroupIds) else emptyList()
             }
+
+            // --- 2. Calculate balance from NON-GROUP expenses ---
+            val nonGroupExpensesDeferred = viewModelScope.async(Dispatchers.IO) { // Fetch non-group expenses concurrently
+                expenseRepository.getNonGroupExpensesBetweenUsers(currentUserUid, friendUid)
+            }
+
+            // Await both expense lists
+            val groupExpenses = groupExpensesDeferred.await()
+            val nonGroupExpenses = nonGroupExpensesDeferred.await()
+            logD("Fetched ${groupExpenses.size} shared group expenses and ${nonGroupExpenses.size} non-group expenses with $friendUid")
+
+            // --- 3. Process SHARED GROUP Expenses ---
+            val groupBalances = mutableMapOf<String, Double>() // GroupId to Net Balance Change
+            groupExpenses.forEach { expense ->
+                val balanceChange = calculateBalanceChangeForExpense(expense, currentUserUid, friendUid)
+                netBalance += balanceChange
+                val groupId = expense.groupId ?: "error_no_group_id"
+                groupBalances[groupId] = (groupBalances[groupId] ?: 0.0) + balanceChange
+            }
+
+            // Create BalanceDetail for each shared group with non-zero balance
+            sharedGroups.forEach { group ->
+                val groupBalance = groupBalances[group.id] ?: 0.0
+                if (groupBalance.absoluteValue > 0.01) { // Add tolerance
+                    balanceDetails.add(BalanceDetail(groupName = group.name, amount = roundToCents(groupBalance)))
+                }
+            }
+
+
+            // --- 4. Process NON-GROUP Expenses ---
+            var nonGroupNetBalance = 0.0
+            nonGroupExpenses.forEach { expense ->
+                val balanceChange = calculateBalanceChangeForExpense(expense, currentUserUid, friendUid)
+                netBalance += balanceChange
+                nonGroupNetBalance += balanceChange
+            }
+            // Add a single BalanceDetail for all non-group expenses if balance is non-zero
+            if (nonGroupNetBalance.absoluteValue > 0.01) { // Add tolerance
+                balanceDetails.add(BalanceDetail(groupName = "Non-group", amount = roundToCents(nonGroupNetBalance)))
+            }
+
+
+            // Round the final balance to 2 decimal places
+            val finalBalance = roundToCents(netBalance)
+            logD("Final calculated balance between $currentUserUid and $friendUid: $finalBalance")
+            // Return both the net balance and the detailed breakdown
+            return Pair(finalBalance, balanceDetails)
+
+        } catch (e: Exception) {
+            logE("Error calculating balance between $currentUserUid and $friendUid: ${e.message}")
+            // Return zero balance and empty breakdown on error
+            return Pair(0.0, emptyList())
         }
     }
 
 
-    // --- Helper to calculate balance change from a single expense (Corrected Logic) ---
+// --- Helper to calculate balance change from a single expense ---
+    /**
+     * Calculates the net change in balance FOR the currentUserUid RELATIVE TO the friendUid
+     * for a single expense.
+     * Positive result means friendUid owes currentUserUid more after this expense.
+     * Negative result means currentUserUid owes friendUid more after this expense.
+     */
     private fun calculateBalanceChangeForExpense(
         expense: Expense,
         currentUserUid: String,
         friendUid: String
     ): Double {
-        val amountPaidByCurrentUser = expense.paidBy.find { it.uid == currentUserUid }?.paidAmount ?: 0.0
-        val amountPaidByFriend = expense.paidBy.find { it.uid == friendUid }?.paidAmount ?: 0.0
+        // Find how much each person paid
+        val paidByCurrentUser = expense.paidBy.find { it.uid == currentUserUid }?.paidAmount ?: 0.0
+        val paidByFriend = expense.paidBy.find { it.uid == friendUid }?.paidAmount ?: 0.0
+
+        // Find how much each person's share was
         val shareOwedByCurrentUser = expense.participants.find { it.uid == currentUserUid }?.owesAmount ?: 0.0
         val shareOwedByFriend = expense.participants.find { it.uid == friendUid }?.owesAmount ?: 0.0
 
-        // Total amount effectively paid (should ideally match expense.totalAmount, but sum for safety)
-        val totalPaidInExpense = expense.paidBy.sumOf { it.paidAmount }
+        // Calculate the net contribution of each person for this specific expense
+        // Positive means they paid more than their share (lent money to the pool)
+        // Negative means they paid less than their share (borrowed from the pool)
+        val netContributionCurrentUser = paidByCurrentUser - shareOwedByCurrentUser
+        val netContributionFriend = paidByFriend - shareOwedByFriend
 
-        // Avoid division by zero
-        if (totalPaidInExpense.absoluteValue < 0.001) { // Check against a small epsilon
-            // Log if total amount is zero but individual amounts are not?
-            if (amountPaidByCurrentUser != 0.0 || amountPaidByFriend != 0.0 || shareOwedByCurrentUser != 0.0 || shareOwedByFriend != 0.0) {
-                logE("Expense ${expense.id} has zero total paid but non-zero shares/payments. Ski")
-            }
-            return 0.0
-        }
+        // The change in balance FROM the current user's perspective relative to the friend:
+        // If my net contribution is positive (I lent) and friend's is negative (they borrowed), I am owed more (positive change).
+        // If my net contribution is negative (I borrowed) and friend's is positive (they lent), I owe more (negative change).
+        // Essentially, we want to find how much of the friend's debt was covered by the current user's surplus,
+        // or how much of the current user's debt was covered by the friend's surplus.
 
-        // This is complex, let's simplify the perspective:
-        // How much did the current user's balance change relative to the friend?
-        // 1. Current user paid for the friend's share: This means the friend owes the current user. Balance increases.
-        //    (This is implicitly handled by the net calculation below)
-        // 2. Friend paid for the current user's share: This means the current user owes the friend. Balance decreases.
-        //    (This is also handled below)
+        // Simpler way: Calculate the difference in their net contributions.
+        // If (My Net) > (Friend Net), the difference is how much more I contributed than the friend.
+        // This difference should ideally be balanced by others, but in a two-person context,
+        // it reflects the net flow between them.
 
-        // Net transfer from friend to current user for this expense.
-        // Positive value means friend owes current user.
-        // Negative value means current user owes friend.
-        val netTransfer = (amountPaidByCurrentUser - shareOwedByCurrentUser) - (amountPaidByFriend - shareOwedByFriend)
+        // Let's test with examples:
+        // Ex1: I pay 60, split 20 each (Me +20, Friend -20). Diff = +40. Friend owes me 20. Change should be +20?
+        // Ex2: Friend pays 60, split 20 each (Me -20, Friend +20). Diff = -40. I owe friend 20. Change should be -20?
+        // Ex3: I pay 30, Friend pays 30, split 30 each (Me 0, Friend 0). Diff = 0. Change should be 0.
+        // Ex4: I pay 40, Friend pays 20, split 30 each (Me +10, Friend -10). Diff = +20. Friend owes me 10. Change should be +10?
 
-        // The logic for net balance calculation in a two-person context can be tricky.
-        // A more robust way:
-        // User A's contribution: paid_A - owed_A
-        // User B's contribution: paid_B - owed_B
-        // Balance from A's perspective (how much B owes A): (paid_A - owed_A) - (total_paid - paid_A - (total_owed - owed_A))
-        // This gets very complex. Let's use a simpler, direct approach that is correct for a two-person interaction within a larger expense.
+        // It looks like (My Net Contribution - Friend Net Contribution) / 2 gives the correct balance change between the two.
+        val balanceChange = (netContributionCurrentUser - netContributionFriend) / 2.0
 
-        // What you owe the friend: Your share paid by the friend.
-        val youOweFriend = if (amountPaidByFriend > 0.01) (shareOwedByCurrentUser / totalPaidInExpense) * amountPaidByFriend else 0.0
-        // What the friend owes you: Their share paid by you.
-        val friendOwesYou = if (amountPaidByCurrentUser > 0.01) (shareOwedByFriend / totalPaidInExpense) * amountPaidByCurrentUser else 0.0
+        // Log calculation details for debugging
+        // logD("Expense '${expense.description}': MyNet=${netContributionCurrentUser}, FriendNet=${netContributionFriend}, Change=${balanceChange}")
 
-        // This simplified logic is also flawed. Let's revert to a more standard and correct calculation.
+        return balanceChange
+    }
 
-        // Correct Calculation:
-        // Net change to your balance = Amount you are owed - Amount you owe
-        // Amount you are owed = The portion of what you paid that was for others (in this case, for the friend).
-        // Amount you owe = The portion of your share that was paid by others (in this case, by the friend).
-
-        // Let's analyze the transaction from the current user's perspective relative to the friend.
-        // If I paid for the friend's share, my balance with them goes UP.
-        // If the friend paid for my share, my balance with them goes DOWN.
-        // The logic seems to be trying to calculate the net effect of a single expense between two people.
-
-        // Let's reconsider the original implementation at line 208, as it seems you were working on it.
-        // The error is in the `async` call, not necessarily the logic inside `calculateBalanceChangeForExpense`.
-        // Let's assume the provided logic in `calculateBalanceChangeForExpense` is what you intended and focus on the primary fix.
-        // The original implementation seems incomplete. The line breaks off. Let's assume the existing logic is a work in progress and leave it as is, since the build error is not here.
-        return 0.0 // Returning 0 as the function is incomplete. Replace with your actual logic.
+    // Helper function for rounding
+    private fun roundToCents(value: Double): Double {
+        return (value * 100.0).roundToInt() / 100.0
     }
 }

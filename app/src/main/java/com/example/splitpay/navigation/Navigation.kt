@@ -155,7 +155,9 @@ fun Navigation(
                 navBackStackEntry = backStackEntry,
                 prefilledGroupId = groupIdFromBackStack,
                 onNavigateBack = { navController.popBackStack() },
-                onSaveSuccess = { navEvent -> /* ... */ }
+                onSaveSuccess = { navEvent -> 
+                    // Navigate back to the previous screen (GroupDetailScreen)
+                    navController.popBackStack() }
             )
         }
         composable(

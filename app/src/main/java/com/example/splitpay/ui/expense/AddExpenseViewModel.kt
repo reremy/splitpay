@@ -394,21 +394,58 @@ class AddExpenseViewModel(
         val currentUser = userRepository.getCurrentUser()
 
         // --- Basic Validation ---
-        if (currentUser == null) { /* ... error handling ... */ return }
-        if (state.description.isBlank()) { /* ... error handling ... */ return }
-        if (totalAmount <= 0.0) { /* ... error handling ... */ return }
-        if (state.paidByUsers.isEmpty()) { /* ... error handling ... */ return }
+        if (currentUser == null) {
+            // Emit dialog event
+            viewModelScope.launch {
+                _uiEvent.emit(AddExpenseUiEvent.ShowErrorDialog("Error", "You are not logged in."))
+            }
+            return
+        }
+
+        // --- VALIDATION FIX ---
+        if (state.description.isBlank() || totalAmount <= 0.0) {
+            viewModelScope.launch {
+                _uiEvent.emit(AddExpenseUiEvent.ShowErrorDialog(
+                    title = "Invalid Expense",
+                    message = "You must enter a description and an amount greater than zero."
+                ))
+            }
+            return // Stop execution
+        }
+        // --- END VALIDATION FIX ---
+
+        if (state.paidByUsers.isEmpty()) {
+            viewModelScope.launch {
+                _uiEvent.emit(AddExpenseUiEvent.ShowErrorDialog("Invalid Expense", "At least one person must pay."))
+            }
+            return
+        }
         val activeParticipants = state.participants.filter { it.isChecked }
-        if (activeParticipants.isEmpty()) { /* ... error handling ... */ return }
+        if (activeParticipants.isEmpty()) {
+            viewModelScope.launch {
+                _uiEvent.emit(AddExpenseUiEvent.ShowErrorDialog("Invalid Expense", "At least one participant must be in the split."))
+            }
+            return
+        }
 
         // --- Payment Validation ---
         val paidByTotal = if (state.paidByUsers.size == 1) totalAmount else state.paidByUsers.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
-        if ((paidByTotal - totalAmount).absoluteValue > 0.01) { /* ... error handling ... */ return }
+        if ((paidByTotal - totalAmount).absoluteValue > 0.01) {
+            viewModelScope.launch {
+                _uiEvent.emit(AddExpenseUiEvent.ShowErrorDialog("Balance Error", "The total amount paid (RM${paidByTotal}) does not match the expense total (RM${totalAmount})."))
+            }
+            return
+        }
 
         // --- Split Validation ---
         val finalParticipants = calculateSplitUseCase(totalAmount, state.participants, state.splitType)
         val finalAllocatedSplit = finalParticipants.filter { it.isChecked }.sumOf { it.owesAmount }
-        if ((finalAllocatedSplit - totalAmount).absoluteValue > 0.01) { /* ... error handling ... */ return }
+        if ((finalAllocatedSplit - totalAmount).absoluteValue > 0.01) {
+            viewModelScope.launch {
+                _uiEvent.emit(AddExpenseUiEvent.ShowErrorDialog("Balance Error", "The total split amount (RM${finalAllocatedSplit}) does not match the expense total (RM${totalAmount})."))
+            }
+            return
+        }
 
         // --- Prepare Data for Repository (Convert local UI models to data models) ---
         val expensePayers = state.paidByUsers.map { payer -> // uses local Payer

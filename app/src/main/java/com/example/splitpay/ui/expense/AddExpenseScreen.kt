@@ -48,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,11 +133,30 @@ fun AddExpenseScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
+    val showErrorDialog = remember { mutableStateOf<Pair<String, String>?>(null) }
+
     UiEventHandler(viewModel.uiEvent) { event ->
         when (event) {
             AddExpenseUiEvent.NavigateBack -> onNavigateBack()
             is AddExpenseUiEvent.SaveSuccess -> onSaveSuccess(event)
+            is AddExpenseUiEvent.ShowErrorDialog -> {
+                showErrorDialog.value = event.title to event.message
+            }
         }
+    }
+
+    if (showErrorDialog.value != null) {
+        AlertDialog(
+            onDismissRequest = { showErrorDialog.value = null },
+            title = { Text(showErrorDialog.value!!.first, color = TextWhite) },
+            text = { Text(showErrorDialog.value!!.second, color = Color.Gray) },
+            confirmButton = {
+                TextButton(onClick = { showErrorDialog.value = null }) {
+                    Text("OK", color = PrimaryBlue)
+                }
+            },
+            containerColor = Color(0xFF2D2D2D) // Dialog background
+        )
     }
 
     Scaffold(
