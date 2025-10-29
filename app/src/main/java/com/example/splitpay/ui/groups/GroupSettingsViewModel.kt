@@ -8,6 +8,7 @@ import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
+import com.example.splitpay.logger.logD
 import com.example.splitpay.logger.logE
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -136,19 +137,43 @@ class GroupSettingsViewModel(
     // --- Action Handlers (Placeholders - Need Implementation) ---
 
     fun updateGroupName(newName: String) {
-        if (newName.isBlank()) return
+        val trimmedName = newName.trim()
+        if (trimmedName.isBlank()) {
+            _uiState.update { it.copy(error = "Group name cannot be empty.") } // Show error if blank
+            return
+        }
+        // Dismiss dialog immediately for better UX
+        showEditNameDialog(false)
         viewModelScope.launch {
-            // TODO: Call groupsRepository.updateGroupName(groupId, newName)
-            // On success, update group in state or reload data
-            showEditNameDialog(false)
+            _uiState.update { it.copy(isLoading = true) } // Show loading briefly
+            val result = groupsRepository.updateGroupName(groupId, trimmedName) // <-- CALL REPOSITORY
+            result.onSuccess {
+                logD("Successfully updated group name for $groupId")
+                // The listener `listenForGroupUpdates` should automatically refresh the state
+                _uiState.update { it.copy(isLoading = false, error = null) } // Clear loading and error
+            }.onFailure { e ->
+                logE("Failed to update group name: ${e.message}")
+                _uiState.update { it.copy(isLoading = false, error = "Failed to update name: ${e.message}") }
+            }
         }
     }
 
-    fun updateGroupIcon(newIcon: String) {
+    fun updateGroupIcon(newIconIdentifier: String) {
+        if (newIconIdentifier.isBlank()) return // Should not happen with current UI
+
+        // Dismiss dialog immediately
+        showChangeIconDialog(false)
         viewModelScope.launch {
-            // TODO: Call groupsRepository.updateGroupIcon(groupId, newIcon)
-            // On success, update group in state or reload data
-            showChangeIconDialog(false)
+            _uiState.update { it.copy(isLoading = true) } // Show loading briefly
+            val result = groupsRepository.updateGroupIcon(groupId, newIconIdentifier) // <-- CALL REPOSITORY
+            result.onSuccess {
+                logD("Successfully updated group icon for $groupId")
+                // The listener should refresh the state
+                _uiState.update { it.copy(isLoading = false, error = null) }
+            }.onFailure { e ->
+                logE("Failed to update group icon: ${e.message}")
+                _uiState.update { it.copy(isLoading = false, error = "Failed to update icon: ${e.message}") }
+            }
         }
     }
 

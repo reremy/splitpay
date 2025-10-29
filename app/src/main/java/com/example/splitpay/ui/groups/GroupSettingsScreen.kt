@@ -1,9 +1,11 @@
 package com.example.splitpay.ui.groups
 
+import android.R.attr.onClick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -110,7 +112,8 @@ fun GroupSettingsScreen(
                     GroupInfoSection(
                         groupName = group.name,
                         iconIdentifier = group.iconIdentifier,
-                        onEditClick = { viewModel.showEditNameDialog(true) } // Placeholder for combined edit
+                        onEditNameClick = { viewModel.showEditNameDialog(true) },
+                        onEditIconClick = { viewModel.showChangeIconDialog(true) }
                     )
                 }
 
@@ -144,6 +147,17 @@ fun GroupSettingsScreen(
                     currentName = group.name,
                     onDismiss = { viewModel.showEditNameDialog(false) },
                     onConfirm = { newName -> viewModel.updateGroupName(newName) }
+                )
+            }
+
+            if (uiState.showChangeIconDialog) {
+                ChangeIconDialog(
+                    currentIconIdentifier = group.iconIdentifier, // Pass current icon
+                    onDismiss = { viewModel.showChangeIconDialog(false) },
+                    onIconSelected = { newIconIdentifier ->
+                        viewModel.updateGroupIcon(newIconIdentifier) // Call ViewModel function
+                        // No need to dismiss here, updateGroupIcon handles it
+                    }
                 )
             }
 
@@ -194,7 +208,8 @@ fun GroupSettingsScreen(
 fun GroupInfoSection(
     groupName: String,
     iconIdentifier: String,
-    onEditClick: () -> Unit
+    onEditNameClick: () -> Unit,
+    onEditIconClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -205,12 +220,13 @@ fun GroupInfoSection(
             modifier = Modifier
                 .size(60.dp)
                 .clip(CircleShape)
-                .background(PrimaryBlue), // Or determine color based on icon type
+                .background(PrimaryBlue) // Or determine color based on icon type
+            .clickable(onClick = onEditIconClick),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = availableIconsMap[iconIdentifier] ?: Icons.Default.Group,
-                contentDescription = "Group Icon",
+                contentDescription = "Group Icon - Click to change",
                 tint = TextWhite,
                 modifier = Modifier.size(32.dp)
             )
@@ -226,7 +242,7 @@ fun GroupInfoSection(
             )
         }
         // Edit Button
-        IconButton(onClick = onEditClick) {
+        IconButton(onClick = onEditNameClick) {
             Icon(Icons.Default.Edit, contentDescription = "Edit Group Info", tint = Color.Gray)
         }
     }
@@ -431,7 +447,47 @@ fun EditGroupNameDialog(
     )
 }
 
-// TODO: @Composable fun ChangeIconDialog(...) { ... }
+@Composable
+fun ChangeIconDialog(
+    currentIconIdentifier: String,
+    onDismiss: () -> Unit,
+    onIconSelected: (String) -> Unit // Passes back the selected identifier string
+) {
+    var selectedIcon by remember { mutableStateOf(currentIconIdentifier) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Change Group Icon", color = TextWhite) },
+        text = {
+            // Re-use the IconOption composable from CreateGroupScreen logic
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                items(availableIcons) { (identifier, icon) ->
+                    IconOption(
+                        icon = icon,
+                        identifier = identifier,
+                        isSelected = selectedIcon == identifier,
+                        onSelect = { selectedIcon = it } // Update local selection state
+                    )
+                }
+                // Optionally add UploadImageOption here if desired
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onIconSelected(selectedIcon) }, // Pass the locally selected icon back
+                enabled = selectedIcon != currentIconIdentifier // Only enable if changed
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = Color.Gray) }
+        },
+        containerColor = Color(0xFF3C3C3C) // Darker dialog background
+    )
+}
+
 // TODO: @Composable fun AddMemberDialog(...) { ... }
 // TODO: @Composable fun RemoveMemberConfirmationDialog(...) { ... }
 // TODO: @Composable fun LeaveGroupConfirmationDialog(...) { ... }
