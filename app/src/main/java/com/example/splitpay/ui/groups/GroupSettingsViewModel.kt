@@ -10,8 +10,11 @@ import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logE
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
@@ -23,9 +26,14 @@ data class GroupMemberViewData(
     val balance: Double = 0.0 // Positive: Gets back, Negative: Owes
 )
 
+sealed interface GroupSettingsUiEvent {
+    object NavigateBack : GroupSettingsUiEvent
+}
+
 // UI State for the Group Settings Screen
 data class GroupSettingsUiState(
     val isLoading: Boolean = true,
+    val isDeleting: Boolean = false,
     val group: Group? = null,
     val members: List<GroupMemberViewData> = emptyList(),
     val currentUserFriends: List<User> = emptyList(),
@@ -51,6 +59,9 @@ class GroupSettingsViewModel(
 
     private val _uiState = MutableStateFlow(GroupSettingsUiState())
     val uiState: StateFlow<GroupSettingsUiState> = _uiState.asStateFlow()
+
+    private val _uiEvent = MutableSharedFlow<GroupSettingsUiEvent>()
+    val uiEvent: SharedFlow<GroupSettingsUiEvent> = _uiEvent.asSharedFlow()
 
     private val groupId: String = savedStateHandle["groupId"] ?: ""
     private var currentUserUid: String? = userRepository.getCurrentUser()?.uid
@@ -113,7 +124,7 @@ class GroupSettingsViewModel(
         }
     }
 
-    // --- Dialog Visibility Handlers ---
+        // --- Dialog Visibility Handlers ---
     fun showEditNameDialog(show: Boolean) = _uiState.update { it.copy(showEditNameDialog = show) }
     fun showChangeIconDialog(show: Boolean) = _uiState.update { it.copy(showChangeIconDialog = show) }
     fun showAddMemberDialog(show: Boolean) = _uiState.update { it.copy(showAddMemberDialog = show) }
@@ -176,10 +187,30 @@ class GroupSettingsViewModel(
 
     fun deleteGroup() {
         viewModelScope.launch {
-            // TODO: Call groupsRepository.deleteGroup(groupId)
-            // TODO: Call expenseRepository.deleteExpensesForGroup(groupId)
-            // On success, navigate back? (Need Navigation event)
-            showDeleteGroupConfirmation(false)
+            _uiState.update { it.copy(isDeleting = true) }
+            try {
+                // First, delete all associated expenses
+                val expenseResult = expenseRepository.deleteExpensesForGroup(groupId)
+                if (expenseResult.isFailure) {
+                    throw expenseResult.exceptionOrNull() ?: Exception("Failed to delete expenses.")
+                }
+
+                // Second, delete the group itself
+                val groupResult = groupsRepository.deleteGroup(groupId)
+                if (groupResult.isFailure) {
+                    throw groupResult.exceptionOrNull() ?: Exception("Failed to delete group.")
+                }
+
+                // On complete success, emit navigation event
+                _uiEvent.emit(GroupSettingsUiEvent.NavigateBack)
+
+            } catch (e: Exception) {
+                logE("Error deleting group $groupId: ${e.message}")
+                _uiState.update { it.copy(error = "Error deleting group: ${e.message}") }
+            } finally {
+                // Hide dialog and reset loading state
+                _uiState.update { it.copy(isDeleting = false, showDeleteGroupConfirmation = false) }
+            }
         }
     }
 }

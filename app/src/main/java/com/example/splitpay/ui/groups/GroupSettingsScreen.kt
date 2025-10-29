@@ -27,6 +27,7 @@ import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
+import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.* // Import your theme colors
 import com.google.firebase.auth.FirebaseAuth
 import kotlin.math.absoluteValue
@@ -67,6 +68,12 @@ fun GroupSettingsScreen(
     val uiState by viewModel.uiState.collectAsState()
     val group = uiState.group
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid // Get current user ID for checks
+
+    UiEventHandler(viewModel.uiEvent) { event ->
+        when (event) {
+            GroupSettingsUiEvent.NavigateBack -> onNavigateBack()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -144,7 +151,17 @@ fun GroupSettingsScreen(
             // TODO: Add AddMemberDialog (using uiState.currentUserFriends)
             // TODO: Add RemoveMemberConfirmationDialog (using uiState.showRemoveMemberConfirmation)
             // TODO: Add LeaveGroupConfirmationDialog
-            // TODO: Add DeleteGroupConfirmationDialog
+
+
+            // --- ADD: Delete Group Confirmation Dialog ---
+            if (uiState.showDeleteGroupConfirmation) {
+                DeleteGroupConfirmationDialog(
+                    groupName = group.name,
+                    isDeleting = uiState.isDeleting,
+                    onDismiss = { viewModel.showDeleteGroupConfirmation(false) },
+                    onConfirm = { viewModel.deleteGroup() } // <-- Call implemented function
+                )
+            }
 
             // Display "Cannot Leave" message if applicable
             if (uiState.leaveGroupErrorMessage != null) {
@@ -418,4 +435,47 @@ fun EditGroupNameDialog(
 // TODO: @Composable fun AddMemberDialog(...) { ... }
 // TODO: @Composable fun RemoveMemberConfirmationDialog(...) { ... }
 // TODO: @Composable fun LeaveGroupConfirmationDialog(...) { ... }
-// TODO: @Composable fun DeleteGroupConfirmationDialog(...) { ... }
+
+
+// --- ADD: Delete Group Confirmation Dialog ---
+@Composable
+fun DeleteGroupConfirmationDialog(
+    groupName: String,
+    isDeleting: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Delete Group?", color = TextWhite) },
+        text = {
+            Text(
+                "Are you sure you want to delete '$groupName'? This will permanently delete all associated expenses. This action cannot be undone.",
+                color = Color.Gray
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = !isDeleting, // Disable button while deleting
+                colors = ButtonDefaults.buttonColors(containerColor = NegativeRed)
+            ) {
+                if (isDeleting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = TextWhite,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text("Delete")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !isDeleting) {
+                Text("Cancel", color = Color.Gray)
+            }
+        },
+        containerColor = Color(0xFF3C3C3C) // Darker dialog
+    )
+}

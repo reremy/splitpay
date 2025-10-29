@@ -236,7 +236,7 @@ fun Navigation(
             val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
             GroupSettingsScreen(
                 groupId = groupId,
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = { navController.popBackStack(Screen.Home, inclusive = false) },
                 // --- Pass navigation action for adding members ---
                 onNavigateToAddMembers = { navController.navigate("add_group_members/$groupId") }
             )
