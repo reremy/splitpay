@@ -35,7 +35,6 @@ data class GroupsUiState(
     val isLoading: Boolean = true,
     val groupsWithBalances: List<GroupWithBalance> = emptyList(),
     val error: String? = null,
-    val totalNetBalance: Double = 0.0, // Overall balance across all friends
 )
 
 class GroupsViewModel(
@@ -66,93 +65,77 @@ class GroupsViewModel(
     private fun collectGroupsAndBalances() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            val currentUid = currentUserUid!! // Safe non-null access here
+            val currentUid = currentUserUid!!
 
             try {
-                // Get the flow of groups
                 val groupsFlow = groupsRepository.getGroups()
 
-                // Transform the flow of groups into a flow of *all* their expenses combined
-                // flatMapLatest ensures that if the group list changes,
-                // we cancel old expense listeners and create new ones.
                 val expensesFlow = groupsFlow.flatMapLatest { groups ->
                     if (groups.isEmpty()) {
-                        // If no groups, emit an empty list of expenses
                         flowOf(emptyList<Expense>())
                     } else {
-                        // Create a list of expense flows, one for each group
                         val expenseFlows: List<Flow<List<Expense>>> = groups.map { group ->
                             expenseRepository.getExpensesFlowForGroup(group.id)
                         }
-
-                        // Combine all these individual flows into one flow that
-                        // emits a single, flattened list of all expenses
                         combine(expenseFlows) { arrayOfExpenseLists ->
-                            // arrayOfExpenseLists is an Array<List<Expense>>
-                            // Flatten it into a single List<Expense>
                             arrayOfExpenseLists.asList().flatten()
                         }
                     }
                 }
 
-                // --- NOW, combine the groupsFlow and this new expensesFlow ---
-                // This block will re-execute when EITHER the list of groups changes
-                // OR any of the expenses within those groups change.
                 combine(groupsFlow, expensesFlow) { groups, allExpenses ->
-
-                    // Set loading true while calculating balances
-                    _uiState.update { it.copy(isLoading = true) }
+                    _uiState.update { it.copy(isLoading = true) } // Show loading during recalc
 
                     if (groups.isEmpty()) {
-                        _uiState.update { it.copy(isLoading = false, groupsWithBalances = emptyList(), totalNetBalance = 0.0) }
-                        return@combine // Exit if no groups
+                        _uiState.update { it.copy(isLoading = false, groupsWithBalances = emptyList()) } // **MODIFIED:** Removed totalNetBalance update
+                        return@combine
                     }
 
-                    // Group the expenses by group ID for faster lookup
                     val groupExpensesMap = allExpenses.groupBy { it.groupId ?: "" }
 
-                    var overallNetBalance = 0.0
+                    // **MODIFIED:** Removed overallNetBalance variable
+                    // var overallNetBalance = 0.0 <-- REMOVED
+
                     val groupsWithCalculatedBalances = groups.map { group ->
                         val expensesInGroup = groupExpensesMap[group.id] ?: emptyList()
                         var groupNetBalance = 0.0
 
                         expensesInGroup.forEach { expense ->
-                            // Calculate user's net contribution FOR THIS EXPENSE
                             val paidByUser = expense.paidBy.find { it.uid == currentUid }?.paidAmount ?: 0.0
                             val shareOwedByUser = expense.participants.find { it.uid == currentUid }?.owesAmount ?: 0.0
                             groupNetBalance += (paidByUser - shareOwedByUser)
                         }
 
                         val roundedGroupNetBalance = roundToCents(groupNetBalance)
-                        overallNetBalance += roundedGroupNetBalance // Add group balance to overall total
+                        // overallNetBalance += roundedGroupNetBalance // <-- REMOVED
 
-                        // TODO: Implement simplified breakdown calculation if needed later
-                        val breakdown = emptyMap<String, Double>()
+                        val breakdown = emptyMap<String, Double>() // Placeholder
 
                         GroupWithBalance(
                             group = group,
-                            userNetBalance = roundedGroupNetBalance, // Assign calculated balance
+                            userNetBalance = roundedGroupNetBalance,
                             simplifiedOwedBreakdown = breakdown
                         )
-                    }.sortedByDescending { it.userNetBalance.absoluteValue } // Sort by balance magnitude
+                    }.sortedByDescending { it.userNetBalance.absoluteValue }
 
-                    val roundedOverallNetBalance = roundToCents(overallNetBalance)
+                    // **MODIFIED:** Removed overall balance rounding and update
+                    // val roundedOverallNetBalance = roundToCents(overallNetBalance) <-- REMOVED
 
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             groupsWithBalances = groupsWithCalculatedBalances,
-                            totalNetBalance = roundedOverallNetBalance, // Update total balance
+                            // totalNetBalance = roundedOverallNetBalance, <-- REMOVED
                             error = null
                         )
                     }
-                }.collect() // Start collecting this combined flow
+                }.collect()
 
             } catch (e: Exception) {
                 logE("Error collecting groups and calculating balances: ${e.message}")
                 _uiState.update { it.copy(isLoading = false, error = "Failed to load group balances.") }
             }
-        } // End launch
+        }
     }
 
     // Helper function to fetch expenses for multiple groups

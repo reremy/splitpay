@@ -149,12 +149,15 @@ fun HomeScreen3(
             composable("groups_screen") {
                 GroupsContent(
                     innerPadding = innerPadding,
+                    overallBalance = friendsUiState.totalNetBalance, // <-- PASS BALANCE HERE
+                    // GroupsViewModel instance is created internally by default
                     onNavigate = { event ->
                         when (event) {
                             GroupsUiEvent.NavigateToCreateGroup -> mainNavController.navigate(Screen.CreateGroup)
                             is GroupsUiEvent.NavigateToGroupDetail -> { mainNavController.navigate("group_detail/${event.groupId}") }
                         }
-                    }
+                    },
+                    navController = mainNavController // Pass main NavController for non-group navigation
                 )
             }
             composable("friends_screen") {

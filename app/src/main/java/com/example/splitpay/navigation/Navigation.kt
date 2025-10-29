@@ -140,6 +140,22 @@ fun Navigation(
             )
         }
 
+        composable(
+            route = Screen.NonGroupDetail, // Uses the NEW constant route
+            // No arguments needed for this specific route
+            enterTransition = { slideInFromRight() }, // Add transitions
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) {
+            // Call the existing screen but pass the SPECIAL identifier
+            GroupDetailScreen(
+                groupId = "non_group", // Pass the constant identifier
+                navController = navController,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         // --- Add Expense Routes ---
         composable(
             route = Screen.AddExpenseWithGroup, // Use constant from Screen.kt

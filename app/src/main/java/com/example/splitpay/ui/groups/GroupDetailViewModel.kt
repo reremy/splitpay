@@ -52,39 +52,70 @@ class GroupDetailViewModel(
             _uiState.update { it.copy(isLoadingGroup = false, isLoadingExpenses = false, error = "Group ID is invalid.") }
             return
         }
-        // Avoid restarting listeners if already listening for the same group
-        if (currentGroupId == groupId && (groupListenerJob?.isActive == true || expenseListenerJob?.isActive == true)) {
-            return
+
+        // Prevent restarting listeners if already listening for the same ID (group or non-group)
+        if (currentGroupId == groupId && expenseListenerJob?.isActive == true) {
+            // For non-group, only expense listener matters
+            if (groupId == "non_group") return
+            // For regular groups, check group listener too
+            if (groupListenerJob?.isActive == true) return
         }
+
         currentGroupId = groupId
-        groupListenerJob?.cancel()
-        expenseListenerJob?.cancel()
+        groupListenerJob?.cancel() // Cancel previous group listener (if any)
+        expenseListenerJob?.cancel() // Cancel previous expense listener
 
         _uiState.update { it.copy(isLoadingGroup = true, isLoadingExpenses = true, error = null) }
 
-        // Listener for Group Details
-        groupListenerJob = viewModelScope.launch {
-            groupsRepository.getGroupFlow(groupId).collectLatest { group ->
-                _uiState.update {
-                    it.copy(
-                        isLoadingGroup = false, // Group data loaded/updated
-                        group = group,
-                        error = if (group == null && !it.isLoadingExpenses) "Group not found or deleted." else it.error // Set error only if expenses are also done loading and group is still null
-                    )
+        // --- Handle Non-Group Case ---
+        if (groupId == "non_group") {
+            // Create a mock Group object for display
+            val nonGroupPlaceholder = Group(
+                id = "non_group",
+                name = "Non-group Expenses",
+                iconIdentifier = "info", // Use a distinct identifier, maybe map to Icons.Default.Info later
+                members = emptyList() // No specific members apply here in the same way
+            )
+            _uiState.update { it.copy(isLoadingGroup = false, group = nonGroupPlaceholder) } // Set mock group, stop group loading
+
+            // Listener ONLY for Non-Group Expenses
+            expenseListenerJob = viewModelScope.launch {
+                expenseRepository.getNonGroupExpensesFlow(currentUserId ?: "").collectLatest { expenses ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingExpenses = false,
+                            expenses = expenses,
+                            error = null // Clear any previous error
+                        )
+                    }
                 }
-                // TODO: Determine if current user is admin based on group.createdByUid
             }
         }
+        // --- Handle Regular Group Case ---
+        else {
+            // Listener for REAL Group Details
+            groupListenerJob = viewModelScope.launch {
+                groupsRepository.getGroupFlow(groupId).collectLatest { group ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingGroup = false,
+                            group = group,
+                            error = if (group == null && !it.isLoadingExpenses) "Group not found or deleted." else it.error
+                        )
+                    }
+                }
+            }
 
-        // Listener for Expenses
-        expenseListenerJob = viewModelScope.launch {
-            expenseRepository.getExpensesFlowForGroup(groupId).collectLatest { expenses ->
-                _uiState.update {
-                    it.copy(
-                        isLoadingExpenses = false, // Expenses loaded/updated
-                        expenses = expenses,
-                        error = if (it.group == null && !it.isLoadingGroup) "Group not found or deleted." else it.error // Set error only if group is also done loading and group is still null
-                    )
+            // Listener for Group Expenses
+            expenseListenerJob = viewModelScope.launch {
+                expenseRepository.getExpensesFlowForGroup(groupId).collectLatest { expenses ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingExpenses = false,
+                            expenses = expenses,
+                            error = if (it.group == null && !it.isLoadingGroup) "Group not found or deleted." else it.error
+                        )
+                    }
                 }
             }
         }

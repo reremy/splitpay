@@ -145,6 +145,51 @@ class ExpenseRepository(
         }
     }
 
+    /**
+     * Gets a real-time flow of all non-group expenses where the user is a participant.
+     */
+    fun getNonGroupExpensesFlow(currentUserUid: String): Flow<List<Expense>> = callbackFlow {
+        if (currentUserUid.isBlank()) {
+            trySend(emptyList())
+            awaitClose { }
+            return@callbackFlow
+        }
+
+        logD("Starting non-group expense listener for user: $currentUserUid")
+
+        // Query: Get non-group expenses where the user is a participant.
+        // This is the most critical query for balance calculations.
+        val query = expensesCollection
+            .whereEqualTo("groupId", null)
+            .whereArrayContains("participants.uid", currentUserUid)
+
+        val listener = query.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                logE("Non-group expense listener error for $currentUserUid: ${error.message}")
+                close(error) // Close flow on error
+                return@addSnapshotListener
+            }
+            if (snapshot != null) {
+                val expenses = snapshot.toObjects(Expense::class.java)
+                logD("Emitting ${expenses.size} non-group expenses for user $currentUserUid")
+                trySend(expenses) // Emit the latest list
+            } else {
+                logD("Non-group expense snapshot was null for user $currentUserUid")
+                trySend(emptyList()) // Emit empty list if snapshot is null
+            }
+        }
+
+        // Unregister listener when flow is cancelled
+        awaitClose {
+            logD("Stopping non-group expense listener for $currentUserUid")
+            listener.remove()
+        }
+
+        // NOTE: This implementation doesn't listen for expenses where the user
+        // *paid* but wasn't a participant. This is a complex query to do
+        // reactively and can be added later if that edge case is needed.
+    }
+
     // --- Function to delete expenses (needed for Group Delete later) ---
     suspend fun deleteExpensesForGroup(groupId: String): Result<Unit> {
         return try {
@@ -166,6 +211,21 @@ class ExpenseRepository(
             Result.failure(e)
         }
     }
+
+    fun getAllExpensesForUserFlow(userUid: String): Flow<List<Expense>> = callbackFlow {
+        val query = expensesCollection
+            .whereArrayContains("participants.uid", userUid) // Or a more complex query if needed
+
+        val listener = query.addSnapshotListener { snapshot, error ->
+            if (snapshot != null) {
+                trySend(snapshot.toObjects())
+            }
+            // Handle error
+        }
+        awaitClose { listener.remove() }
+    }
+
+
 
     // --- Other potential functions (getExpenseById, update, delete) ... ---
 

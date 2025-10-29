@@ -1,5 +1,6 @@
 package com.example.splitpay.ui.groups
 
+import android.R.attr.onClick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +38,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import com.example.splitpay.data.model.GroupWithBalance
+import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.common.OverallBalanceHeader
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.DarkBackground
@@ -59,8 +62,10 @@ fun formatCurrency(amount: Double): String {
 @Composable
 fun GroupsContent(
     innerPadding: PaddingValues,
+    overallBalance: Double,
     viewModel: GroupsViewModel = viewModel(),
-    onNavigate: (GroupsUiEvent) -> Unit
+    onNavigate: (GroupsUiEvent) -> Unit,
+    navController: NavHostController
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -82,7 +87,7 @@ fun GroupsContent(
     ) {
         // Top Section: Overall Balance (Actions/Icons are now in the main AppTopBar)
         OverallBalanceHeader(
-            totalBalance = uiState.totalNetBalance,
+            totalBalance = overallBalance,
             // Pass only the top padding from the Scaffold's innerPadding
             //topPadding = innerPadding.calculateTopPadding()
         )
@@ -105,7 +110,9 @@ fun GroupsContent(
             ) {
                 // Placeholder for non-group expenses
                 item {
-                    NonGroupExpensesCard()
+                    NonGroupExpensesCard(
+                        onClick = { navController.navigate(Screen.NonGroupDetail) } // Navigate on click
+                    )
                     Spacer(Modifier.height(8.dp))
                 }
 
@@ -212,9 +219,11 @@ fun GroupBalanceCard(
 }
 
 @Composable
-fun NonGroupExpensesCard() {
+fun NonGroupExpensesCard(onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick), // <-- Make Card clickable,
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {

@@ -12,6 +12,10 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
@@ -259,6 +263,46 @@ class UserRepository(
         } catch (e: Exception) {
             logE("Error checking username existence: ${e.message}")
             false // Assume doesn't exist on error
+        }
+    }
+
+    fun getFriendsFlow(userUid: String): Flow<List<User>> = callbackFlow {
+        val docRef = usersCollection.document(userUid)
+
+        val listener = docRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                logE("FriendsFlow listener error: ${error.message}")
+                close(error) // Close the flow on error
+                return@addSnapshotListener
+            }
+
+            if (snapshot != null && snapshot.exists()) {
+                val user = snapshot.toObject(User::class.java)
+                val friendUids = user?.friends ?: emptyList()
+
+                // --- FIX ---
+                // Launch a coroutine from the callbackFlow's scope
+                // to call the suspend function
+                launch {
+                    try {
+                        val profiles = getProfilesForFriends(friendUids)
+                        trySend(profiles) // Send the result
+                    } catch (e: Exception) {
+                        logE("Error fetching profiles in getFriendsFlow: ${e.message}")
+                        trySend(emptyList()) // Send empty on fetching error
+                    }
+                }
+                // --- END FIX ---
+
+            } else {
+                // Handle document not existing or being null
+                trySend(emptyList())
+            }
+        }
+        // This is called when the flow collection stops
+        awaitClose {
+            logD("Stopping Firestore listener for user friends: $userUid")
+            listener.remove()
         }
     }
 }

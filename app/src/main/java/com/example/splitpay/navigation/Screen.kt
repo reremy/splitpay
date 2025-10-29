@@ -7,6 +7,7 @@ object Screen {
     const val Home = "Home"
     const val CreateGroup = "create_group"
     const val GroupDetail = "group_detail/{groupId}"
+    const val NonGroupDetail = "non_group_detail" // Special route for non-group expenses
     const val GroupSettings = "group_settings/{groupId}"
     const val AddGroupMembers = "add_group_members/{groupId}"
     const val AddExpenseWithGroup = "add_expense/{groupId}" // Route for adding with prefilled group

@@ -33,12 +33,14 @@ import androidx.compose.material.icons.filled.FamilyRestroom
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.GroupRemove
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart // NEW IMPORT (Placeholder)
 import androidx.compose.material.icons.filled.SyncAlt // NEW IMPORT (Placeholder)
 import androidx.compose.material.icons.filled.TravelExplore
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -62,6 +64,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,6 +106,7 @@ val availableIconsMap = mapOf(
     "kitchen" to Icons.Default.Dining,
     "other" to Icons.Default.Group,
     "place" to Icons.Default.Place,
+    "info" to Icons.Default.Info // Add info icon mapping
 )
 
 // --- ViewModel Factory ---
@@ -109,11 +114,11 @@ class GroupDetailViewModelFactory(
     private val groupsRepository: GroupsRepository,
     private val expenseRepository: ExpenseRepository,
     private val userRepository: UserRepository
-    // Potentially add SavedStateHandle if needed
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(GroupDetailViewModel::class.java)) {
+            // Pass repositories to ViewModel constructor
             return GroupDetailViewModel(groupsRepository, expenseRepository, userRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
@@ -123,42 +128,62 @@ class GroupDetailViewModelFactory(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
-    groupId: String,
-    // Remove viewModel default, use factory
-    // viewModel: GroupDetailViewModel = viewModel(),
+    groupId: String, // Keep receiving groupId
     navController: NavHostController,
     onNavigateBack: () -> Unit,
-    // Provide default repositories (consider Hilt later)
+    // Provide default repository instances
     groupsRepository: GroupsRepository = GroupsRepository(),
     expenseRepository: ExpenseRepository = ExpenseRepository(),
     userRepository: UserRepository = UserRepository()
 ) {
-// --- Use Factory to create ViewModel ---
+    // Use Factory to create ViewModel
     val factory = GroupDetailViewModelFactory(groupsRepository, expenseRepository, userRepository)
     val viewModel: GroupDetailViewModel = viewModel(factory = factory)
 
-    val uiState by viewModel.uiState.collectAsState() // CORRECTED
+    val uiState by viewModel.uiState.collectAsState()
     val group = uiState.group
     // Use combined loading state or handle separately
     val isLoading = uiState.isLoadingGroup || uiState.isLoadingExpenses
 
-    // --- Call the new loading function ---
+    // --- State for Info Dialog ---
+    val showInfoDialog = remember { mutableStateOf(false) }
+
+    // Call the loading function when groupId changes
     LaunchedEffect(groupId) {
         viewModel.loadGroupAndExpenses(groupId)
+    }
+
+    // --- Info Dialog Composable ---
+    if (showInfoDialog.value) {
+        AlertDialog(
+            onDismissRequest = { showInfoDialog.value = false },
+            title = { Text("Non-Group Expenses Info", color = TextWhite) },
+            text = { Text(
+                "This section shows expenses shared directly with individuals, not within a group setting. These expenses cannot be modified or deleted from this view.",
+                color = Color.Gray
+            )},
+            confirmButton = {
+                Button(
+                    onClick = { showInfoDialog.value = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                ) { Text("OK") }
+            },
+            containerColor = Color(0xFF2D2D2D) // Match theme dark dialog background
+        )
     }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = DarkBackground,
         topBar = {
-            // --- Add TopAppBar ---
             TopAppBar(
                 title = {
                     Text(
-                        group?.name ?: "Group Details", // Show group name or default
+                        // Use group name from state, handles non-group placeholder name
+                        text = uiState.group?.name ?: "Details",
                         color = TextWhite,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis // Handle long names
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 navigationIcon = {
@@ -167,20 +192,36 @@ fun GroupDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        // --- Navigate to the new settings screen ---
-                        navController.navigate("group_settings/$groupId")
-                    }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Group Settings", tint = TextWhite)
+                    // --- MODIFIED: Conditional Icon ---
+                    if (groupId == "non_group") {
+                        // Show Info icon for non-group
+                        IconButton(onClick = { showInfoDialog.value = true }) { // Show dialog on click
+                            Icon(Icons.Default.Info, contentDescription = "Non-Group Info", tint = TextWhite)
+                        }
+                    } else {
+                        // Show Settings icon for regular groups
+                        IconButton(onClick = {
+                            // Navigate to the group settings screen
+                            navController.navigate("group_settings/$groupId")
+                        }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Group Settings", tint = TextWhite)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF2D2D2D)) // Match header color
             )
         },
         floatingActionButton = {
+            // Keep FAB enabled, allowing adding non-group expenses from here or group expenses
             FloatingActionButton(
                 onClick = {
-                    navController.navigate("add_expense/$groupId")
+                    if (groupId == "non_group") {
+                        // Navigate to add expense, passing null for groupId to indicate non-group
+                        navController.navigate(Screen.AddExpenseNoGroup)
+                    } else {
+                        // Navigate to add expense, prefilling the current group ID
+                        navController.navigate("add_expense/$groupId")
+                    }
                 },
                 containerColor = PositiveGreen // Use theme color
             ) {
@@ -196,18 +237,19 @@ fun GroupDetailScreen(
                 .background(DarkBackground)
         ) {
             when {
-                // Show loading indicator if either group or expenses are loading initially
+                // Show loading indicator if either is loading initially
                 isLoading && group == null -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = PrimaryBlue)
                     }
                 }
                 group != null -> {
-                    // Pass group and now expenses down
+                    // Pass group, expenses, and now groupId down
                     GroupDetailContent(
+                        groupId = groupId, // Pass the ID
                         group = group,
-                        expenses = uiState.expenses, // Pass expenses list
-                        viewModel = viewModel // Pass viewModel for helpers
+                        expenses = uiState.expenses,
+                        viewModel = viewModel
                     )
                 }
                 else -> { // Error state or group is null after loading
@@ -222,10 +264,9 @@ fun GroupDetailScreen(
     } // End Scaffold
 }
 
-// --- REINTRODUCE GroupDetailHeader Composable ---
-// (Or create a similar composable to display icon/name below TopAppBar)
+// --- MODIFIED: Accepts iconIdentifier string ---
 @Composable
-fun GroupDetailHeaderDisplay(group: Group) { // Renamed to avoid confusion
+fun GroupDetailHeaderDisplay(group: Group, iconIdentifier: String?) { // Added parameter
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -241,7 +282,8 @@ fun GroupDetailHeaderDisplay(group: Group) { // Renamed to avoid confusion
                 .background(PrimaryBlue),
             contentAlignment = Alignment.Center
         ) {
-            val icon = availableIconsMap[group.iconIdentifier] ?: Icons.Default.Group
+            // --- Use iconIdentifier from map, default to Group icon ---
+            val icon = availableIconsMap[iconIdentifier] ?: Icons.Default.Group // Use map
             Icon(icon, contentDescription = "Group Icon", tint = TextWhite, modifier = Modifier.size(40.dp))
         }
 
@@ -249,19 +291,24 @@ fun GroupDetailHeaderDisplay(group: Group) { // Renamed to avoid confusion
 
         // Group Name
         Text(
-            text = group.name,
+            text = group.name, // Display name from (potentially mock) group object
             color = TextWhite,
-            fontSize = 24.sp, // Larger font size for prominence
+            fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
 
         Spacer(Modifier.height(8.dp))
 
-        // Group Balance (Placeholder from example)
+        // TODO: Calculate and display correct balance (group or non-group)
+        // This requires enhancing the ViewModel to calculate non-group balance too.
+        val isNonGroup = group.id == "non_group"
+        val balanceText = if (isNonGroup) "Your non-group balance: MYR0.00" else "Stevie owes you MYR18.00" // Placeholder
+        val balanceColor = if (isNonGroup) Color.Gray else PositiveGreen // Placeholder color
+
         Text(
-            text = "Stevie owes you MYR18.00", // Example text - Replace with actual data later
-            color = PositiveGreen,
+            text = balanceText,
+            color = balanceColor,
             fontSize = 18.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -269,50 +316,53 @@ fun GroupDetailHeaderDisplay(group: Group) { // Renamed to avoid confusion
 }
 
 
+// --- MODIFIED: Accepts groupId ---
 @Composable
 fun GroupDetailContent(
+    groupId: String, // <-- Added parameter
     group: Group,
-    expenses: List<Expense>, // <-- Receive expenses list
-    viewModel: GroupDetailViewModel // <-- Receive viewModel
+    expenses: List<Expense>,
+    viewModel: GroupDetailViewModel
 ) {
-    // --- CHANGED: Use LazyColumn for the whole screen content ---
+    // Determine if this is the special non-group view
+    val isNonGroup = groupId == "non_group"
+
     LazyColumn(
         modifier = Modifier.fillMaxSize()
-        // No top padding here, header handles it
-        // No bottom padding needed as Scaffold padding is on the Box wrapper
     ) {
-        // --- 1. Custom Top Bar / Header ---
+        // --- 1. Custom Header ---
         item {
-            GroupDetailHeaderDisplay(group = group)
+            // Pass the correct icon identifier from the group object
+            GroupDetailHeaderDisplay(group = group, iconIdentifier = group.iconIdentifier)
             Spacer(Modifier.height(16.dp))
         }
 
-        // --- 2. Action Buttons ---
-        item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                ActionButtonsRow()
-                Spacer(Modifier.height(16.dp))
+        // --- 2. Conditionally hide Action Buttons and Member Status for non-group ---
+        if (!isNonGroup) {
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    ActionButtonsRow()
+                    Spacer(Modifier.height(16.dp))
+                }
+            }
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    GroupMemberStatus(
+                        memberCount = group.members.size,
+                        groupName = group.name,
+                        onAddMemberClick = { /* TODO: Call ViewModel.onShowAddMemberDialog() */ },
+                        onShareLinkClick = { /*TODO*/ }
+                    )
+                    Spacer(Modifier.height(24.dp))
+                }
             }
         }
 
-        // --- 3. Group Status / Member Section ---
-        item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                GroupMemberStatus(
-                    memberCount = group.members.size,
-                    groupName = group.name,
-                    // Pass the ViewModel functions (or keep TODOs for now)
-                    onAddMemberClick = { /* TODO: Call ViewModel.onShowAddMemberDialog() */ },
-                    onShareLinkClick = { /*TODO*/ }
-                )
-                Spacer(Modifier.height(24.dp))
-            }
-        }
-
-        // --- 4. Activities Title ---
+        // --- 3. Activities Title ---
         item {
             Text(
-                text = "Activities", // Title for the list
+                // Adjust title based on whether it's non-group or regular group
+                text = if (isNonGroup) "Non-Group Activities" else "Activities",
                 color = TextWhite,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -321,7 +371,7 @@ fun GroupDetailContent(
             Spacer(Modifier.height(8.dp))
         }
 
-        // --- 5. Activity List ---
+        // --- 4. Activity List ---
         if (expenses.isEmpty() && !viewModel.uiState.value.isLoadingExpenses) { // Check loading state too
             item {
                 Text(
@@ -340,7 +390,7 @@ fun GroupDetailContent(
                 // Format payer summary using ViewModel helper
                 val payerSummary = viewModel.formatPayerSummary(expense)
 
-                ExpenseActivityCard( // Use a new composable for real data
+                ExpenseActivityCard(
                     expense = expense,
                     payerSummary = payerSummary,
                     userLentBorrowed = lentBorrowedText,
@@ -352,7 +402,7 @@ fun GroupDetailContent(
             }
         }
 
-        // --- 6. Spacer at the bottom ---
+        // --- 5. Spacer at the bottom ---
         item {
             Spacer(Modifier.height(72.dp)) // Spacer for FAB
         }
