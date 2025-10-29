@@ -161,8 +161,6 @@ fun GroupSettingsScreen(
                 )
             }
 
-            // TODO: Add ChangeIconDialog
-
             val userToRemove = uiState.showRemoveMemberConfirmation // Get the user object from state
             if (userToRemove != null) {
                 RemoveMemberConfirmationDialog(
@@ -180,7 +178,14 @@ fun GroupSettingsScreen(
             }
 
             // TODO: Add RemoveMemberConfirmationDialog (using uiState.showRemoveMemberConfirmation)
-            // TODO: Add LeaveGroupConfirmationDialog
+
+            if (uiState.showLeaveGroupConfirmation) {
+                LeaveGroupConfirmationDialog(
+                    groupName = group.name, // Pass group name for context
+                    onDismiss = { viewModel.showLeaveGroupConfirmation(false) },
+                    onConfirm = { viewModel.leaveGroup() } // Call leaveGroup function
+                )
+            }
 
 
             // --- ADD: Delete Group Confirmation Dialog ---
@@ -560,7 +565,40 @@ fun CannotRemoveMemberDialog(
     )
 }
 
-// TODO: @Composable fun LeaveGroupConfirmationDialog(...) { ... }
+@Composable
+fun LeaveGroupConfirmationDialog(
+    groupName: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+    // isLoading: Boolean // Optional: for showing loading state on button
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Leave Group?", color = TextWhite) },
+        text = {
+            Text(
+                "Are you sure you want to leave '$groupName'?",
+                color = Color.Gray
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                // enabled = !isLoading,
+                colors = ButtonDefaults.buttonColors(containerColor = NegativeRed) // Red for potentially leaving debts (though checked)
+            ) {
+                // if (isLoading) { /* Show loading indicator */ } else { Text("Leave") }
+                Text("Leave")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss /*, enabled = !isLoading */) {
+                Text("Cancel", color = Color.Gray)
+            }
+        },
+        containerColor = Color(0xFF3C3C3C) // Darker dialog
+    )
+}
 
 
 // --- ADD: Delete Group Confirmation Dialog ---

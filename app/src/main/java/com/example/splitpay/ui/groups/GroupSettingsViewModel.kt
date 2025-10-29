@@ -219,14 +219,6 @@ class GroupSettingsViewModel(
         }
     }
 
-    fun addMembers(selectedFriendUids: List<String>) {
-        if (selectedFriendUids.isEmpty()) return
-        viewModelScope.launch {
-            // TODO: Call groupsRepository.addMembersToGroup(groupId, selectedFriendUids)
-            // On success, reload data? (Group listener might handle this)
-            showAddMemberDialog(false)
-        }
-    }
 
     fun removeMember(memberUidToRemove: String) {
         val memberToRemove = uiState.value.members.find { it.user.uid == memberUidToRemove }
@@ -265,16 +257,41 @@ class GroupSettingsViewModel(
 
     fun leaveGroup() {
         val balance = uiState.value.currentUserBalanceInGroup
-        if (balance != 0.0) { // Using != 0.0, adjust tolerance if needed
-            _uiState.update { it.copy(leaveGroupErrorMessage = "You can't leave the group. You have outstanding debts with other group members.") }
-            showLeaveGroupConfirmation(false) // Hide confirmation if it was shown
+
+        // Check balance first
+        if (balance.absoluteValue > 0.01) { // Using absolute value check
+            _uiState.update { it.copy(
+                leaveGroupErrorMessage = "You can't leave the group until your balance (MYR${roundToCents(balance)}) is settled.",
+                showLeaveGroupConfirmation = false // Hide confirmation if it was shown
+            )}
             return
         }
+
+        // Balance is settled, proceed
+        // Dismiss confirmation dialog before starting async operation
+        _uiState.update { it.copy(showLeaveGroupConfirmation = false) }
+
+        if (currentUserUid == null) {
+            _uiState.update { it.copy(error = "Cannot leave group: User not identified.") }
+            return
+        }
+
         viewModelScope.launch {
-            // Balance is zero, proceed
-            // TODO: Call groupsRepository.removeMemberFromGroup(groupId, currentUserUid!!)
-            // On success, navigate back? (Need Navigation event)
-            showLeaveGroupConfirmation(false)
+            _uiState.update { it.copy(isLoading = true, error = null) } // Show loading
+            val result = groupsRepository.removeMemberFromGroup(groupId, currentUserUid!!) // <-- CALL REPOSITORY with current user UID
+
+            result.onSuccess {
+                logD("User $currentUserUid successfully left group $groupId")
+                _uiEvent.emit(GroupSettingsUiEvent.NavigateBack) // <-- EMIT NAVIGATION EVENT
+            }.onFailure { e ->
+                logE("Failed to leave group $groupId: ${e.message}")
+                _uiState.update { it.copy(isLoading = false, error = "Failed to leave group: ${e.message}") }
+            }
+            // isLoading will be reset implicitly if navigation occurs,
+            // otherwise, ensure it's reset in onFailure or here if needed.
+            if (result.isFailure) {
+                _uiState.update { it.copy(isLoading = false) }
+            }
         }
     }
 
