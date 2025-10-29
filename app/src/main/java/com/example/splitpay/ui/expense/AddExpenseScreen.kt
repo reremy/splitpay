@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,10 +20,13 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search // Added import
 import androidx.compose.material3.AlertDialog
@@ -32,6 +36,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -44,12 +51,15 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -58,6 +68,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.AbstractSavedStateViewModelFactory // Keep this
@@ -80,6 +91,9 @@ import com.example.splitpay.ui.theme.ErrorRed
 import com.example.splitpay.ui.theme.PrimaryBlue
 import com.example.splitpay.ui.theme.TextPlaceholder
 import com.example.splitpay.ui.theme.TextWhite
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
@@ -135,6 +149,28 @@ fun AddExpenseScreen(
 
     val showErrorDialog = remember { mutableStateOf<Pair<String, String>?>(null) }
 
+    // --- Date Picker State ---
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = uiState.date // Initialize with current state date
+    )
+    val showDatePicker = remember { mutableStateOf(false) } // Local state to trigger dialog display
+
+    // --- Memo Dialog State ---
+    val showMemo = remember { mutableStateOf(false) } // Local state
+    // Use rememberSaveable for temporary memo text to survive recomposition within the dialog
+    val memoTextState = rememberSaveable { mutableStateOf(uiState.memo) }
+
+    // --- Observe ViewModel state for dialog visibility ---
+    LaunchedEffect(uiState.isDatePickerDialogVisible) {
+        showDatePicker.value = uiState.isDatePickerDialogVisible
+    }
+    LaunchedEffect(uiState.isMemoDialogVisible) {
+        showMemo.value = uiState.isMemoDialogVisible
+        if (uiState.isMemoDialogVisible) {
+            memoTextState.value = uiState.memo // Update local state when dialog opens
+        }
+    }
+
     UiEventHandler(viewModel.uiEvent) { event ->
         when (event) {
             AddExpenseUiEvent.NavigateBack -> onNavigateBack()
@@ -159,6 +195,96 @@ fun AddExpenseScreen(
         )
     }
 
+    // --- Date Picker Dialog Composable ---
+    if (showDatePicker.value) {
+        DatePickerDialog(
+            onDismissRequest = { viewModel.showDatePickerDialog(false) },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let {
+                        // Convert selected UTC millis to local start of day millis if needed
+                        // For simplicity, directly using selected UTC millis
+                        viewModel.onDateSelected(it)
+                    }
+                }) {
+                    Text("OK", color = PrimaryBlue)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.showDatePickerDialog(false) }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            },
+            colors = DatePickerDefaults.colors(containerColor = Color(0xFF2D2D2D)) // Dark background
+        ) {
+            DatePicker(
+                state = datePickerState,
+                // Customize colors further if needed
+                colors = DatePickerDefaults.colors(
+                    containerColor = Color(0xFF2D2D2D), // Ensure inner container is also dark
+                    titleContentColor = TextWhite,
+                    headlineContentColor = TextWhite,
+                    weekdayContentColor = Color.Gray,
+                    subheadContentColor = TextWhite, // Month/Year selector text
+                    yearContentColor = TextWhite,
+                    currentYearContentColor = PrimaryBlue,
+                    selectedYearContentColor = TextWhite,
+                    selectedYearContainerColor = PrimaryBlue,
+                    dayContentColor = TextWhite,
+                    disabledDayContentColor = Color.Gray.copy(alpha = 0.5f),
+                    selectedDayContentColor = DarkBackground, // Text color on selected day
+                    disabledSelectedDayContentColor = Color.Gray,
+                    selectedDayContainerColor = PrimaryBlue, // Background of selected day
+                    todayContentColor = PrimaryBlue, // Color for today's number (if not selected)
+                    todayDateBorderColor = PrimaryBlue, // Border for today
+                    dayInSelectionRangeContentColor = PrimaryBlue,
+                    dayInSelectionRangeContainerColor = PrimaryBlue.copy(alpha=0.2f)
+                )
+            )
+        }
+    }
+
+    // --- Memo Dialog Composable ---
+    if (showMemo.value) {
+        AlertDialog(
+            onDismissRequest = { viewModel.showMemoDialog(false) },
+            title = { Text("Add Memo", color = TextWhite) },
+            text = {
+                OutlinedTextField(
+                    value = memoTextState.value,
+                    onValueChange = { memoTextState.value = it },
+                    placeholder = { Text("Enter memo details...", color = TextPlaceholder) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.colors( // Use colors for consistency
+                        focusedContainerColor = Color(0xFF3C3C3C),
+                        unfocusedContainerColor = Color(0xFF3C3C3C),
+                        disabledContainerColor = Color(0xFF3C3C3C),
+                        cursorColor = PrimaryBlue,
+                        focusedIndicatorColor = PrimaryBlue,
+                        unfocusedIndicatorColor = Color.Gray,
+                        disabledIndicatorColor = Color.Transparent,
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        disabledTextColor = Color.Gray,
+                        focusedPlaceholderColor = TextPlaceholder,
+                        unfocusedPlaceholderColor = TextPlaceholder
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.onMemoSaved(memoTextState.value) }, // Call new ViewModel function
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                ) { Text("Done") }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.showMemoDialog(false) }) { Text("Cancel", color = Color.Gray) }
+            },
+            containerColor = Color(0xFF2D2D2D) // Dialog background
+        )
+    }
+
     Scaffold(
         topBar = {
             AddExpenseTopBar( // Use imported composable
@@ -174,7 +300,9 @@ fun AddExpenseScreen(
                 initialGroupId = uiState.initialGroupId,
                 currentGroupId = uiState.currentGroupId,
                 currency = uiState.currency,
-                onChooseGroupClick = { viewModel.showGroupSelector(true) }
+                onChooseGroupClick = { viewModel.showGroupSelector(true) },
+                onCalendarClick = { viewModel.showDatePickerDialog(true) },
+                onMemoClick = { viewModel.showMemoDialog(true) }
             )
         },
         containerColor = DarkBackground
@@ -187,6 +315,26 @@ fun AddExpenseScreen(
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+
+            // Display Selected Date
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.CalendarToday, contentDescription = "Date", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(
+                        Date(
+                            uiState.date
+                        )
+                    ), // Format the date
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    modifier = Modifier.clickable { viewModel.showDatePickerDialog(true) } // Allow clicking text too
+                )
+            }
 
             // 1. Paid By / Split Selector (The large middle card in inspo)
             PaidSplitSelector(
@@ -203,6 +351,28 @@ fun AddExpenseScreen(
                 onAmountChange = viewModel::onAmountChange,
                 onDescriptionChange = viewModel::onDescriptionChange
             )
+
+            // Display Memo if exists
+            if (uiState.memo.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).clickable { viewModel.showMemoDialog(true) }, verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Notes, contentDescription = "Memo", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = uiState.memo,
+                            color = TextWhite,
+                            fontSize = 14.sp,
+                            maxLines = 3, // Limit display lines
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
 
             Spacer(Modifier.height(16.dp))
 

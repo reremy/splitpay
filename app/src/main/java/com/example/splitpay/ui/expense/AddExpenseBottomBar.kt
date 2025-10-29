@@ -1,5 +1,6 @@
 package com.example.splitpay.ui.expense
 
+import android.R.attr.onClick
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,7 +35,9 @@ fun AddExpenseBottomBar(
     initialGroupId: String?,
     currentGroupId: String?,
     currency: String,
-    onChooseGroupClick: () -> Unit
+    onChooseGroupClick: () -> Unit,
+    onCalendarClick: () -> Unit,
+    onMemoClick: () -> Unit
 ) {
 
     val (buttonText, buttonColor) = when {
@@ -76,14 +79,14 @@ fun AddExpenseBottomBar(
 
             // Action Icons (Calendar, Camera, Tags)
             Row {
-                IconButton(onClick = { /* TODO: Date picker */ }) {
+                IconButton(onClick = onCalendarClick) {
                     Icon(Icons.Default.CalendarToday, contentDescription = "Calendar", tint = Color.Gray)
                 }
                 IconButton(onClick = { /* TODO: Receipt camera */ }) {
                     Icon(Icons.Default.Receipt, contentDescription = "Receipt", tint = Color.Gray)
                 }
                 // --- UPDATED: Icon and ContentDescription ---
-                IconButton(onClick = { /* TODO: Memo dialog */ }) {
+                IconButton(onClick = onMemoClick) {
                     Icon(Icons.Default.Notes, contentDescription = "Memo", tint = Color.Gray)
                 }
             }

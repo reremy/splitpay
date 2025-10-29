@@ -97,6 +97,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import androidx.lifecycle.SavedStateHandle // <-- Add import
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 // Helper map needed for icon lookup
@@ -419,9 +422,14 @@ fun ExpenseActivityCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
-    // Convert timestamp to Date/Calendar if needed for month/day
-    // For simplicity, using placeholder date for now
-    val day = "??"; val month = "???" // TODO: Format expense.date
+    // Convert timestamp (Long) to Date object
+    val dateObject = Date(expense.date)
+    // Format day ("dd")
+    val dayFormatter = SimpleDateFormat("dd", Locale.getDefault())
+    val day = dayFormatter.format(dateObject)
+    // Format month abbreviation ("MMM")
+    val monthFormatter = SimpleDateFormat("MMM", Locale.getDefault())
+    val month = monthFormatter.format(dateObject).uppercase() // e.g., "OCT"
 
     // Determine icon (placeholder)
     val icon = Icons.Default.ShoppingCart // TODO: Choose icon based on category/type?

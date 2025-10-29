@@ -24,5 +24,7 @@ data class AddExpenseUiState(
     val imageUris: List<String> = emptyList(),
     val isUploadingImages: Boolean = false,
     val initialGroupId: String? = null, // Group ID passed via navigation (if any)
-    val currentGroupId: String? = null // Currently selected group ID (can be null for non-group)
+    val currentGroupId: String? = null, // Currently selected group ID (can be null for non-group)
+    val isDatePickerDialogVisible: Boolean = false,
+    val isMemoDialogVisible: Boolean = false
 )

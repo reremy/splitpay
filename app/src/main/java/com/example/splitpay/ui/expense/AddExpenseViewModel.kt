@@ -338,11 +338,15 @@ class AddExpenseViewModel(
     }
 
     fun onDateSelected(newDateMillis: Long) {
-        _uiState.update { it.copy(date = newDateMillis) }
+        _uiState.update { it.copy(date = newDateMillis, isDatePickerDialogVisible = false) }
     }
 
     fun onMemoChanged(newMemo: String) {
         _uiState.update { it.copy(memo = newMemo) }
+    }
+
+    fun onMemoSaved(finalMemo: String) {
+        _uiState.update { it.copy(memo = finalMemo.trim(), isMemoDialogVisible = false) } // Trim and hide dialog
     }
 
     fun onImageAdded(uriString: String) {
@@ -351,6 +355,14 @@ class AddExpenseViewModel(
 
     fun onImageRemoved(uriString: String) {
         _uiState.update { it.copy(imageUris = it.imageUris - uriString) }
+    }
+
+    fun showDatePickerDialog(isVisible: Boolean) {
+        _uiState.update { it.copy(isDatePickerDialogVisible = isVisible) }
+    }
+
+    fun showMemoDialog(isVisible: Boolean) {
+        _uiState.update { it.copy(isMemoDialogVisible = isVisible) }
     }
 
 
