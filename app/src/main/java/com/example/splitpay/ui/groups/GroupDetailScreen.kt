@@ -220,7 +220,7 @@ fun GroupDetailScreen(
                         navController.navigate(Screen.AddExpense)
                     } else {
                         // Navigate to add expense, prefilling the current group ID
-                        navController.navigate("add_expense/$groupId")
+                        navController.navigate("${Screen.AddExpense}?groupId=$groupId")
                     }
                 },
                 containerColor = PositiveGreen // Use theme color
