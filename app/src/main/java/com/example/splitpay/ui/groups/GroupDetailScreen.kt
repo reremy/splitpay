@@ -100,6 +100,7 @@ import androidx.lifecycle.SavedStateHandle // <-- Add import
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.absoluteValue
 
 
 // Helper map needed for icon lookup
@@ -269,7 +270,12 @@ fun GroupDetailScreen(
 
 // --- MODIFIED: Accepts iconIdentifier string ---
 @Composable
-fun GroupDetailHeaderDisplay(group: Group, iconIdentifier: String?) { // Added parameter
+fun GroupDetailHeaderDisplay(
+    group: Group,
+    iconIdentifier: String?,
+    overallBalance: Double,
+    balanceBreakdown: List<MemberBalanceDetail>
+    ) { // Added parameter
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -301,20 +307,51 @@ fun GroupDetailHeaderDisplay(group: Group, iconIdentifier: String?) { // Added p
             textAlign = TextAlign.Center
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
 
-        // TODO: Calculate and display correct balance (group or non-group)
-        // This requires enhancing the ViewModel to calculate non-group balance too.
-        val isNonGroup = group.id == "non_group"
-        val balanceText = if (isNonGroup) "Your non-group balance: MYR0.00" else "Stevie owes you MYR18.00" // Placeholder
-        val balanceColor = if (isNonGroup) Color.Gray else PositiveGreen // Placeholder color
+        // --- Overall Balance ---
+        val overallBalanceText = when {
+            overallBalance > 0.01 -> "Overall, you are owed ${formatCurrency(overallBalance)}"
+            overallBalance < -0.01 -> "Overall, you owe ${formatCurrency(overallBalance.absoluteValue)}"
+            else -> "You are settled up in this group"
+        }
+        val overallBalanceColor = when {
+            overallBalance > 0.01 -> PositiveGreen
+            overallBalance < -0.01 -> NegativeRed
+            else -> Color.Gray
+        }
 
         Text(
-            text = balanceText,
-            color = balanceColor,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.SemiBold
+            text = overallBalanceText,
+            color = overallBalanceColor,
+            fontSize = 20.sp, // Slightly larger font for overall balance
+            fontWeight = FontWeight.Bold // Make it bold
         )
+
+        // --- Balance Breakdown ---
+        // Only show breakdown if there are details and it's not the non-group placeholder
+        if (balanceBreakdown.isNotEmpty() && group.id != "non_group") {
+            Spacer(Modifier.height(8.dp))
+            balanceBreakdown.forEach { detail ->
+                val breakdownText = when {
+                    // Positive amount means they owe you
+                    detail.amount > 0.01 -> "${detail.memberName} owes you ${formatCurrency(detail.amount)}"
+                    // Negative amount means you owe them
+                    detail.amount < -0.01 -> "You owe ${detail.memberName} ${formatCurrency(detail.amount.absoluteValue)}"
+                    else -> null // Should not happen due to filtering in VM, but good practice
+                }
+                val breakdownColor = if (detail.amount > 0) PositiveGreen else NegativeRed
+
+                if (breakdownText != null) {
+                    Text(
+                        text = breakdownText,
+                        color = breakdownColor,
+                        fontSize = 14.sp, // Smaller font for breakdown
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -327,6 +364,8 @@ fun GroupDetailContent(
     expenses: List<Expense>,
     viewModel: GroupDetailViewModel
 ) {
+
+    val uiState by viewModel.uiState.collectAsState()
     // Determine if this is the special non-group view
     val isNonGroup = groupId == "non_group"
 
@@ -336,7 +375,12 @@ fun GroupDetailContent(
         // --- 1. Custom Header ---
         item {
             // Pass the correct icon identifier from the group object
-            GroupDetailHeaderDisplay(group = group, iconIdentifier = group.iconIdentifier)
+            GroupDetailHeaderDisplay(
+                group = group,
+                iconIdentifier = group.iconIdentifier,
+                overallBalance = uiState.currentUserOverallBalance, // <-- Pass overall balance
+                balanceBreakdown = uiState.balanceBreakdown       // <-- Pass breakdown list
+            )
             Spacer(Modifier.height(16.dp))
         }
 
