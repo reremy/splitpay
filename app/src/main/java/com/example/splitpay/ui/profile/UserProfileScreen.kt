@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
@@ -67,6 +69,7 @@ fun UserProfileScreen(
     mainNavController: NavHostController
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scrollState = rememberScrollState() // <-- Remember scroll state
 
     UiEventHandler(viewModel.uiEvent) { event ->
         when (event) {
@@ -83,30 +86,30 @@ fun UserProfileScreen(
         viewModel.loadUserProfile()
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = DarkBackground,
-    ) { innerPadding ->
-
+    Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) { // Set background here
         if (uiState.isLoading) {
-            Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { // Keep padding for centered items
                 CircularProgressIndicator(color = PrimaryBlue)
             }
         } else if (uiState.error != null) {
-            Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { // Keep padding for centered items
                 Text("Error: ${uiState.error}", color = Color.Red)
             }
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 24.dp),
+                    // Apply innerPadding from the *parent* Scaffold (passed by NavHost in HomeScreen)
+                    // Note: This assumes innerPadding is implicitly available or passed down.
+                    // If not, you might need to adjust padding based on HomeScreen structure.
+                    // For simplicity, let's add standard padding and scrolling:
+                    .padding(horizontal = 16.dp) // Horizontal padding
+                    .verticalScroll(scrollState) // <-- MAKE COLUMN SCROLLABLE
+                    .padding(top = 24.dp, bottom = 16.dp), // Vertical padding (adjust as needed)
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // --- Profile Header ---
                 ProfileHeader(uiState.fullName, uiState.username)
-
                 Spacer(modifier = Modifier.height(32.dp))
 
                 // --- Account Details Section ---
@@ -115,7 +118,6 @@ fun UserProfileScreen(
                     SettingsItemData(Icons.Default.AccountCircle, "Username", "@${uiState.username}"),
                     SettingsItemData(Icons.Default.Email, "Email", uiState.email),
                 ))
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // --- Preferences Section ---
@@ -123,7 +125,6 @@ fun UserProfileScreen(
                     SettingsItemData(Icons.Default.AttachMoney, "Default Currency", "MYR", isClickable = true),
                     SettingsItemData(Icons.Default.Settings, "App Settings", "", isClickable = true),
                 ))
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // --- Security & Actions Section ---

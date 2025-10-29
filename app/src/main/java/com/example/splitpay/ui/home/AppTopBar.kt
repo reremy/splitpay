@@ -31,7 +31,9 @@ fun AppTopBar(
     actions: @Composable RowScope.() -> Unit = {} // Original actions lambda
 ) {
     TopAppBar(
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground),
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = DarkBackground,
+            scrolledContainerColor = DarkBackground),
         // --- Conditionally display Title/Actions OR Search Field ---
         title = {
             if (isSearchActive) {
