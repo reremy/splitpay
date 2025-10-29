@@ -162,7 +162,23 @@ fun GroupSettingsScreen(
             }
 
             // TODO: Add ChangeIconDialog
-            // TODO: Add AddMemberDialog (using uiState.currentUserFriends)
+
+            val userToRemove = uiState.showRemoveMemberConfirmation // Get the user object from state
+            if (userToRemove != null) {
+                RemoveMemberConfirmationDialog(
+                    memberName = userToRemove.username.takeIf { it.isNotBlank() } ?: userToRemove.fullName, // Display name
+                    onDismiss = { viewModel.showRemoveMemberConfirmation(null) }, // Clear state on dismiss
+                    onConfirm = { viewModel.removeMember(userToRemove.uid) } // Call removeMember with UID
+                )
+            }
+
+            if (uiState.cannotRemoveDialogMessage != null) {
+                CannotRemoveMemberDialog(
+                    message = uiState.cannotRemoveDialogMessage!!, // Pass the message
+                    onDismiss = { viewModel.clearCannotRemoveDialog() } // Call dismiss function
+                )
+            }
+
             // TODO: Add RemoveMemberConfirmationDialog (using uiState.showRemoveMemberConfirmation)
             // TODO: Add LeaveGroupConfirmationDialog
 
@@ -489,7 +505,61 @@ fun ChangeIconDialog(
 }
 
 // TODO: @Composable fun AddMemberDialog(...) { ... }
-// TODO: @Composable fun RemoveMemberConfirmationDialog(...) { ... }
+
+@Composable
+fun RemoveMemberConfirmationDialog(
+    memberName: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+    // isRemoving: Boolean, // Optional: for showing loading state on button
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Remove Member?", color = TextWhite) },
+        text = {
+            Text(
+                "Are you sure you want to remove $memberName from this group?",
+                color = Color.Gray
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                // enabled = !isRemoving,
+                colors = ButtonDefaults.buttonColors(containerColor = NegativeRed) // Use red for destructive action
+            ) {
+                // if (isRemoving) { /* Show loading indicator */ } else { Text("Remove") }
+                Text("Remove")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss /*, enabled = !isRemoving */) {
+                Text("Cancel", color = Color.Gray)
+            }
+        },
+        containerColor = Color(0xFF3C3C3C) // Darker dialog
+    )
+}
+
+@Composable
+fun CannotRemoveMemberDialog(
+    message: String,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cannot Remove Member", color = TextWhite) },
+        text = { Text(message, color = Color.Gray) }, // Display the message from state
+        confirmButton = {
+            Button(
+                onClick = onDismiss, // OK button simply dismisses
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            ) { Text("OK") }
+        },
+        containerColor = Color(0xFF3C3C3C) // Darker dialog
+    )
+}
+
 // TODO: @Composable fun LeaveGroupConfirmationDialog(...) { ... }
 
 

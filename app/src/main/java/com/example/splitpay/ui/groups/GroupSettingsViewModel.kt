@@ -1,5 +1,6 @@
 package com.example.splitpay.ui.groups
 
+import android.util.Log.e
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +12,7 @@ import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logD
 import com.example.splitpay.logger.logE
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -20,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
 
 // Represents a member displayed in the UI, including their balance within the group
 data class GroupMemberViewData(
@@ -49,6 +53,7 @@ data class GroupSettingsUiState(
     val showLeaveGroupConfirmation: Boolean = false,
     val showDeleteGroupConfirmation: Boolean = false,
     val leaveGroupErrorMessage: String? = null, // For "cannot leave due to balance"
+    val cannotRemoveDialogMessage: String? = null // Message for the "Cannot Remove" dialog
 )
 
 class GroupSettingsViewModel(
@@ -93,36 +98,69 @@ class GroupSettingsViewModel(
                 _uiState.update { it.copy(isLoading = true, group = group, isCurrentUserAdmin = (group.createdByUid == currentUserUid)) }
 
                 try {
-                    // Fetch member details based on the latest members list
-                    val memberDetails = userRepository.getProfilesForFriends(group.members)
-                    // TODO: Calculate each member's balance within this group
-                    val membersWithBalance = memberDetails.map { user ->
-                        GroupMemberViewData(user = user, balance = 0.0) // Placeholder balance
-                    }
+                    // --- Fetch Expenses for THIS group ---
+                    // Note: If ExpenseRepository provided a flow, we'd combine it earlier.
+                    // Assuming a suspend function getExpensesForGroup exists for now.
+                    // If not, we might need to adapt this or use the existing flow differently.
+                    // For simplicity, let's assume a one-time fetch or use the flow inside.
+                    // Using the flow approach:
+                    expenseRepository.getExpensesFlowForGroup(groupId).collectLatest { groupExpenses ->
 
-                    // Fetch current user's friends (for adding members) - could be optimized
-                    val friendIds = userRepository.getCurrentUserFriendIds()
-                    val friends = userRepository.getProfilesForFriends(friendIds)
+                        // Fetch member details (can run concurrently with expense fetch if needed)
+                        val memberDetailsDeferred = async { userRepository.getProfilesForFriends(group.members) }
+                        val friendIdsDeferred = async { userRepository.getCurrentUserFriendIds() } // For Add Friend dialog later
 
-                    // TODO: Calculate current user's balance within this group
-                    val currentUserBalance = 0.0 // Placeholder balance
+                        val memberDetails = memberDetailsDeferred.await()
+                        val friendIds = friendIdsDeferred.await() // Await friend IDs
+                        val friendsDeferred = async { userRepository.getProfilesForFriends(friendIds) } // Fetch friend profiles
 
-                    // Update the rest of the state
-                    _uiState.update {
-                        it.copy(
-                            isLoading = false, // Loading complete for this update cycle
-                            members = membersWithBalance,
-                            currentUserFriends = friends,
-                            currentUserBalanceInGroup = currentUserBalance,
-                            error = null // Clear previous errors on successful update
-                        )
-                    }
+
+                        // --- Calculate Balances ---
+                        var calculatedCurrentUserBalance = 0.0
+                        val balances = mutableMapOf<String, Double>() // Map UID to balance within this group
+
+                        groupExpenses.forEach { expense ->
+                            expense.paidBy.forEach { payer ->
+                                balances[payer.uid] = (balances[payer.uid] ?: 0.0) + payer.paidAmount
+                            }
+                            expense.participants.forEach { participant ->
+                                balances[participant.uid] = (balances[participant.uid] ?: 0.0) - participant.owesAmount
+                            }
+                        }
+
+                        val membersWithBalance = memberDetails.map { user ->
+                            val balance = roundToCents(balances[user.uid] ?: 0.0)
+                            // Update overall current user balance calculation
+                            if (user.uid == currentUserUid) {
+                                calculatedCurrentUserBalance = balance
+                            }
+                            GroupMemberViewData(user = user, balance = balance)
+                        }
+
+                        val friends = friendsDeferred.await() // Await friend profiles
+
+                        // Update the state with calculated balances and friends
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false, // Loading complete
+                                members = membersWithBalance,
+                                currentUserFriends = friends, // For Add Dialog later
+                                currentUserBalanceInGroup = calculatedCurrentUserBalance, // Use calculated value
+                                error = null
+                            )
+                        }
+                    } // End expense collection
                 } catch (e: Exception) {
-                    logE("Error loading related data after group update: ${e.message}")
-                    _uiState.update { it.copy(isLoading = false, error = "Failed to load member/friend data.") }
+                    logE("Error loading related data or calculating balances: ${e.message}")
+                    _uiState.update { it.copy(isLoading = false, error = "Failed to load details or calculate balances.") }
                 }
-            }
+            } // End group collection
         }
+    }
+
+    // --- Helper function for rounding ---
+    private fun roundToCents(value: Double): Double {
+        return (value * 100.0).roundToInt() / 100.0
     }
 
         // --- Dialog Visibility Handlers ---
@@ -133,6 +171,10 @@ class GroupSettingsViewModel(
     fun showLeaveGroupConfirmation(show: Boolean) = _uiState.update { it.copy(showLeaveGroupConfirmation = show) }
     fun showDeleteGroupConfirmation(show: Boolean) = _uiState.update { it.copy(showDeleteGroupConfirmation = show) }
     fun clearLeaveGroupError() = _uiState.update { it.copy(leaveGroupErrorMessage = null) }
+
+    fun clearCannotRemoveDialog() {
+        _uiState.update { it.copy(cannotRemoveDialogMessage = null) }
+    }
 
     // --- Action Handlers (Placeholders - Need Implementation) ---
 
@@ -186,12 +228,38 @@ class GroupSettingsViewModel(
         }
     }
 
-    fun removeMember(memberUid: String) {
+    fun removeMember(memberUidToRemove: String) {
+        val memberToRemove = uiState.value.members.find { it.user.uid == memberUidToRemove }
+
+        // Rule: Check balance before removing
+        if (memberToRemove != null && memberToRemove.balance.absoluteValue > 0.01) {
+            // --- INSTEAD of setting general error, set the specific dialog message ---
+            val message = "You can't remove ${memberToRemove.user.username} until their debts (MYR${roundToCents(memberToRemove.balance)}) are settled up."
+            _uiState.update { it.copy(
+                cannotRemoveDialogMessage = message, // Set message for the specific dialog
+                showRemoveMemberConfirmation = null // Dismiss confirmation dialog
+            )}
+            return // Stop removal process
+        }
+
+        // Proceed with removal if balance is settled or member info wasn't found
+        // Dismiss the confirmation dialog *before* starting the async operation
+        _uiState.update { it.copy(showRemoveMemberConfirmation = null) }
+
         viewModelScope.launch {
-            // TODO: Check member balance first if required by rules
-            // TODO: Call groupsRepository.removeMemberFromGroup(groupId, memberUid)
-            // On success, reload data? (Group listener might handle this)
-            showRemoveMemberConfirmation(null) // Dismiss confirmation
+            _uiState.update { it.copy(isLoading = true, error = null) } // Show brief loading
+            val result = groupsRepository.removeMemberFromGroup(groupId, memberUidToRemove) // <-- CALL REPOSITORY
+
+            result.onSuccess {
+                logD("Successfully removed member $memberUidToRemove from group $groupId")
+                // Listener should automatically update the member list in the UI
+                _uiState.update { it.copy(isLoading = false, error = null) }
+            }.onFailure { e ->
+                logE("Failed to remove member $memberUidToRemove: ${e.message}")
+                // Set general error for repository failures
+                _uiState.update { it.copy(isLoading = false, error = "Failed to remove member: ${e.message}") }
+            }
+            // No need to dismiss confirmation dialog again here
         }
     }
 
