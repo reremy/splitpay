@@ -10,13 +10,19 @@ import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logD
 import com.example.splitpay.logger.logE
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.collections.flatten
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
@@ -56,23 +62,54 @@ class GroupsViewModel(
     }
 
     // Renamed function to reflect balance calculation
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun collectGroupsAndBalances() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val currentUid = currentUserUid!! // Safe non-null access here
 
             try {
-                // Combine the flow of groups with fetched expenses
-                groupsRepository.getGroups().collect { groups ->
-                    _uiState.update { it.copy(isLoading = true) } // Set loading true while calculating
+                // Get the flow of groups
+                val groupsFlow = groupsRepository.getGroups()
+
+                // Transform the flow of groups into a flow of *all* their expenses combined
+                // flatMapLatest ensures that if the group list changes,
+                // we cancel old expense listeners and create new ones.
+                val expensesFlow = groupsFlow.flatMapLatest { groups ->
+                    if (groups.isEmpty()) {
+                        // If no groups, emit an empty list of expenses
+                        flowOf(emptyList<Expense>())
+                    } else {
+                        // Create a list of expense flows, one for each group
+                        val expenseFlows: List<Flow<List<Expense>>> = groups.map { group ->
+                            expenseRepository.getExpensesFlowForGroup(group.id)
+                        }
+
+                        // Combine all these individual flows into one flow that
+                        // emits a single, flattened list of all expenses
+                        combine(expenseFlows) { arrayOfExpenseLists ->
+                            // arrayOfExpenseLists is an Array<List<Expense>>
+                            // Flatten it into a single List<Expense>
+                            arrayOfExpenseLists.asList().flatten()
+                        }
+                    }
+                }
+
+                // --- NOW, combine the groupsFlow and this new expensesFlow ---
+                // This block will re-execute when EITHER the list of groups changes
+                // OR any of the expenses within those groups change.
+                combine(groupsFlow, expensesFlow) { groups, allExpenses ->
+
+                    // Set loading true while calculating balances
+                    _uiState.update { it.copy(isLoading = true) }
 
                     if (groups.isEmpty()) {
                         _uiState.update { it.copy(isLoading = false, groupsWithBalances = emptyList(), totalNetBalance = 0.0) }
-                        return@collect // Exit if no groups
+                        return@combine // Exit if no groups
                     }
 
-                    // Fetch expenses for all groups concurrently
-                    val groupExpensesMap = fetchExpensesForGroups(groups.map { it.id })
+                    // Group the expenses by group ID for faster lookup
+                    val groupExpensesMap = allExpenses.groupBy { it.groupId ?: "" }
 
                     var overallNetBalance = 0.0
                     val groupsWithCalculatedBalances = groups.map { group ->
@@ -109,7 +146,8 @@ class GroupsViewModel(
                             error = null
                         )
                     }
-                } // End collect groups
+                }.collect() // Start collecting this combined flow
+
             } catch (e: Exception) {
                 logE("Error collecting groups and calculating balances: ${e.message}")
                 _uiState.update { it.copy(isLoading = false, error = "Failed to load group balances.") }
