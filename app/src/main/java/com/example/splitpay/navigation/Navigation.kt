@@ -158,9 +158,15 @@ fun Navigation(
 
         // --- Add Expense Routes ---
         composable(
-            route = Screen.AddExpenseWithGroup, // Use constant from Screen.kt
-            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
-            // ... transitions ...
+            route = Screen.AddExpenseRoute, // Use constant from Screen.kt
+            arguments = listOf(
+                // Define groupId as a query parameter, making it optional and nullable
+                navArgument("groupId") {
+                    type = NavType.StringType
+                    nullable = true // Mark as nullable
+                    defaultValue = null // Explicitly set default to null
+                }
+            )            // ... transitions ...
         ) { backStackEntry ->
             val groupIdFromBackStack = backStackEntry.arguments?.getString("groupId")
             Log.d(
@@ -174,18 +180,6 @@ fun Navigation(
                 onSaveSuccess = { navEvent -> 
                     // Navigate back to the previous screen (GroupDetailScreen)
                     navController.popBackStack() }
-            )
-        }
-        composable(
-            route = Screen.AddExpenseNoGroup, // Use constant from Screen.kt
-            // ... transitions ...
-        ) { backStackEntry ->
-            Log.d("AddExpenseDebug", "Nav->AddExpenseNoGroup route entered")
-            AddExpenseScreen(
-                navBackStackEntry = backStackEntry,
-                prefilledGroupId = null,
-                onNavigateBack = { navController.popBackStack() },
-                onSaveSuccess = { navEvent -> /* ... */ }
             )
         }
 

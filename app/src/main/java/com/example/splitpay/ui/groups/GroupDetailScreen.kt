@@ -217,7 +217,7 @@ fun GroupDetailScreen(
                 onClick = {
                     if (groupId == "non_group") {
                         // Navigate to add expense, passing null for groupId to indicate non-group
-                        navController.navigate(Screen.AddExpenseNoGroup)
+                        navController.navigate(Screen.AddExpense)
                     } else {
                         // Navigate to add expense, prefilling the current group ID
                         navController.navigate("add_expense/$groupId")

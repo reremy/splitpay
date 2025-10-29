@@ -128,7 +128,7 @@ fun HomeScreen3(
                     onClick = {
                         // **This FAB now directs to Add Expense (or other primary action)**
                         // Replace Screen.CreateGroup with your new "Screen.AddExpense" route
-                        mainNavController.navigate("add_expense_no_group") // TEMPORARY: Navigate to an expense/add screen
+                        mainNavController.navigate(Screen.AddExpense) // TEMPORARY: Navigate to an expense/add screen
                     },
                     containerColor = Color(0xFF66BB6A)
                 ) {
