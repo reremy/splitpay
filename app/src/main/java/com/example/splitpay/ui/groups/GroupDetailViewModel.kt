@@ -131,8 +131,8 @@ class GroupDetailViewModel(
                             val currentUserNet = currentUserPaid - currentUserOwes
                             val memberNet = memberPaid - memberOwes
 
-                            // If currentUserNet > memberNet, member owes currentUser for half the difference for this expense
-                            balanceWithMember += (currentUserNet - memberNet) / 2.0
+                            val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
+                            balanceWithMember += (currentUserNet - memberNet) / numParticipants
                         }
 
                         val roundedBalanceWithMember = roundToCents(balanceWithMember)

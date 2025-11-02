@@ -136,7 +136,8 @@ class GroupsViewModel(
                                         val memberOwes = relevantExpense.participants.find { it.uid == memberUid }?.owesAmount ?: 0.0
                                         val currentUserNet = currentUserPaid - currentUserOwes
                                         val memberNet = memberPaid - memberOwes
-                                        balanceWithMember += (currentUserNet - memberNet) / 2.0
+                                        val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
+                                        balanceWithMember += (currentUserNet - memberNet) / numParticipants
                                     }
                                     val roundedBalanceWithMember = roundToCents(balanceWithMember)
                                     if (roundedBalanceWithMember.absoluteValue > 0.01) {

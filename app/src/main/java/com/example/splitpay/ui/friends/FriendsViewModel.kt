@@ -317,9 +317,8 @@ class FriendsViewModel(
         val netContributionCurrentUser = paidByCurrentUser - shareOwedByCurrentUser
         val netContributionFriend = paidByFriend - shareOwedByFriend
 
-        // This calculation determines the net flow *between only these two users*
-        val balanceChange = (netContributionCurrentUser - netContributionFriend) / 2.0
-
+        val numParticipants = expense.participants.size.toDouble().coerceAtLeast(1.0) // Avoid division by zero
+        val balanceChange = (netContributionCurrentUser - netContributionFriend) / numParticipants // <-- NEW
         return balanceChange
     }
 

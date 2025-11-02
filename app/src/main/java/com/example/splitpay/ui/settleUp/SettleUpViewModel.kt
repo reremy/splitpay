@@ -105,7 +105,8 @@ class SettleUpViewModel(
                                     val memberNet = memberPaid - memberOwes
 
                                     // This logic might need refinement, but it's a start
-                                    balanceWithMember += (currentUserNet - memberNet) / 2.0
+                                    val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
+                                    balanceWithMember += (currentUserNet - memberNet) / numParticipants
                                 }
 
                                 val roundedBalanceWithMember = roundToCents(balanceWithMember)
