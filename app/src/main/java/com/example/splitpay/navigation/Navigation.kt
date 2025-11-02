@@ -37,6 +37,9 @@ import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import com.example.splitpay.ui.groups.AddGroupMembersScreen // <-- ADD THIS IMPORT
 import com.example.splitpay.ui.groups.GroupSettingsScreen
+import com.example.splitpay.ui.recordPayment.RecordPaymentScreen
+import com.example.splitpay.ui.settleUp.SettleUpScreen
+import kotlin.math.absoluteValue
 
 // Navigation.kt
 @Composable
@@ -265,6 +268,67 @@ fun Navigation(
                 groupId = groupId,
                 onNavigateBack = { navController.popBackStack() }
             )
+        }
+
+        // --- NEW: Settle Up Flow ---
+        composable(
+            route = Screen.SettleUpRoute,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+            // Add transitions (e.g., slide up from bottom)
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            SettleUpScreen(
+                groupId = groupId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRecordPayment = { gid, memberUid, balance ->
+                    // Convert float to string for nav argument
+                    val balanceStr = balance.toString()
+                    navController.navigate("${Screen.RecordPayment}/$gid?memberUid=$memberUid&balance=$balanceStr")
+                },
+                onNavigateToMoreOptions = { gid ->
+                    navController.navigate("${Screen.MoreOptions}/$gid")
+                }
+            )
+        }
+
+        composable(
+            route = Screen.RecordPaymentRoute,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType },
+                navArgument("memberUid") { type = NavType.StringType },
+                navArgument("balance") { type = NavType.StringType } // Pass balance as string
+            )
+        ) { backStackEntry ->
+            // --- REPLACE PLACEHOLDER ---
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            val memberUid = backStackEntry.arguments?.getString("memberUid") ?: ""
+            val balance = backStackEntry.arguments?.getString("balance") ?: "0.0"
+
+            RecordPaymentScreen(
+                groupId = groupId,
+                memberUid = memberUid,
+                balance = balance,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.MoreOptionsRoute,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType })
+        ) {
+            // Placeholder Screen
+            Box(
+                modifier = Modifier.fillMaxSize().background(DarkBackground),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("More Options (Placeholder)", color = TextWhite)
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = { navController.popBackStack() }) {
+                        Text("Go Back (Placeholder)")
+                    }
+                }
+            }
         }
 
     } // End NavHost

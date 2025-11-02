@@ -253,7 +253,8 @@ fun GroupDetailScreen(
                         groupId = groupId, // Pass the ID
                         group = group,
                         expenses = uiState.expenses,
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        navController = navController // <-- PASS NAVCONTROLLER
                     )
                 }
                 else -> { // Error state or group is null after loading
@@ -275,7 +276,7 @@ fun GroupDetailHeaderDisplay(
     iconIdentifier: String?,
     overallBalance: Double,
     balanceBreakdown: List<MemberBalanceDetail>
-    ) { // Added parameter
+) { // Added parameter
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -362,7 +363,8 @@ fun GroupDetailContent(
     groupId: String, // <-- Added parameter
     group: Group,
     expenses: List<Expense>,
-    viewModel: GroupDetailViewModel
+    viewModel: GroupDetailViewModel,
+    navController: NavHostController // <-- Added NavController
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
@@ -388,7 +390,8 @@ fun GroupDetailContent(
         if (!isNonGroup) {
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    ActionButtonsRow()
+                    // --- PASS NAVCONTROLLER AND GROUPID ---
+                    ActionButtonsRow(navController = navController, groupId = groupId)
                     Spacer(Modifier.height(16.dp))
                 }
             }
@@ -550,14 +553,21 @@ fun ExpenseActivityCard(
 
 
 @Composable
-fun ActionButtonsRow() {
+fun ActionButtonsRow(
+    navController: NavHostController, // <-- Add NavController
+    groupId: String // <-- Add groupId
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceAround
     ) {
-        ActionButton("Settle Up", {})
+        // --- MODIFIED ONCLICK ---
+        ActionButton(
+            "Settle Up",
+            { navController.navigate("${Screen.SettleUp}/$groupId") }
+        )
         ActionButton("Charts", {})
         ActionButton("Balances", {})
         ActionButton("Total", {})
