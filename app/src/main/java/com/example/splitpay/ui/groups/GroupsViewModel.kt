@@ -37,6 +37,9 @@ sealed interface GroupsUiEvent {
 data class GroupsUiState(
     val isLoading: Boolean = true,
     val groupsWithBalances: List<GroupWithBalance> = emptyList(),
+    // --- START OF FIX 1 ---
+    val nonGroupBalance: Double = 0.0, // <-- ADD THIS FIELD
+    // --- END OF FIX 1 ---
     val error: String? = null,
     val membersMap: Map<String, User> = emptyMap()
 )
@@ -72,10 +75,11 @@ class GroupsViewModel(
             val currentUid = currentUserUid!!
 
             try {
-                // Combine groups flow and the flow of all relevant expenses
+                // --- START OF FIX 2 ---
+                // Combine groups flow, the flow of all RELEVANT group expenses, AND the non-group expenses flow
                 combine(
-                    groupsRepository.getGroups(),
-                    groupsRepository.getGroups().flatMapLatest { groups ->
+                    groupsRepository.getGroups(), // Flow<List<Group>>
+                    groupsRepository.getGroups().flatMapLatest { groups -> // Flow<List<Expense>> (for groups)
                         if (groups.isEmpty()) {
                             flowOf(emptyList<Expense>())
                         } else {
@@ -84,16 +88,28 @@ class GroupsViewModel(
                                 arrayOfExpenseLists.asList().flatten()
                             }
                         }
-                    }
-                ) { groups, allExpenses ->
+                    },
+                    expenseRepository.getExpensesFlowForGroup("non_group") // Flow<List<Expense>> (for non-group)
+                ) { groups, allGroupExpenses, nonGroupExpenses -> // <-- Added nonGroupExpenses
+                    // --- END OF FIX 2 ---
                     _uiState.update { it.copy(isLoading = true) } // Show loading during recalc
 
-                    // --- CORRECTED BLOCK ---
-                    if (groups.isEmpty()) {
-                        // Instead of just updating state and returning Unit,
-                        // return the empty Pair that collectLatest expects.
+                    // --- START OF FIX 3 ---
+                    // 1. Calculate Non-Group Balance
+                    var calculatedNonGroupBalance = 0.0
+                    nonGroupExpenses.forEach { expense ->
+                        val userPaid = expense.paidBy.find { it.uid == currentUid }?.paidAmount ?: 0.0
+                        val userOwed = expense.participants.find { it.uid == currentUid }?.owesAmount ?: 0.0
+                        calculatedNonGroupBalance += (userPaid - userOwed)
+                    }
+                    val finalNonGroupBalance = roundToCents(calculatedNonGroupBalance)
+                    // --- END OF FIX 3 ---
+
+
+                    // --- 2. Calculate Group Balances (existing logic) ---
+                    val (calculatedGroups, membersMap) = if (groups.isEmpty()) {
+                        // Return empty pair if no groups
                         Pair(emptyList<GroupWithBalance>(), emptyMap<String, User>())
-                        // --- END CORRECTION ---
                     } else {
                         // --- Fetch All Member Details Once ---
                         val allMemberUids = groups.flatMap { it.members }.distinct()
@@ -104,10 +120,9 @@ class GroupsViewModel(
                         }
                         // --- End Member Fetch ---
 
-                        val groupExpensesMap = allExpenses.groupBy { it.groupId ?: "" }
+                        val groupExpensesMap = allGroupExpenses.groupBy { it.groupId ?: "" }
 
                         val groupsWithCalculatedBalances = groups.map { group ->
-                            // ... (rest of the calculation logic remains the same) ...
                             val expensesInGroup = groupExpensesMap[group.id] ?: emptyList()
                             var groupNetBalance = 0.0
                             val memberBalancesInGroup = mutableMapOf<String, Double>()
@@ -136,16 +151,12 @@ class GroupsViewModel(
                                         val memberPaid = relevantExpense.paidBy.find { it.uid == memberUid }?.paidAmount ?: 0.0
                                         val memberOwes = relevantExpense.participants.find { it.uid == memberUid }?.owesAmount ?: 0.0
                                         if (relevantExpense.expenseType == ExpenseType.PAYMENT) {
-                                            // This is a direct payment (like a Settle Up)
                                             if (currentUserPaid > 0) {
-                                                // I paid the member
                                                 balanceWithMember += currentUserPaid
                                             } else if (memberPaid > 0) {
-                                                // The member paid me
                                                 balanceWithMember -= memberPaid
                                             }
                                         } else {
-                                            // This is a shared expense, use the split logic
                                             val currentUserNet = currentUserPaid - currentUserOwes
                                             val memberNet = memberPaid - memberOwes
                                             val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
@@ -170,16 +181,24 @@ class GroupsViewModel(
                         Pair(groupsWithCalculatedBalances, membersMap)
                     }
 
-                }.collectLatest { (calculatedGroups, membersMap) -> // Collect the Pair
-                    // This block will now *always* receive a Pair
+                    // --- START OF FIX 4 ---
+                    // 3. Return a Triple containing all data
+                    Triple(calculatedGroups, membersMap, finalNonGroupBalance)
+                    // --- END OF FIX 4 ---
+
+                }.collectLatest { (calculatedGroups, membersMap, nonGroupBalance) -> // <-- Collect the Triple
+                    // --- START OF FIX 5 ---
+                    // This block will now *always* receive a Triple
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             groupsWithBalances = calculatedGroups,
                             membersMap = membersMap,
+                            nonGroupBalance = nonGroupBalance, // <-- Update the state
                             error = null
                         )
                     }
+                    // --- END OF FIX 5 ---
                 }
 
             } catch (e: Exception) {
@@ -219,6 +238,4 @@ class GroupsViewModel(
     private fun roundToCents(value: Double): Double {
         return (value * 100.0).roundToInt() / 100.0
     }
-
-
 }

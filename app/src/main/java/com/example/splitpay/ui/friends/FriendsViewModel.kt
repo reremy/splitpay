@@ -91,8 +91,10 @@ class FriendsViewModel(
     } else {
         // Combine group expenses and non-group expenses reactively
         groupsFlow.flatMapLatest { groups ->
-            // Get flow for non-group expenses
-            val nonGroupExpenseFlow = expenseRepository.getNonGroupExpensesFlow(currentUserUid)
+            // --- START OF FIX 1 ---
+            // Get flow for non-group expenses using the correct ID
+            val nonGroupExpenseFlow = expenseRepository.getExpensesFlowForGroup("non_group")
+            // --- END OF FIX 1 ---
 
             if (groups.isEmpty()) {
                 // If no groups, just return the non-group expenses
@@ -138,9 +140,13 @@ class FriendsViewModel(
 
             logD("Recalculating FriendsUiState...")
 
+            // --- START OF FIX 2 ---
             // 1. Separate expenses for easier processing
-            val groupExpensesMap = allExpenses.filter { it.groupId != null }.groupBy { it.groupId }
-            val nonGroupExpenses = allExpenses.filter { it.groupId == null }
+            // Group expenses = not null AND not "non_group"
+            val groupExpensesMap = allExpenses.filter { it.groupId != null && it.groupId != "non_group" }.groupBy { it.groupId }
+            val nonGroupExpenses = allExpenses.filter { it.groupId == "non_group" }
+            // --- END OF FIX 2 ---
+
 
             var totalOverallBalance = 0.0
 
@@ -151,7 +157,7 @@ class FriendsViewModel(
                     friendUid = friend.uid,
                     allUserGroups = allGroups,
                     groupExpensesMap = groupExpensesMap,
-                    allNonGroupExpenses = nonGroupExpenses
+                    allNonGroupExpenses = nonGroupExpenses // Pass the correctly filtered list
                 )
                 totalOverallBalance += netBalance
                 FriendWithBalance(
@@ -238,7 +244,7 @@ class FriendsViewModel(
         friendUid: String,
         allUserGroups: List<Group>,
         groupExpensesMap: Map<String?, List<Expense>>,
-        allNonGroupExpenses: List<Expense>
+        allNonGroupExpenses: List<Expense> // This list is now correctly filtered for "non_group"
     ): Pair<Double, List<BalanceDetail>> {
         val balanceDetails = mutableListOf<BalanceDetail>()
         var netBalance = 0.0
@@ -337,4 +343,3 @@ class FriendsViewModel(
         return (value * 100.0).roundToInt() / 100.0
     }
 }
-//yes

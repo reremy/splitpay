@@ -66,7 +66,7 @@ fun formatCurrency(amount: Double): String {
 @Composable
 fun GroupsContent(
     innerPadding: PaddingValues,
-    overallBalance: Double,
+    overallBalance: Double, // This is from HomeViewModel, we will ignore it for the header
     viewModel: GroupsViewModel = viewModel(),
     onNavigate: (GroupsUiEvent) -> Unit,
     navController: NavHostController
@@ -82,16 +82,24 @@ fun GroupsContent(
             GroupsUiEvent.NavigateToCreateGroup -> onNavigate(event)
         }
     }
-    // ----------------------------------------------------------------
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(DarkBackground)
     ) {
-        // Top Section: Overall Balance (Actions/Icons are now in the main AppTopBar)
+        // --- START OF FIX ---
+        // Calculate the total balance *for this tab* from the GroupsViewModel's state
+        val groupsBalance = uiState.groupsWithBalances.sumOf { it.userNetBalance }
+        val nonGroupBalance = uiState.nonGroupBalance
+        val groupsTabTotalBalance = groupsBalance + nonGroupBalance
+        // --- END OF FIX ---
+
+
+        // Top Section: Overall Balance
         OverallBalanceHeader(
-            totalBalance = overallBalance,
+            // Use the correctly calculated total for *this tab*
+            totalBalance = groupsTabTotalBalance,
             // Pass only the top padding from the Scaffold's innerPadding
             //topPadding = innerPadding.calculateTopPadding()
         )
@@ -115,6 +123,10 @@ fun GroupsContent(
                 // Placeholder for non-group expenses
                 item {
                     NonGroupExpensesCard(
+                        // --- START OF FIX ---
+                        // Pass the balance from the uiState
+                        balance = uiState.nonGroupBalance,
+                        // --- END OF FIX ---
                         onClick = { navController.navigate(Screen.NonGroupDetail) } // Navigate on click
                     )
                     Spacer(Modifier.height(8.dp))
@@ -149,13 +161,13 @@ fun GroupBalanceCard(
     val breakdown = groupWithBalance.simplifiedOwedBreakdown
 
     // Determine the text and color based on net balance
-    val balanceText = if (balance > 0) "you are owed ${formatCurrency(balance)}"
-    else if (balance < 0) "you owe ${formatCurrency(-balance)}"
+    val balanceText = if (balance > 0.01) "you are owed ${formatCurrency(balance)}"
+    else if (balance < -0.01) "you owe ${formatCurrency(-balance)}"
     else "settled up"
 
     val balanceColor = when {
-        balance > 0 -> Color(0xFF66BB6A) // Green
-        balance < 0 -> ErrorRed // Red
+        balance > 0.01 -> PositiveGreen // Green
+        balance < -0.01 -> ErrorRed // Red
         else -> Color.Gray
     }
 
@@ -241,11 +253,27 @@ fun GroupBalanceCard(
 }
 
 @Composable
-fun NonGroupExpensesCard(onClick: () -> Unit) {
+fun NonGroupExpensesCard(
+    balance: Double, // <-- ADDED PARAMETER
+    onClick: () -> Unit
+) {
+    // --- START OF FIX ---
+    // Determine text and color based on the passed-in balance
+    val balanceText = if (balance > 0.01) "you are owed ${formatCurrency(balance)}"
+    else if (balance < -0.01) "you owe ${formatCurrency(balance.absoluteValue)}"
+    else "no expenses"
+
+    val balanceColor = when {
+        balance > 0.01 -> PositiveGreen
+        balance < -0.01 -> NegativeRed
+        else -> Color.Gray
+    }
+    // --- END OF FIX ---
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick), // <-- Make Card clickable,
+            .clickable(onClick = onClick), // <-- Make Card clickable
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -274,11 +302,16 @@ fun NonGroupExpensesCard(onClick: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(4.dp))
+            // --- START OF FIX ---
+            // Display the calculated balance text
             Text(
-                text = "no expenses",
-                color = Color.Gray,
-                modifier = Modifier.padding(start = 60.dp)
+                text = balanceText,
+                color = balanceColor,
+                modifier = Modifier.padding(start = 60.dp),
+                // Make font bold if there is a balance
+                fontWeight = if (balance.absoluteValue > 0.01) FontWeight.Bold else FontWeight.Normal
             )
+            // --- END OF FIX ---
         }
     }
 }

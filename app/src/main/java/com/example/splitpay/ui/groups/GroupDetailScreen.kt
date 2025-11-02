@@ -386,15 +386,16 @@ fun GroupDetailContent(
             Spacer(Modifier.height(16.dp))
         }
 
+        item {
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                // --- PASS NAVCONTROLLER AND GROUPID ---
+                ActionButtonsRow(navController = navController, groupId = groupId)
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+
         // --- 2. Conditionally hide Action Buttons and Member Status for non-group ---
         if (!isNonGroup) {
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    // --- PASS NAVCONTROLLER AND GROUPID ---
-                    ActionButtonsRow(navController = navController, groupId = groupId)
-                    Spacer(Modifier.height(16.dp))
-                }
-            }
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     GroupMemberStatus(

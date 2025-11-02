@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.Expense
-import com.example.splitpay.data.model.ExpenseType // <-- IMPORT THE NEW TYPE
+import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository
@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
@@ -61,43 +62,50 @@ class GroupDetailViewModel(
     private var groupIdToLoad: String? = null
 
     fun loadGroupAndExpenses(groupId: String) {
-        if (groupId == "non_group" || groupId.isBlank() || currentUserId == null) {
-            // Handle non-group or invalid states separately (maybe show different header?)
-            // For now, let's just clear balances and show the placeholder group
-            val nonGroupPlaceholder = Group(id = "non_group", name = "Non-group Expenses", iconIdentifier = "info")
+        if (groupId.isBlank() || currentUserId == null) {
             _uiState.update { it.copy(
-                isLoadingGroup = false, isLoadingExpenses = false, group = nonGroupPlaceholder,
-                currentUserOverallBalance = 0.0, balanceBreakdown = emptyList(), membersMap = emptyMap(), error = null
+                isLoadingGroup = false, isLoadingExpenses = false, group = null,
+                currentUserOverallBalance = 0.0, balanceBreakdown = emptyList(), membersMap = emptyMap(), error = "Invalid Group or User"
             )}
-            // Start collecting non-group expenses if needed
-            collectNonGroupExpenses()
             return
         }
 
-        if (currentGroupId == groupId && dataCollectionJob?.isActive == true) {
+        if (groupId == "non_group") {
+            val nonGroupPlaceholder = Group(id = "non_group", name = "Non-group Expenses", iconIdentifier = "info")
+            _uiState.update { it.copy(
+                isLoadingGroup = false,
+                isLoadingExpenses = true,
+                group = nonGroupPlaceholder,
+                currentUserOverallBalance = 0.0, balanceBreakdown = emptyList(), membersMap = emptyMap(), error = null
+            )}
+
+        } else if (currentGroupId == groupId && dataCollectionJob?.isActive == true) {
             return // Already collecting for this group
+        } else {
+            _uiState.update { it.copy(isLoadingGroup = true, isLoadingExpenses = true, error = null) }
         }
 
         currentGroupId = groupId
         dataCollectionJob?.cancel() // Cancel previous job
 
-        _uiState.update { it.copy(isLoadingGroup = true, isLoadingExpenses = true, error = null) }
-
         dataCollectionJob = viewModelScope.launch {
-            // Combine the group flow and the expenses flow
+            val groupSourceFlow = if (groupId == "non_group") {
+                flowOf(uiState.value.group)
+            } else {
+                groupsRepository.getGroupFlow(groupId)
+            }
+
             combine(
-                groupsRepository.getGroupFlow(groupId).filterNotNull(), // Ensure group is not null
+                groupSourceFlow.filterNotNull(),
                 expenseRepository.getExpensesFlowForGroup(groupId)
             ) { group, expenses ->
-                // This block executes whenever the group OR expenses change
                 _uiState.update { it.copy(isLoadingExpenses = true) } // Indicate recalculation
 
-                // Fetch member details (needed for names)
-                val members = userRepository.getProfilesForFriends(group.members)
-                val membersMap = members.associateBy { it.uid } // Create UID -> User map
+                // --- START OF FIX (Reactivity Bug) ---
+                // The order of operations is changed here.
 
-                // --- Calculate Balances ---
-                val balances = mutableMapOf<String, Double>() // UID -> Balance within this group
+                // 1. Calculate Balances FIRST to find out *who* is involved
+                val balances = mutableMapOf<String, Double>()
                 expenses.forEach { expense ->
                     expense.paidBy.forEach { payer ->
                         balances[payer.uid] = (balances[payer.uid] ?: 0.0) + payer.paidAmount
@@ -107,19 +115,38 @@ class GroupDetailViewModel(
                     }
                 }
 
-                // Calculate breakdown relative to current user
+                // 2. Determine which UIDs we need to fetch profiles for
+                val memberUidsToFetch = if (groupId == "non_group") {
+                    balances.keys.toList() // Get all UIDs from the calculated balances
+                } else {
+                    group.members // Use the official group members list
+                }
+
+                // 3. Fetch member details for *only* the relevant UIDs
+                val membersMap = if (memberUidsToFetch.isNotEmpty()) {
+                    try {
+                        userRepository.getProfilesForFriends(memberUidsToFetch).associateBy { it.uid }
+                    } catch (e: Exception) {
+                        emptyMap<String, User>()
+                    }
+                } else {
+                    emptyMap<String, User>()
+                }
+                // --- END OF FIX ---
+
+
+                // 4. Calculate Balances Breakdown
                 val breakdown = mutableListOf<MemberBalanceDetail>()
                 var overallBalance = 0.0
 
-                balances.forEach { (uid, netAmount) ->
+                // Iterate over the UIDs we just fetched
+                memberUidsToFetch.forEach { uid ->
                     if (uid == currentUserId) {
-                        overallBalance = roundToCents(netAmount)
+                        overallBalance = roundToCents(balances[uid] ?: 0.0)
                     } else {
-                        // Calculate balance *between* currentUser and this member *within this group*
-                        // This involves considering only expenses involving both
+                        // Calculate balance *between* currentUser and this member
                         var balanceWithMember = 0.0
                         expenses.filter { exp ->
-                            // Check if both users are involved (paid or participated)
                             val involvedUids = (exp.paidBy.map { it.uid } + exp.participants.map { it.uid }).toSet()
                             involvedUids.contains(currentUserId) && involvedUids.contains(uid)
                         }.forEach { relevantExpense ->
@@ -128,31 +155,30 @@ class GroupDetailViewModel(
                             val memberPaid = relevantExpense.paidBy.find { it.uid == uid }?.paidAmount ?: 0.0
                             val memberOwes = relevantExpense.participants.find { it.uid == uid }?.owesAmount ?: 0.0
 
-                            // --- *** THIS IS THE CORRECTED LOGIC *** ---
                             if (relevantExpense.expenseType == ExpenseType.PAYMENT) {
-                                // This is a direct payment (like a Settle Up)
                                 if (currentUserPaid > 0) {
-                                    // I paid the member
                                     balanceWithMember += currentUserPaid
                                 } else if (memberPaid > 0) {
-                                    // The member paid me
                                     balanceWithMember -= memberPaid
                                 }
                             } else {
-                                // This is a shared expense, use the split logic
                                 val currentUserNet = currentUserPaid - currentUserOwes
                                 val memberNet = memberPaid - memberOwes
-                                val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
+                                val numParticipants = if (groupId == "non_group" && relevantExpense.participants.size == 2) {
+                                    2.0
+                                } else {
+                                    relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
+                                }
                                 balanceWithMember += (currentUserNet - memberNet) / numParticipants
                             }
-                            // --- *** END OF CORRECTED LOGIC *** ---
                         }
 
                         val roundedBalanceWithMember = roundToCents(balanceWithMember)
                         if (roundedBalanceWithMember.absoluteValue > 0.01) {
                             breakdown.add(
                                 MemberBalanceDetail(
-                                    memberName = membersMap[uid]?.username ?: membersMap[uid]?.fullName ?: "User $uid", // Get name
+                                    // This will now work, because membersMap is populated
+                                    memberName = membersMap[uid]?.username ?: membersMap[uid]?.fullName ?: "User $uid",
                                     amount = roundedBalanceWithMember
                                 )
                             )
@@ -162,13 +188,13 @@ class GroupDetailViewModel(
 
                 // Update UI State with everything
                 Triple(group, expenses, Triple(overallBalance, breakdown.sortedByDescending { it.amount.absoluteValue }, membersMap))
-            }.collectLatest { (group, expenses, balanceData) ->
+            }.collectLatest { (groupFromFlow, expenses, balanceData) ->
                 val (overallBalance, breakdown, membersMap) = balanceData
                 _uiState.update {
                     it.copy(
                         isLoadingGroup = false,
                         isLoadingExpenses = false,
-                        group = group,
+                        group = if (groupId == "non_group") it.group else groupFromFlow,
                         expenses = expenses,
                         currentUserOverallBalance = overallBalance,
                         balanceBreakdown = breakdown,
@@ -180,16 +206,6 @@ class GroupDetailViewModel(
         }
     }
 
-    // Separate function to collect non-group expenses if needed by non-group logic
-    private fun collectNonGroupExpenses() {
-        // This might need adjustment if non-group details require specific calculations
-        dataCollectionJob = viewModelScope.launch {
-            expenseRepository.getNonGroupExpensesFlow(currentUserId ?: "").collectLatest { expenses ->
-                _uiState.update { it.copy(isLoadingExpenses = false, expenses = expenses) }
-            }
-        }
-    }
-
     // Helper function for rounding
     private fun roundToCents(value: Double): Double {
         return (value * 100.0).roundToInt() / 100.0
@@ -197,22 +213,19 @@ class GroupDetailViewModel(
 
     // --- Helper to calculate user's net amount for a single expense ---
     fun calculateUserLentBorrowed(expense: Expense): Pair<String, Color> {
-        if (currentUserId == null) return "" to Color.Gray // Should not happen if logged in
+        if (currentUserId == null) return "" to Color.Gray
 
-        // --- FIX: Check expenseType for payments ---
         if (expense.expenseType == ExpenseType.PAYMENT) {
             val payerUid = expense.paidBy.firstOrNull()?.uid
             val receiverUid = expense.participants.firstOrNull()?.uid
 
             return when (currentUserId) {
-                payerUid -> "You paid ${formatCurrency(expense.totalAmount)}" to NegativeRed // You sent money
-                receiverUid -> "You received ${formatCurrency(expense.totalAmount)}" to PositiveGreen // You got money
-                else -> "Payment" to Color.Gray // Not involved
+                payerUid -> "You paid ${formatCurrency(expense.totalAmount)}" to NegativeRed
+                receiverUid -> "You received ${formatCurrency(expense.totalAmount)}" to PositiveGreen
+                else -> "Payment" to Color.Gray
             }
         }
-        // --- END FIX ---
 
-        // Original logic for shared expenses
         val userPaid = expense.paidBy.find { it.uid == currentUserId }?.paidAmount ?: 0.0
         val userOwed = expense.participants.find { it.uid == currentUserId }?.owesAmount ?: 0.0
         val netAmount = userPaid - userOwed
@@ -226,7 +239,6 @@ class GroupDetailViewModel(
 
     // --- Helper to format payer summary ---
     fun formatPayerSummary(expense: Expense): String {
-        // --- FIX: Check expenseType for payments ---
         if (expense.expenseType == ExpenseType.PAYMENT) {
             val payerUid = expense.paidBy.firstOrNull()?.uid
             val receiverUid = expense.participants.firstOrNull()?.uid
@@ -238,16 +250,14 @@ class GroupDetailViewModel(
 
             return "$payerName paid $receiverName"
         }
-        // --- END FIX ---
 
-        // Original logic for shared expenses
         val payerUid = expense.paidBy.firstOrNull()?.uid
         val payerName = when {
             payerUid == null -> "N/A"
             payerUid == currentUserId -> "You"
-            else -> _uiState.value.membersMap[payerUid]?.username // Use username from map
-                ?: _uiState.value.membersMap[payerUid]?.fullName // Fallback to full name
-                ?: "User ${payerUid.take(4)}..." // Fallback placeholder
+            else -> _uiState.value.membersMap[payerUid]?.username
+                ?: _uiState.value.membersMap[payerUid]?.fullName
+                ?: "User ${payerUid.take(4)}..."
         }
 
         return when (expense.paidBy.size) {
@@ -257,9 +267,7 @@ class GroupDetailViewModel(
         }
     }
 
-    // Helper function to format currency (private, as it's only used here)
     private fun formatCurrency(amount: Double): String {
-        // Simple formatter
         return "MYR%.2f".format(amount.absoluteValue)
     }
 

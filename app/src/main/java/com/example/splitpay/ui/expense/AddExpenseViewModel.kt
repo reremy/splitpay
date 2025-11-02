@@ -59,6 +59,10 @@ class AddExpenseViewModel(
     private val _relevantUsersForSelection = MutableStateFlow<List<Payer>>(emptyList())
     val relevantUsersForSelection: StateFlow<List<Payer>> = _relevantUsersForSelection
 
+    // --- NEW: Placeholder for Non-Group ---
+    private val nonGroupPlaceholder = Group(id = "non_group", name = "Non-group Expenses", iconIdentifier = "info")
+
+
     init {
         // Retrieve optional groupId passed via navigation
         val prefilledGroupId: String? = savedStateHandle["groupId"]
@@ -67,7 +71,9 @@ class AddExpenseViewModel(
         _uiState.update {
             it.copy(
                 initialGroupId = prefilledGroupId,
-                currentGroupId = prefilledGroupId
+                // --- MODIFICATION HERE ---
+                // If prefilledGroupId is null OR "non_group", default to "non_group"
+                currentGroupId = if (prefilledGroupId == null || prefilledGroupId == "non_group") "non_group" else prefilledGroupId
             )
         }
         Log.d("AddExpenseDebug", "ViewModel init state: initialGroupId = ${_uiState.value.initialGroupId}, currentGroupId = ${_uiState.value.currentGroupId}")
@@ -118,50 +124,60 @@ class AddExpenseViewModel(
 
             // --- 3. Handle prefilled group OR default non-group state ---
             var initialRelevantPayers = userAndFriendsPayers // Default to user+friends
-            var preloadedGroup: Group? = null
+            var preloadedGroup: Group? = null // Default to null (which will become placeholder)
 
+            // --- START OF FIX 1 ---
             if (prefilledGroupId != null) {
-                // Fetch the specific group details
-                preloadedGroup = try {
-                    // Use a suspend function if available, otherwise use flow (less efficient for one-time fetch)
-                    groupsRepository.getGroupFlow(prefilledGroupId).firstOrNull()
-                } catch (e: Exception) {
-                    logE("Failed to fetch prefilled group $prefilledGroupId: ${e.message}")
-                    null
-                }
-
-                if (preloadedGroup != null) {
-                    // Fetch member profiles for the prefilled group
-                    val memberProfiles = try {
-                        if (preloadedGroup.members.isNotEmpty()) {
-                            userRepository.getProfilesForFriends(preloadedGroup.members) // Suspend call
-                        } else emptyList()
-                    } catch (e: Exception) {
-                        logE("Failed to fetch group members for AddExpense: ${e.message}")
-                        emptyList<User>()
-                    }
-
-                    // Convert group members to Payer objects
-                    val groupMembersAsPayers = memberProfiles.map { memberUser ->
-                        Payer(
-                            uid = memberUser.uid,
-                            name = memberUser.username.takeIf { it.isNotBlank() } ?: memberUser.fullName
-                        )
-                    }
-                    initialRelevantPayers = groupMembersAsPayers.distinctBy { it.uid } // Set relevant users to group members
+                if (prefilledGroupId == "non_group") {
+                    // It's non-group, set the placeholder
+                    preloadedGroup = nonGroupPlaceholder
+                    // initialRelevantPayers is already userAndFriendsPayers, which is correct
                 } else {
-                    // Group ID passed but not found (log error, fallback to user + friends)
-                    logE("Prefilled group ID $prefilledGroupId not found.")
-                    // initialRelevantPayers remains userAndFriendsPayers
+                    // It's a real group ID, try to fetch it
+                    preloadedGroup = try {
+                        groupsRepository.getGroupFlow(prefilledGroupId).firstOrNull()
+                    } catch (e: Exception) {
+                        logE("Failed to fetch prefilled group $prefilledGroupId: ${e.message}")
+                        null
+                    }
+
+                    if (preloadedGroup != null) {
+                        // Successfully fetched real group, get its members
+                        val memberProfiles = try {
+                            if (preloadedGroup.members.isNotEmpty()) {
+                                userRepository.getProfilesForFriends(preloadedGroup.members) // Suspend call
+                            } else emptyList()
+                        } catch (e: Exception) {
+                            logE("Failed to fetch group members for AddExpense: ${e.message}")
+                            emptyList<User>()
+                        }
+                        val groupMembersAsPayers = memberProfiles.map { memberUser ->
+                            Payer(
+                                uid = memberUser.uid,
+                                name = memberUser.username.takeIf { it.isNotBlank() } ?: memberUser.fullName
+                            )
+                        }
+                        initialRelevantPayers = groupMembersAsPayers.distinctBy { it.uid }
+                    } else {
+                        // Group ID passed but not found, log error and fallback to non-group
+                        logE("Prefilled group ID $prefilledGroupId not found. Falling back to non-group.")
+                        preloadedGroup = nonGroupPlaceholder // Fallback to placeholder
+                        // initialRelevantPayers remains userAndFriendsPayers
+                    }
                 }
+            } else {
+                // No prefilled ID, default to non-group
+                preloadedGroup = nonGroupPlaceholder
             }
+            // --- END OF FIX 1 ---
+
 
             // Set the list of users available for selection in dialogs
             _relevantUsersForSelection.value = initialRelevantPayers
 
             // Initialize participants and default payer based on loaded context
             initializeParticipantsAndPayers(
-                group = preloadedGroup, // Pass the loaded group (or null)
+                group = preloadedGroup, // Pass the loaded group (or placeholder)
                 relevantPayers = initialRelevantPayers,
                 currentUserPayer = currentUserPayer,
                 initialLoad = true // Indicate this is the initial setup
@@ -170,10 +186,8 @@ class AddExpenseViewModel(
             _uiState.update { it.copy(isInitiallyLoading = false) } // Stop initial loading indicator
 
             // --- 4. Fetch all available groups for the selector dropdown (runs after initial setup) ---
-            // Listen for changes in the user's groups list
             groupsRepository.getGroups().collect { groups ->
                 _availableGroups.value = groups
-                // Optional: If a prefilled group was loaded, ensure its details (like name) are up-to-date in the UI state
                 if (prefilledGroupId != null && _uiState.value.selectedGroup?.id == prefilledGroupId) {
                     groups.find { it.id == prefilledGroupId }?.let { updatedGroup ->
                         if (updatedGroup != _uiState.value.selectedGroup) {
@@ -191,55 +205,54 @@ class AddExpenseViewModel(
      * Called during initial load and when the group selection changes.
      */
     private fun initializeParticipantsAndPayers(
-        group: Group?, // The selected group (null for non-group)
+        group: Group?, // The selected group (or placeholder for non-group)
         relevantPayers: List<Payer>, // Users to include as participants (group members or user+friends)
         currentUserPayer: Payer, // The current user as a Payer object
         initialLoad: Boolean = false // Flag to differentiate initial setup from manual group change
     ) {
         if (relevantPayers.isEmpty()) {
             logE("initializeParticipantsAndPayers called with empty relevantPayers list.")
-            // Handle this case, perhaps by defaulting to just the current user
-            // For now, let's ensure currentUser is always included if relevantPayers is empty
             val fallbackPayers = if(relevantPayers.isEmpty()) listOf(currentUserPayer) else relevantPayers
             initializeParticipantsAndPayers(group, fallbackPayers, currentUserPayer, initialLoad)
             return
         }
 
         _uiState.update { currentState ->
-            // Participants default to ALL relevant users, initially checked
             val initialParticipants = relevantPayers.map { payer ->
                 Participant(
                     uid = payer.uid,
                     name = payer.name,
-                    isChecked = true, // Default to checked
-                    // Set initial split value based on the default split type
+                    isChecked = true,
                     splitValue = if (currentState.splitType == SplitType.PERCENTAGES) {
-                        "%.2f".format(100.0 / relevantPayers.size) // Divide 100% equally
-                    } else "1.0" // Default for Shares or fallback
+                        "%.2f".format(100.0 / relevantPayers.size)
+                    } else "1.0"
                 )
             }
 
-            // Calculate initial owesAmount based on default split
             val calculatedParticipants = calculateSplitUseCase(
-                amount = currentState.amount.toDoubleOrNull() ?: 0.0, // Use current amount if any
+                amount = currentState.amount.toDoubleOrNull() ?: 0.0,
                 participants = initialParticipants,
-                splitType = currentState.splitType // Use current split type
+                splitType = currentState.splitType
             )
 
-            // Payer defaults to the current user paying the full (current) amount
             val defaultPayer = listOf(currentUserPayer.copy(
-                amount = currentState.amount.ifEmpty { "0.00" }, // Use current amount or 0.00
+                amount = currentState.amount.ifEmpty { "0.00" },
                 isChecked = true
             ))
 
+            // --- START OF FIX 2 ---
+            // If group is null, it means "Non-group" was just selected. Use the placeholder.
+            // If group is not null, it's either a real group or the placeholder from init.
+            val displayGroup = group ?: nonGroupPlaceholder
+            // --- END OF FIX 2 ---
+
             currentState.copy(
-                selectedGroup = group,
-                currentGroupId = group?.id, // Update currentGroupId
-                // Hide selector unless it's the initial load for a specific group
-                isGroupSelectorVisible = if (initialLoad && group != null) currentState.isGroupSelectorVisible else false,
-                participants = calculatedParticipants, // Set the calculated participants list
-                paidByUsers = defaultPayer, // Reset payer to current user
-                error = null // Clear previous errors
+                selectedGroup = displayGroup, // <-- Use the placeholder if group was null
+                currentGroupId = displayGroup.id, // <-- Get ID from placeholder or real group
+                isGroupSelectorVisible = if (initialLoad && group != null && group.id != "non_group") currentState.isGroupSelectorVisible else false, // Hide selector for non-group init
+                participants = calculatedParticipants,
+                paidByUsers = defaultPayer,
+                error = null
             )
         }
     }
@@ -256,7 +269,6 @@ class AddExpenseViewModel(
                 _uiState.update { it.copy(isLoading = false, error = "User not logged in.") }
                 return@launch
             }
-            // Fetch current user details again for safety/consistency
             val userProfile = userRepository.getUserProfile(currentUser.uid)
             val currentUserName = userProfile?.username?.takeIf { it.isNotBlank() }
                 ?: userProfile?.fullName?.takeIf { it.isNotBlank() }
@@ -264,9 +276,12 @@ class AddExpenseViewModel(
             val currentUserPayer = Payer(currentUser.uid, currentUserName, isChecked = true)
 
             val relevantPayers: List<Payer>
+            // --- START OF FIX 3 ---
+            val groupForState: Group? // This will be the real group or the placeholder
 
             if (group != null) {
                 // --- Group selected ---
+                groupForState = group // Use the real group
                 logD("Group selected: ${group.name}, fetching members...")
                 val memberProfiles = try {
                     if (group.members.isNotEmpty()) userRepository.getProfilesForFriends(group.members) else emptyList()
@@ -277,6 +292,7 @@ class AddExpenseViewModel(
                 relevantPayers = memberProfiles.map { Payer(it.uid, it.username.takeIf { n -> n.isNotBlank() } ?: it.fullName) }
             } else {
                 // --- Non-group selected ---
+                groupForState = nonGroupPlaceholder // Use the placeholder
                 logD("Non-group selected, fetching friends...")
                 val friendProfiles = try {
                     val friendIds = userRepository.getCurrentUserFriendIds()
@@ -285,19 +301,18 @@ class AddExpenseViewModel(
                     logE("Failed to fetch friends on non-group selection: ${e.message}")
                     emptyList<User>()
                 }
-                // Combine user + friends for non-group context
                 relevantPayers = (listOf(currentUserPayer) + friendProfiles.map { Payer(it.uid, it.username.takeIf { n -> n.isNotBlank() } ?: it.fullName) }).distinctBy { it.uid }
             }
+            // --- END OF FIX 3 ---
 
-            // Update the list used by Payer/Split dialogs
             _relevantUsersForSelection.value = relevantPayers.distinctBy { it.uid }
 
             // Use the helper to update main screen participants and reset payer
             initializeParticipantsAndPayers(
-                group = group,
+                group = groupForState, // <-- Pass real group or placeholder
                 relevantPayers = _relevantUsersForSelection.value,
                 currentUserPayer = currentUserPayer,
-                initialLoad = false // Explicitly false as this is a manual selection change
+                initialLoad = false
             )
 
             _uiState.update { it.copy(isLoading = false) } // Hide temporary loading
@@ -309,30 +324,22 @@ class AddExpenseViewModel(
     fun onDescriptionChange(newDescription: String) {
         if (newDescription.length <= 100) {
             _uiState.update { it.copy(description = newDescription, error = null) }
-        } else {
-            // Optionally show feedback, but prevent update if too long
-            // _uiState.update { it.copy(error = "Description cannot exceed 100 characters.") }
         }
     }
 
     fun onAmountChange(newAmount: String) {
-        // Basic filtering for valid number format (allows one '.')
         val cleanAmount = newAmount.filter { it.isDigit() || it == '.' }
         val decimalIndex = cleanAmount.indexOf('.')
         val validAmount = if (decimalIndex != -1) {
-            // Ensure only digits before and max 2 digits after '.'
             val integerPart = cleanAmount.substringBefore('.')
             val decimalPart = cleanAmount.substringAfter('.').filter { it.isDigit() }.take(2)
             "$integerPart.$decimalPart"
         } else {
-            cleanAmount // No decimal yet
+            cleanAmount
         }
 
-        // Update state only if it's potentially valid number (or empty)
-        // This prevents excessive recalculations on invalid input
         if (validAmount.isEmpty() || validAmount.toDoubleOrNull() != null || validAmount == ".") {
             _uiState.update { it.copy(amount = validAmount, error = null) }
-            // Recalculate split whenever amount changes
             recalculateSplit(validAmount.toDoubleOrNull() ?: 0.0, uiState.value.splitType)
         }
     }
@@ -346,7 +353,7 @@ class AddExpenseViewModel(
     }
 
     fun onMemoSaved(finalMemo: String) {
-        _uiState.update { it.copy(memo = finalMemo.trim(), isMemoDialogVisible = false) } // Trim and hide dialog
+        _uiState.update { it.copy(memo = finalMemo.trim(), isMemoDialogVisible = false) }
     }
 
     fun onImageAdded(uriString: String) {
@@ -372,27 +379,24 @@ class AddExpenseViewModel(
      */
     private fun recalculateSplit(newAmount: Double, newSplitType: SplitType) {
         _uiState.update { state ->
-            // Use the existing participants list from the state
             val updatedParticipants = calculateSplitUseCase(
                 amount = newAmount,
-                participants = state.participants, // Pass current list to useCase
+                participants = state.participants,
                 splitType = newSplitType
             )
-            state.copy(participants = updatedParticipants) // Update state with results
+            state.copy(participants = updatedParticipants)
         }
     }
 
     // --- Participant Checkbox Handler ---
     fun onParticipantCheckedChange(uid: String, isChecked: Boolean) {
         _uiState.update { state ->
-            // Update the isChecked status for the specific participant
             val updatedParticipants = state.participants.map {
                 if (it.uid == uid) it.copy(isChecked = isChecked) else it
             }
-            // Recalculate immediately after checking/unchecking using the updated list
             val recalculatedParticipants = calculateSplitUseCase(
                 amount = state.amount.toDoubleOrNull() ?: 0.0,
-                participants = updatedParticipants, // Pass the list with updated isChecked
+                participants = updatedParticipants,
                 splitType = state.splitType
             )
             state.copy(participants = recalculatedParticipants, error = null)
@@ -405,36 +409,31 @@ class AddExpenseViewModel(
      * participant in the Split Editor dialog.
      */
     fun onParticipantSplitValueChanged(uid: String, newValue: String) {
-        // Basic filtering for valid number format
         val cleanValue = newValue.filter { it.isDigit() || it == '.' }
         val decimalIndex = cleanValue.indexOf('.')
         val validValue = if (decimalIndex != -1) {
             val integerPart = cleanValue.substringBefore('.')
-            // Allow more decimals for shares/amount, restrict for percentages
             val decimalPart = cleanValue.substringAfter('.').filter { it.isDigit() }
             if (uiState.value.splitType == SplitType.PERCENTAGES) {
-                "$integerPart.${decimalPart.take(2)}" // Max 2 decimal places for %
+                "$integerPart.${decimalPart.take(2)}"
             } else {
-                "$integerPart.${decimalPart.take(2)}" // Also limit amount/adjustments to 2 for currency
+                "$integerPart.${decimalPart.take(2)}"
             }
         } else {
             cleanValue
         }
 
-        // Update state only if potentially valid number (or empty)
         if (validValue.isEmpty() || validValue.toDoubleOrNull() != null || validValue == ".") {
             _uiState.update { state ->
-                // Update the splitValue for the specific participant
                 val updatedParticipants = state.participants.map { p ->
                     if (p.uid == uid) p.copy(splitValue = validValue) else p
                 }
-                // Recalculate the owesAmount based on the new splitValue
                 val calculatedParticipants = calculateSplitUseCase(
                     amount = state.amount.toDoubleOrNull() ?: 0.0,
-                    participants = updatedParticipants, // Pass updated list to useCase
+                    participants = updatedParticipants,
                     splitType = state.splitType
                 )
-                state.copy(participants = calculatedParticipants, error = null) // Update state
+                state.copy(participants = calculatedParticipants, error = null)
             }
         }
     }
@@ -450,12 +449,11 @@ class AddExpenseViewModel(
         val wasMultiPayer = uiState.value.paidByUsers.size > 1
 
         _uiState.update { currentState ->
-            // Reset amounts if going FROM multi-payer TO single payer
             val finalPayers = if (wasMultiPayer && !isMultiPayerNow && checkedPayers.isNotEmpty()) {
                 val singlePayer = checkedPayers.first()
-                listOf(singlePayer.copy(amount = currentState.amount.ifEmpty { "0.00" })) // Set single payer amount to total
+                listOf(singlePayer.copy(amount = currentState.amount.ifEmpty { "0.00" }))
             } else {
-                checkedPayers // Keep amounts as they are (or were just entered)
+                checkedPayers
             }
             currentState.copy(paidByUsers = finalPayers, error = null)
         }
@@ -465,7 +463,6 @@ class AddExpenseViewModel(
      * Updates the amount for a specific payer in the multi-payer selection dialog.
      */
     fun onPayerAmountChanged(uid: String, newAmount: String) {
-        // Basic filtering for valid currency format
         val cleanAmount = newAmount.filter { it.isDigit() || it == '.' }
         val decimalIndex = cleanAmount.indexOf('.')
         val validAmount = if (decimalIndex != -1) {
@@ -476,7 +473,6 @@ class AddExpenseViewModel(
             cleanAmount
         }
 
-        // Update state only if potentially valid
         if (validAmount.isEmpty() || validAmount.toDoubleOrNull() != null || validAmount == ".") {
             _uiState.update { state ->
                 val updatedPayers = state.paidByUsers.map { payer ->
@@ -489,7 +485,6 @@ class AddExpenseViewModel(
 
     /** Hides the Payer Selector dialog. */
     fun finalizePayerSelection() {
-        // Optional: Add validation here before closing if needed (e.g., ensure amounts sum up)
         _uiState.update { it.copy(isPayerSelectorVisible = false) }
     }
 
@@ -501,30 +496,26 @@ class AddExpenseViewModel(
     fun onSelectSplitType(type: SplitType) {
         _uiState.update { currentState ->
             val activeCount = currentState.participants.count { p -> p.isChecked }.coerceAtLeast(1)
-            // Reset splitValue based on the newly selected type
             val newParticipants = currentState.participants.map { p ->
                 val defaultValue = when (type) {
-                    SplitType.EQUALLY -> "0.00" // OwesAmount calculated directly
-                    SplitType.PERCENTAGES -> "%.2f".format(100.0 / activeCount) // Distribute 100%
-                    SplitType.SHARES -> "1.0" // Default to 1 share
-                    SplitType.UNEQUALLY, SplitType.ADJUSTMENTS -> "0.00" // Default to 0, user must enter
+                    SplitType.EQUALLY -> "0.00"
+                    SplitType.PERCENTAGES -> "%.2f".format(100.0 / activeCount)
+                    SplitType.SHARES -> "1.0"
+                    SplitType.UNEQUALLY, SplitType.ADJUSTMENTS -> "0.00"
                 }
-                p.copy(splitValue = defaultValue) // Apply default value
+                p.copy(splitValue = defaultValue)
             }
-            // Update state with new type and reset participants
             currentState.copy(
                 splitType = type,
                 participants = newParticipants,
                 error = null
             )
         }
-        // Recalculate owesAmount based on the new type and reset splitValues
         recalculateSplit(uiState.value.amount.toDoubleOrNull() ?: 0.0, type)
     }
 
     /** Hides the Split Editor dialog. */
     fun finalizeSplitTypeSelection() {
-        // Optional: Add validation here (e.g., ensure percentages add to 100) before closing
         _uiState.update { it.copy(isSplitEditorVisible = false) }
     }
 
@@ -547,7 +538,6 @@ class AddExpenseViewModel(
         val totalAmount = state.amount.toDoubleOrNull() ?: 0.0
         val currentUser = userRepository.getCurrentUser()
 
-        // --- Validation Checks ---
         if (currentUser == null) {
             emitErrorDialog("Error", "You are not logged in.")
             return
@@ -570,16 +560,12 @@ class AddExpenseViewModel(
             return
         }
 
-        // --- Payment Balance Validation ---
-        // If single payer, amount is totalAmount. If multiple, sum entered amounts.
         val paidByTotal = if (state.paidByUsers.size == 1) totalAmount else state.paidByUsers.sumOf { it.amount.toDoubleOrNull() ?: 0.0 }
-        if ((paidByTotal - totalAmount).absoluteValue > 0.015) { // Increased tolerance slightly for multi-payer rounding
+        if ((paidByTotal - totalAmount).absoluteValue > 0.015) {
             emitErrorDialog("Payment Error", "The total amount paid (MYR${"%.2f".format(paidByTotal)}) does not match the expense total (MYR${"%.2f".format(totalAmount)}). Please adjust amounts in 'Paid by'.")
             return
         }
 
-        // --- Split Balance Validation (using the final calculated amounts) ---
-        // Recalculate one last time to be sure, using the final payer info logic
         val finalPayersForCalc = if (state.paidByUsers.size == 1) {
             state.paidByUsers.map { it.copy(amount = totalAmount.toString()) }
         } else {
@@ -588,70 +574,64 @@ class AddExpenseViewModel(
 
         val finalParticipants = calculateSplitUseCase(totalAmount, state.participants, state.splitType)
         val finalAllocatedSplit = finalParticipants.filter { it.isChecked }.sumOf { it.owesAmount }
-        if ((finalAllocatedSplit - totalAmount).absoluteValue > 0.015) { // Check if split sums to total (with tolerance)
+        if ((finalAllocatedSplit - totalAmount).absoluteValue > 0.015) {
             emitErrorDialog("Split Error", "The total split amount (MYR${"%.2f".format(finalAllocatedSplit)}) does not match the expense total (MYR${"%.2f".format(totalAmount)}). Please adjust the split details.")
             return
         }
-        // Additional check for specific split types
         if (state.splitType == SplitType.PERCENTAGES) {
             val totalPercent = finalParticipants.filter { it.isChecked }.sumOf { it.splitValue.toDoubleOrNull() ?: 0.0 }
-            if ((totalPercent - 100.0).absoluteValue > 0.1) { // Allow slight tolerance for percentages
+            if ((totalPercent - 100.0).absoluteValue > 0.1) {
                 emitErrorDialog("Split Error", "Percentages must add up to 100%. Current total: ${"%.2f".format(totalPercent)}%")
                 return
             }
         }
 
 
-        // --- Prepare Data for Repository (Convert UI models to Data models) ---
-        val expensePayers = finalPayersForCalc.map { payer -> // Use finalPayersForCalc
+        val expensePayers = finalPayersForCalc.map { payer ->
             ExpensePayer(
                 uid = payer.uid,
-                paidAmount = payer.amount.toDoubleOrNull() ?: 0.0 // Ensure correct amount is used
+                paidAmount = payer.amount.toDoubleOrNull() ?: 0.0
             )
         }
 
         val expenseParticipants = finalParticipants.filter { it.isChecked }.map { participant ->
             ExpenseParticipant(
                 uid = participant.uid,
-                owesAmount = participant.owesAmount, // Use the final calculated owesAmount
-                initialSplitValue = participant.splitValue.toDoubleOrNull() ?: 0.0 // Store the value entered/calculated
+                owesAmount = participant.owesAmount,
+                initialSplitValue = participant.splitValue.toDoubleOrNull() ?: 0.0
             )
         }
 
+        // This is still correct from our last fix.
+        // state.currentGroupId will be "non_group" or a real ID.
         val newExpense = Expense(
-            // id is generated by repository if blank
-            groupId = state.currentGroupId, // Use currentGroupId (can be null)
+            groupId = state.currentGroupId,
             description = state.description.trim(),
             totalAmount = totalAmount,
             createdByUid = currentUser.uid,
-            date = state.date, // Use selected date
-            splitType = state.splitType.name, // Save enum name as String
+            date = state.date,
+            splitType = state.splitType.name,
             paidBy = expensePayers,
             participants = expenseParticipants,
             memo = state.memo.trim(),
-            imageUrls = emptyList() // TODO: Handle image uploads separately
+            imageUrls = emptyList()
         )
 
-        // --- Call Repository ---
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) } // Show loading on save button
-
-            // TODO: Implement image upload logic here if needed, get URLs
+            _uiState.update { it.copy(isLoading = true, error = null) }
 
             val result = expenseRepository.addExpense(newExpense)
 
             result.onSuccess { expenseId ->
                 Log.d("AddExpenseViewModel", "Expense saved successfully with ID: $expenseId")
-                // Determine if navigation should go back specifically to group detail
                 val isGroupDetailNav = state.initialGroupId != null && state.initialGroupId == state.currentGroupId
-                _uiEvent.emit(AddExpenseUiEvent.SaveSuccess(isGroupDetailNav)) // Emit success event
+                _uiEvent.emit(AddExpenseUiEvent.SaveSuccess(isGroupDetailNav))
             }.onFailure { exception ->
                 logE("Failed to save expense: ${exception.message}")
-                // Show specific error dialog on failure
                 emitErrorDialog("Save Failed", "Could not save expense: ${exception.message}")
-                _uiState.update { it.copy(error = "Failed to save expense.") } // Also update state error if needed
+                _uiState.update { it.copy(error = "Failed to save expense.") }
             }
-            _uiState.update { it.copy(isLoading = false) } // Ensure loading stops
+            _uiState.update { it.copy(isLoading = false) }
         }
     }
 
