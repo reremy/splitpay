@@ -292,9 +292,9 @@ fun GroupMembersSection(
                         isCurrentUser = memberData.user.uid == currentUserId,
                         showRemoveButton = isAdmin && memberData.user.uid != currentUserId, // Admin can remove others
                         onRemoveClick = { onRemoveClick(memberData.user) }
-                    )
+                )
                     HorizontalDivider(color = Color(0xFF454545))
-                }
+            }
                 // Add People Button
                 ListItem(
                     headlineContent = { Text("Add people", color = PrimaryBlue) },

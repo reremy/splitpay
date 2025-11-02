@@ -1,5 +1,6 @@
 package com.example.splitpay.ui.groups
 
+import android.R.attr.onClick
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable // Import clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -401,7 +402,7 @@ fun GroupDetailContent(
                     GroupMemberStatus(
                         memberCount = group.members.size,
                         groupName = group.name,
-                        onAddMemberClick = { /* TODO: Call ViewModel.onShowAddMemberDialog() */ },
+                        onAddMemberClick = { navController.navigate("add_group_members/$groupId") },
                         onShareLinkClick = { /*TODO*/ }
                     )
                     Spacer(Modifier.height(24.dp))
