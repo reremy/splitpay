@@ -45,7 +45,8 @@ data class RecordPaymentUiState(
 )
 
 sealed interface RecordPaymentUiEvent {
-    object NavigateBack : RecordPaymentUiEvent
+    object NavigateBack : RecordPaymentUiEvent // For the back arrow
+    object SaveSuccess : RecordPaymentUiEvent // For the checkmark
     data class ShowError(val message: String) : RecordPaymentUiEvent
 }
 
@@ -170,7 +171,7 @@ class RecordPaymentViewModel(
             val result = expenseRepository.addExpense(newExpense)
             result.onSuccess {
                 logD("Settlement payment saved successfully.")
-                _uiEvent.emit(RecordPaymentUiEvent.NavigateBack) // Go back on success
+                _uiEvent.emit(RecordPaymentUiEvent.SaveSuccess) // Go back on success
             }.onFailure { e ->
                 logE("Failed to save settlement: ${e.message}")
                 _uiState.update { it.copy(isLoading = false, error = "Failed to save payment.") }

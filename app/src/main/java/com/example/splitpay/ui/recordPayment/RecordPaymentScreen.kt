@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.SavedStateHandle
@@ -102,6 +104,7 @@ fun RecordPaymentScreen(
     memberUid: String,
     balance: String,
     onNavigateBack: () -> Unit,
+    onSaveSuccess: () -> Unit,
     // Provide default repository instances
     userRepository: UserRepository = UserRepository(),
     expenseRepository: ExpenseRepository = ExpenseRepository(),
@@ -141,6 +144,7 @@ fun RecordPaymentScreen(
     UiEventHandler(viewModel.uiEvent) { event ->
         when (event) {
             RecordPaymentUiEvent.NavigateBack -> onNavigateBack()
+            RecordPaymentUiEvent.SaveSuccess -> onSaveSuccess()
             is RecordPaymentUiEvent.ShowError -> {
                 Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
             }
@@ -329,27 +333,60 @@ fun PaymentUserDisplay(payer: User, receiver: User, isPayerUser: Boolean) {
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = Alignment.Top, // <-- CHANGED to Top
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Icon(
-                Icons.Default.AccountCircle,
-                contentDescription = payerName,
-                tint = PrimaryBlue, // Payer color
-                modifier = Modifier.size(60.dp)
-            )
+            // --- Payer Column ---
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(80.dp) // Give some space
+            ) {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = payerName,
+                    tint = PrimaryBlue, // Payer color
+                    modifier = Modifier.size(60.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = payerName,
+                    color = TextWhite,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // --- Arrow ---
             Icon(
                 Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = "pays",
                 tint = Color.Gray,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier
+                    .size(24.dp)
+                    .padding(top = 18.dp) // Align arrow with icons
             )
-            Icon(
-                Icons.Default.AccountCircle,
-                contentDescription = receiverName,
-                tint = PositiveGreen, // Receiver color
-                modifier = Modifier.size(60.dp)
-            )
+
+            // --- Receiver Column ---
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(80.dp) // Give some space
+            ) {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = receiverName,
+                    tint = PositiveGreen, // Receiver color
+                    modifier = Modifier.size(60.dp)
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = receiverName,
+                    color = TextWhite,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         Spacer(Modifier.height(16.dp))
         Text(
@@ -358,13 +395,6 @@ fun PaymentUserDisplay(payer: User, receiver: User, isPayerUser: Boolean) {
             fontSize = 20.sp,
             fontWeight = FontWeight.Medium
         )
-        if (receiverEmail.isNotBlank()) {
-            Text(
-                text = receiverEmail,
-                color = Color.Gray,
-                fontSize = 14.sp
-            )
-        }
     }
 }
 

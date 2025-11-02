@@ -308,7 +308,11 @@ fun Navigation(
                 groupId = groupId,
                 memberUid = memberUid,
                 balance = balance,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onSaveSuccess = {
+                    // Pop back to the GroupDetailScreen, removing SettleUp from the stack
+                    navController.popBackStack(Screen.SettleUpRoute, inclusive = true)
+                }
             )
         }
 
