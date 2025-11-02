@@ -337,3 +337,4 @@ class FriendsViewModel(
         return (value * 100.0).roundToInt() / 100.0
     }
 }
+//yes
