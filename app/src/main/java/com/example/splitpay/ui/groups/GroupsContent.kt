@@ -40,14 +40,18 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.splitpay.data.model.GroupWithBalance
+import com.example.splitpay.data.model.User
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.common.OverallBalanceHeader
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.ErrorRed
+import com.example.splitpay.ui.theme.NegativeRed
+import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
 import java.text.NumberFormat
 import java.util.Locale
+import kotlin.math.absoluteValue
 
 // Utility function to format currency
 @Composable
@@ -117,9 +121,9 @@ fun GroupsContent(
                 }
 
                 items(uiState.groupsWithBalances) { groupWithBalance ->
-                    // This triggers the onGroupCardClick in ViewModel (GroupsViewModel.kt)
                     GroupBalanceCard(
                         groupWithBalance = groupWithBalance,
+                        membersMap = uiState.membersMap, // <-- PASS membersMap
                         onClick = { viewModel.onGroupCardClick(groupWithBalance.group.id) }
                     )
                 }
@@ -137,10 +141,12 @@ fun GroupsContent(
 @Composable
 fun GroupBalanceCard(
     groupWithBalance: GroupWithBalance,
+    membersMap: Map<String, User>,
     onClick: () -> Unit
 ) {
     val balance = groupWithBalance.userNetBalance
     val groupName = groupWithBalance.group.name
+    val breakdown = groupWithBalance.simplifiedOwedBreakdown
 
     // Determine the text and color based on net balance
     val balanceText = if (balance > 0) "you are owed ${formatCurrency(balance)}"
@@ -192,28 +198,44 @@ fun GroupBalanceCard(
                     modifier = Modifier.weight(1f).padding(start = 12.dp)
                 )
 
-                Text(
-                    text = balanceText,
-                    color = balanceColor,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+                Column(horizontalAlignment = Alignment.End) {
+                    // Overall Balance Text
+                    Text(
+                        text = balanceText,
+                        color = balanceColor,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
-            // Simplified Breakdown (Nur A. owes you X, Stevie owes you Y)
-            if (balance > 0) {
-                Spacer(Modifier.height(8.dp))
-                Column(modifier = Modifier.padding(start = 60.dp)) {
-                    groupWithBalance.simplifiedOwedBreakdown.forEach { (uid, amount) ->
-                        // NOTE: We need user fetching to get the real name, using UID for now
-                        Text(
-                            text = "User $uid owes you ${formatCurrency(amount)}",
-                            color = Color.Gray,
-                            fontSize = 14.sp
-                        )
+                    // --- Simplified Breakdown ---
+                    if (breakdown.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp)) // Small space
+
+                        // Iterate through the breakdown map
+                        breakdown.entries.sortedByDescending { it.value.absoluteValue }.forEach { (uid, amount) ->
+                            // Look up name from membersMap
+                            val name = membersMap[uid]?.username ?: membersMap[uid]?.fullName ?: "User..."
+
+                            // Determine text and color based on amount sign
+                            val (text, color) = when {
+                                amount > 0.01 -> "$name owes you ${formatCurrency(amount)}" to PositiveGreen
+                                amount < -0.01 -> "You owe $name ${formatCurrency(amount.absoluteValue)}" to NegativeRed
+                                else -> "" to Color.Gray
+                            }
+
+                            if (text.isNotEmpty()) {
+                                Text(
+                                    text = text,
+                                    color = color,
+                                    fontSize = 14.sp
+                                    // No alignment modifier needed; parent Column handles it
+                                )
+                            }
+                        }
                     }
                 }
             }
+
         }
     }
 }

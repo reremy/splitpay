@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.Expense
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.GroupWithBalance
+import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -35,6 +37,7 @@ data class GroupsUiState(
     val isLoading: Boolean = true,
     val groupsWithBalances: List<GroupWithBalance> = emptyList(),
     val error: String? = null,
+    val membersMap: Map<String, User> = emptyMap()
 )
 
 class GroupsViewModel(
@@ -68,71 +71,105 @@ class GroupsViewModel(
             val currentUid = currentUserUid!!
 
             try {
-                val groupsFlow = groupsRepository.getGroups()
-
-                val expensesFlow = groupsFlow.flatMapLatest { groups ->
-                    if (groups.isEmpty()) {
-                        flowOf(emptyList<Expense>())
-                    } else {
-                        val expenseFlows: List<Flow<List<Expense>>> = groups.map { group ->
-                            expenseRepository.getExpensesFlowForGroup(group.id)
-                        }
-                        combine(expenseFlows) { arrayOfExpenseLists ->
-                            arrayOfExpenseLists.asList().flatten()
+                // Combine groups flow and the flow of all relevant expenses
+                combine(
+                    groupsRepository.getGroups(),
+                    groupsRepository.getGroups().flatMapLatest { groups ->
+                        if (groups.isEmpty()) {
+                            flowOf(emptyList<Expense>())
+                        } else {
+                            val expenseFlows = groups.map { expenseRepository.getExpensesFlowForGroup(it.id) }
+                            combine(expenseFlows) { arrayOfExpenseLists ->
+                                arrayOfExpenseLists.asList().flatten()
+                            }
                         }
                     }
-                }
-
-                combine(groupsFlow, expensesFlow) { groups, allExpenses ->
+                ) { groups, allExpenses ->
                     _uiState.update { it.copy(isLoading = true) } // Show loading during recalc
 
+                    // --- CORRECTED BLOCK ---
                     if (groups.isEmpty()) {
-                        _uiState.update { it.copy(isLoading = false, groupsWithBalances = emptyList()) } // **MODIFIED:** Removed totalNetBalance update
-                        return@combine
+                        // Instead of just updating state and returning Unit,
+                        // return the empty Pair that collectLatest expects.
+                        Pair(emptyList<GroupWithBalance>(), emptyMap<String, User>())
+                        // --- END CORRECTION ---
+                    } else {
+                        // --- Fetch All Member Details Once ---
+                        val allMemberUids = groups.flatMap { it.members }.distinct()
+                        val membersMap = if (allMemberUids.isNotEmpty()) {
+                            userRepository.getProfilesForFriends(allMemberUids).associateBy { it.uid }
+                        } else {
+                            emptyMap()
+                        }
+                        // --- End Member Fetch ---
+
+                        val groupExpensesMap = allExpenses.groupBy { it.groupId ?: "" }
+
+                        val groupsWithCalculatedBalances = groups.map { group ->
+                            // ... (rest of the calculation logic remains the same) ...
+                            val expensesInGroup = groupExpensesMap[group.id] ?: emptyList()
+                            var groupNetBalance = 0.0
+                            val memberBalancesInGroup = mutableMapOf<String, Double>()
+
+                            expensesInGroup.forEach { expense ->
+                                expense.paidBy.forEach { payer ->
+                                    memberBalancesInGroup[payer.uid] = (memberBalancesInGroup[payer.uid] ?: 0.0) + payer.paidAmount
+                                }
+                                expense.participants.forEach { participant ->
+                                    memberBalancesInGroup[participant.uid] = (memberBalancesInGroup[participant.uid] ?: 0.0) - participant.owesAmount
+                                }
+                            }
+
+                            groupNetBalance = roundToCents(memberBalancesInGroup[currentUid] ?: 0.0)
+
+                            val breakdown = mutableMapOf<String, Double>()
+                            group.members.forEach { memberUid ->
+                                if (memberUid != currentUid) {
+                                    var balanceWithMember = 0.0
+                                    expensesInGroup.filter { exp ->
+                                        val involvedUids = (exp.paidBy.map { it.uid } + exp.participants.map { it.uid }).toSet()
+                                        involvedUids.contains(currentUid) && involvedUids.contains(memberUid)
+                                    }.forEach { relevantExpense ->
+                                        val currentUserPaid = relevantExpense.paidBy.find { it.uid == currentUid }?.paidAmount ?: 0.0
+                                        val currentUserOwes = relevantExpense.participants.find { it.uid == currentUid }?.owesAmount ?: 0.0
+                                        val memberPaid = relevantExpense.paidBy.find { it.uid == memberUid }?.paidAmount ?: 0.0
+                                        val memberOwes = relevantExpense.participants.find { it.uid == memberUid }?.owesAmount ?: 0.0
+                                        val currentUserNet = currentUserPaid - currentUserOwes
+                                        val memberNet = memberPaid - memberOwes
+                                        balanceWithMember += (currentUserNet - memberNet) / 2.0
+                                    }
+                                    val roundedBalanceWithMember = roundToCents(balanceWithMember)
+                                    if (roundedBalanceWithMember.absoluteValue > 0.01) {
+                                        breakdown[memberUid] = roundedBalanceWithMember
+                                    }
+                                }
+                            }
+
+                            GroupWithBalance(
+                                group = group,
+                                userNetBalance = groupNetBalance,
+                                simplifiedOwedBreakdown = breakdown
+                            )
+                        }.sortedByDescending { it.userNetBalance.absoluteValue }
+
+                        // Return calculated data and membersMap
+                        Pair(groupsWithCalculatedBalances, membersMap)
                     }
 
-                    val groupExpensesMap = allExpenses.groupBy { it.groupId ?: "" }
-
-                    // **MODIFIED:** Removed overallNetBalance variable
-                    // var overallNetBalance = 0.0 <-- REMOVED
-
-                    val groupsWithCalculatedBalances = groups.map { group ->
-                        val expensesInGroup = groupExpensesMap[group.id] ?: emptyList()
-                        var groupNetBalance = 0.0
-
-                        expensesInGroup.forEach { expense ->
-                            val paidByUser = expense.paidBy.find { it.uid == currentUid }?.paidAmount ?: 0.0
-                            val shareOwedByUser = expense.participants.find { it.uid == currentUid }?.owesAmount ?: 0.0
-                            groupNetBalance += (paidByUser - shareOwedByUser)
-                        }
-
-                        val roundedGroupNetBalance = roundToCents(groupNetBalance)
-                        // overallNetBalance += roundedGroupNetBalance // <-- REMOVED
-
-                        val breakdown = emptyMap<String, Double>() // Placeholder
-
-                        GroupWithBalance(
-                            group = group,
-                            userNetBalance = roundedGroupNetBalance,
-                            simplifiedOwedBreakdown = breakdown
-                        )
-                    }.sortedByDescending { it.userNetBalance.absoluteValue }
-
-                    // **MODIFIED:** Removed overall balance rounding and update
-                    // val roundedOverallNetBalance = roundToCents(overallNetBalance) <-- REMOVED
-
+                }.collectLatest { (calculatedGroups, membersMap) -> // Collect the Pair
+                    // This block will now *always* receive a Pair
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            groupsWithBalances = groupsWithCalculatedBalances,
-                            // totalNetBalance = roundedOverallNetBalance, <-- REMOVED
+                            groupsWithBalances = calculatedGroups,
+                            membersMap = membersMap,
                             error = null
                         )
                     }
-                }.collect()
+                }
 
             } catch (e: Exception) {
-                logE("Error collecting groups and calculating balances: ${e.message}")
+                logE("Error collecting groups/balances: ${e.message}")
                 _uiState.update { it.copy(isLoading = false, error = "Failed to load group balances.") }
             }
         }
