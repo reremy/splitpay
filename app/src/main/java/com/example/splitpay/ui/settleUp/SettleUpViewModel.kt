@@ -3,6 +3,7 @@ package com.example.splitpay.ui.settleUp
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository
@@ -101,12 +102,23 @@ class SettleUpViewModel(
                                     val memberPaid = relevantExpense.paidBy.find { it.uid == memberUid }?.paidAmount ?: 0.0
                                     val memberOwes = relevantExpense.participants.find { it.uid == memberUid }?.owesAmount ?: 0.0
 
-                                    val currentUserNet = currentUserPaid - currentUserOwes
-                                    val memberNet = memberPaid - memberOwes
-
-                                    // This logic might need refinement, but it's a start
-                                    val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
-                                    balanceWithMember += (currentUserNet - memberNet) / numParticipants
+                                    // --- *** THIS IS THE CORRECTED LOGIC *** ---
+                                    if (relevantExpense.expenseType == ExpenseType.PAYMENT) {
+                                        // This is a direct payment (like a Settle Up)
+                                        if (currentUserPaid > 0) {
+                                            // I paid the member
+                                            balanceWithMember += currentUserPaid
+                                        } else if (memberPaid > 0) {
+                                            // The member paid me
+                                            balanceWithMember -= memberPaid
+                                        }
+                                    } else {
+                                        // This is a shared expense, use the split logic
+                                        val currentUserNet = currentUserPaid - currentUserOwes
+                                        val memberNet = memberPaid - memberOwes
+                                        val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
+                                        balanceWithMember += (currentUserNet - memberNet) / numParticipants
+                                    }
                                 }
 
                                 val roundedBalanceWithMember = roundToCents(balanceWithMember)

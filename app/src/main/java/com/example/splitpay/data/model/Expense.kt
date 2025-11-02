@@ -15,6 +15,11 @@ data class ExpensePayer(
     val paidAmount: Double = 0.0
 )
 
+object ExpenseType {
+    const val EXPENSE = "EXPENSE"
+    const val PAYMENT = "PAYMENT"
+}
+
 data class Expense(
     val id: String = "",
     val groupId: String? = null, // Make nullable for "Non-group"
@@ -29,5 +34,7 @@ data class Expense(
 
     // --- ADD THESE ---
     val memo: String = "",
-    val imageUrls: List<String> = emptyList()
+    val imageUrls: List<String> = emptyList(),
+
+    val expenseType: String = ExpenseType.EXPENSE
 )

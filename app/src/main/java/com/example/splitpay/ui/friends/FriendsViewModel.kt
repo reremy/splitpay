@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.BalanceDetail
 import com.example.splitpay.data.model.Expense
+import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.model.FriendWithBalance
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
@@ -314,12 +315,21 @@ class FriendsViewModel(
         val shareOwedByCurrentUser = expense.participants.find { it.uid == currentUserUid }?.owesAmount ?: 0.0
         val shareOwedByFriend = expense.participants.find { it.uid == friendUid }?.owesAmount ?: 0.0
 
-        val netContributionCurrentUser = paidByCurrentUser - shareOwedByCurrentUser
-        val netContributionFriend = paidByFriend - shareOwedByFriend
+        if (expense.expenseType == ExpenseType.PAYMENT) {
+            // This is a direct payment (like a Settle Up)
+            return when {
+                paidByCurrentUser > 0 -> paidByCurrentUser // I paid the friend
+                paidByFriend > 0 -> -paidByFriend      // The friend paid me
+                else -> 0.0
+            }
+        } else {
+            // This is a shared expense, use the split logic
+            val netContributionCurrentUser = paidByCurrentUser - shareOwedByCurrentUser
+            val netContributionFriend = paidByFriend - shareOwedByFriend
+            val numParticipants = expense.participants.size.toDouble().coerceAtLeast(1.0)
 
-        val numParticipants = expense.participants.size.toDouble().coerceAtLeast(1.0) // Avoid division by zero
-        val balanceChange = (netContributionCurrentUser - netContributionFriend) / numParticipants // <-- NEW
-        return balanceChange
+            return (netContributionCurrentUser - netContributionFriend) / numParticipants
+        }
     }
 
     // Helper function for rounding

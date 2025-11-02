@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.Expense
 import com.example.splitpay.data.model.ExpenseParticipant
 import com.example.splitpay.data.model.ExpensePayer
+import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.model.Group // <-- IMPORT GROUP
 import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository
@@ -165,7 +166,8 @@ class RecordPaymentViewModel(
                 paidBy = listOf(ExpensePayer(uid = state.payer.uid, paidAmount = totalAmount)),
                 participants = listOf(ExpenseParticipant(uid = state.receiver.uid, owesAmount = totalAmount)),
                 memo = state.memo.trim(), // <-- USE STATE MEMO
-                imageUrls = emptyList() // TODO: Handle image uploads later
+                imageUrls = emptyList(), // TODO: Handle image uploads later
+                expenseType = ExpenseType.PAYMENT
             )
 
             val result = expenseRepository.addExpense(newExpense)

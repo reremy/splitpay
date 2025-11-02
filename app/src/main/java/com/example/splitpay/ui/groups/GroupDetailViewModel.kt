@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.Expense
+import com.example.splitpay.data.model.ExpenseType // <-- IMPORT THE NEW TYPE
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository
@@ -127,12 +128,24 @@ class GroupDetailViewModel(
                             val memberPaid = relevantExpense.paidBy.find { it.uid == uid }?.paidAmount ?: 0.0
                             val memberOwes = relevantExpense.participants.find { it.uid == uid }?.owesAmount ?: 0.0
 
-                            // How much currentUser contributed net vs how much member contributed net for this expense
-                            val currentUserNet = currentUserPaid - currentUserOwes
-                            val memberNet = memberPaid - memberOwes
-
-                            val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
-                            balanceWithMember += (currentUserNet - memberNet) / numParticipants
+                            // --- *** THIS IS THE CORRECTED LOGIC *** ---
+                            if (relevantExpense.expenseType == ExpenseType.PAYMENT) {
+                                // This is a direct payment (like a Settle Up)
+                                if (currentUserPaid > 0) {
+                                    // I paid the member
+                                    balanceWithMember += currentUserPaid
+                                } else if (memberPaid > 0) {
+                                    // The member paid me
+                                    balanceWithMember -= memberPaid
+                                }
+                            } else {
+                                // This is a shared expense, use the split logic
+                                val currentUserNet = currentUserPaid - currentUserOwes
+                                val memberNet = memberPaid - memberOwes
+                                val numParticipants = relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
+                                balanceWithMember += (currentUserNet - memberNet) / numParticipants
+                            }
+                            // --- *** END OF CORRECTED LOGIC *** ---
                         }
 
                         val roundedBalanceWithMember = roundToCents(balanceWithMember)
@@ -186,6 +199,20 @@ class GroupDetailViewModel(
     fun calculateUserLentBorrowed(expense: Expense): Pair<String, Color> {
         if (currentUserId == null) return "" to Color.Gray // Should not happen if logged in
 
+        // --- FIX: Check expenseType for payments ---
+        if (expense.expenseType == ExpenseType.PAYMENT) {
+            val payerUid = expense.paidBy.firstOrNull()?.uid
+            val receiverUid = expense.participants.firstOrNull()?.uid
+
+            return when (currentUserId) {
+                payerUid -> "You paid ${formatCurrency(expense.totalAmount)}" to NegativeRed // You sent money
+                receiverUid -> "You received ${formatCurrency(expense.totalAmount)}" to PositiveGreen // You got money
+                else -> "Payment" to Color.Gray // Not involved
+            }
+        }
+        // --- END FIX ---
+
+        // Original logic for shared expenses
         val userPaid = expense.paidBy.find { it.uid == currentUserId }?.paidAmount ?: 0.0
         val userOwed = expense.participants.find { it.uid == currentUserId }?.owesAmount ?: 0.0
         val netAmount = userPaid - userOwed
@@ -199,7 +226,21 @@ class GroupDetailViewModel(
 
     // --- Helper to format payer summary ---
     fun formatPayerSummary(expense: Expense): String {
-        // --- Refine Payer Summary to use membersMap ---
+        // --- FIX: Check expenseType for payments ---
+        if (expense.expenseType == ExpenseType.PAYMENT) {
+            val payerUid = expense.paidBy.firstOrNull()?.uid
+            val receiverUid = expense.participants.firstOrNull()?.uid
+
+            val payerName = _uiState.value.membersMap[payerUid]?.username
+                ?: (if (payerUid == currentUserId) "You" else "User...")
+            val receiverName = _uiState.value.membersMap[receiverUid]?.username
+                ?: (if (receiverUid == currentUserId) "you" else "User...")
+
+            return "$payerName paid $receiverName"
+        }
+        // --- END FIX ---
+
+        // Original logic for shared expenses
         val payerUid = expense.paidBy.firstOrNull()?.uid
         val payerName = when {
             payerUid == null -> "N/A"
@@ -216,6 +257,11 @@ class GroupDetailViewModel(
         }
     }
 
+    // Helper function to format currency (private, as it's only used here)
+    private fun formatCurrency(amount: Double): String {
+        // Simple formatter
+        return "MYR%.2f".format(amount.absoluteValue)
+    }
 
     // --- Placeholder functions for menu actions (to be implemented later) ---
     fun onEditNameClicked() { /* TODO */ }
