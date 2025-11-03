@@ -306,7 +306,7 @@ class GroupSettingsViewModel(
                 }
 
                 // Second, delete the group itself
-                val groupResult = groupsRepository.deleteGroup(groupId)
+                val groupResult = groupsRepository.archiveGroup(groupId)
                 if (groupResult.isFailure) {
                     throw groupResult.exceptionOrNull() ?: Exception("Failed to delete group.")
                 }

@@ -65,6 +65,7 @@ class GroupsRepository(
         // Listen for groups where the current user's UID is present in the 'members' array
         val listenerRegistration = groupsCollection
             .whereArrayContains("members", currentUserUid)
+            .whereEqualTo("isArchived", false)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     logE("Error fetching groups: ${error.message}")
@@ -103,6 +104,7 @@ class GroupsRepository(
             logD("Fetching groups once for user: $uid")
             val querySnapshot = groupsCollection
                 .whereArrayContains("members", uid)
+                .whereEqualTo("isArchived", false)
                 .orderBy("createdAt", Query.Direction.DESCENDING) // Optional order
                 .get() // Perform a one-time fetch
                 .await() // Wait for the result
@@ -199,6 +201,17 @@ class GroupsRepository(
             Result.success(Unit)
         } catch (e: Exception) {
             logE("Error removing member $memberUid from group $groupId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun archiveGroup(groupId: String): Result<Unit> {
+        return try {
+            groupsCollection.document(groupId).update("isArchived", true).await()
+            logD("Archived group $groupId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error archiving group $groupId: ${e.message}")
             Result.failure(e)
         }
     }

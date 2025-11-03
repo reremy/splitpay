@@ -7,5 +7,6 @@ data class Group(
     // List of UIDs of all users in the group (including the creator)
     val members: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val iconIdentifier: String = "group"
+    val iconIdentifier: String = "group",
+    val isArchived: Boolean = false
 )
