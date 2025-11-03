@@ -27,6 +27,13 @@ fun GroupsTopBarActions(
 
 @Composable
 fun ActivityTopBarActions() {
+    // --- START OF MODIFICATION ---
+    // Add Search icon (placeholder)
+    IconButton(onClick = { /* TODO: Search Activity */ }) {
+        Icon(Icons.Default.Search, contentDescription = "Search Activity", tint = Color.White)
+    }
+    // --- END OF MODIFICATION ---
+
     // Example for Activity: maybe just a filter/sort icon
     IconButton(onClick = { /* TODO: Filter Activity */ }) {
         Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Filter Activity", tint = Color.White)

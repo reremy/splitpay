@@ -34,6 +34,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.splitpay.logger.logE
 import com.example.splitpay.navigation.Screen
+import com.example.splitpay.ui.activity.ActivityScreen
 import com.example.splitpay.ui.friends.FriendsScreenContent
 import com.example.splitpay.ui.friends.FriendsTopBarActions
 import com.example.splitpay.ui.friends.FriendsViewModel
@@ -172,7 +173,7 @@ fun HomeScreen3(
                     }
                 )
             }
-            composable("activity_screen") { ActivityContent(innerPadding) }
+            composable("activity_screen") { ActivityScreen(innerPadding = innerPadding) }
             composable("profile_screen") {
                 UserProfileScreen(mainNavController = mainNavController)
             }
@@ -182,29 +183,3 @@ fun HomeScreen3(
 
 
 
-
-@Composable
-fun FriendsContent(innerPadding: PaddingValues) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Friends Screen Content", style = MaterialTheme.typography.titleLarge)
-    }
-}
-
-@Composable
-fun ActivityContent(innerPadding: PaddingValues) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(innerPadding)
-            .padding(16.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("Activity Screen Content", style = MaterialTheme.typography.titleLarge)
-    }
-}
