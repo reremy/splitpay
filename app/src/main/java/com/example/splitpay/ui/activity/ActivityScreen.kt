@@ -282,10 +282,16 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): S
         impact < -0.01 -> "You owe MYR%.2f".format(impact.unaryMinus()) // Show positive value
         impact > 0.01 -> "You get back MYR%.2f".format(impact)
         else -> {
-            // For group creation, there's no financial impact
-            if (activity.activityType == ActivityType.GROUP_CREATED.name ||
-                activity.activityType == ActivityType.GROUP_DELETED.name
-            ) ""
+            // --- MODIFICATION START ---
+            // Don't show "you do not owe" for non-financial events
+            val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
+            if (type == ActivityType.GROUP_CREATED ||
+                type == ActivityType.GROUP_DELETED ||
+                type == ActivityType.MEMBER_ADDED
+            ) {
+                "" // Return empty string for these types
+            }
+            // --- MODIFICATION END ---
             // For expenses where user is not involved financially
             else "You do not owe anything"
         }

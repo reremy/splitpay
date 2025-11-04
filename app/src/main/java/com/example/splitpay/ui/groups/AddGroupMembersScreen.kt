@@ -27,6 +27,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.data.model.User
+import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.ui.theme.* // Import theme colors
@@ -35,12 +36,18 @@ import com.example.splitpay.ui.theme.* // Import theme colors
 class AddGroupMembersViewModelFactory(
     private val groupsRepository: GroupsRepository,
     private val userRepository: UserRepository,
+    private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AddGroupMembersViewModel::class.java)) {
-            return AddGroupMembersViewModel(groupsRepository, userRepository, savedStateHandle) as T
+            return AddGroupMembersViewModel(
+                groupsRepository,
+                userRepository,
+                activityRepository,
+                savedStateHandle
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
@@ -52,11 +59,17 @@ class AddGroupMembersViewModelFactory(
 fun AddGroupMembersScreen(
     groupId: String,
     onNavigateBack: () -> Unit,
-    groupsRepository: GroupsRepository = GroupsRepository(), // Provide defaults
-    userRepository: UserRepository = UserRepository()
+    groupsRepository: GroupsRepository = GroupsRepository(),
+    userRepository: UserRepository = UserRepository(),
+    activityRepository: ActivityRepository = ActivityRepository()
 ) {
     val savedStateHandle = SavedStateHandle(mapOf("groupId" to groupId))
-    val factory = AddGroupMembersViewModelFactory(groupsRepository, userRepository, savedStateHandle)
+    val factory = AddGroupMembersViewModelFactory(
+        groupsRepository,
+        userRepository,
+        activityRepository,
+        savedStateHandle
+    )
     val viewModel: AddGroupMembersViewModel = viewModel(factory = factory)
 
     val uiState by viewModel.uiState.collectAsState()

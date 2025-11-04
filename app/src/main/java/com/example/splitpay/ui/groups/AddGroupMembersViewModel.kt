@@ -3,8 +3,11 @@ package com.example.splitpay.ui.groups
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitpay.data.model.Activity
+import com.example.splitpay.data.model.ActivityType
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
+import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logD
@@ -29,6 +32,7 @@ data class AddGroupMembersUiState(
 class AddGroupMembersViewModel(
     private val groupsRepository: GroupsRepository,
     private val userRepository: UserRepository,
+    private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -130,11 +134,56 @@ class AddGroupMembersViewModel(
             return
         }
 
+        val group = uiState.value.group
+        val currentUserUid = userRepository.getCurrentUser()?.uid
+
+        if (group == null || currentUserUid == null) {
+            _uiState.update { it.copy(error = "User or Group data missing. Cannot add members.") }
+            return
+        }
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) } // Show loading indicator on button?
             val result = groupsRepository.addMembersToGroup(groupId, friendsToAdd.map { it.uid })
             result.onSuccess {
                 logD("Successfully added members to group $groupId")
+
+                result.onSuccess {
+                    logD("Successfully added members to group $groupId")
+
+                    // --- NEW LOGIC: Log this activity (fire-and-forget) ---
+                    viewModelScope.launch {
+                        try {
+                            val actorName = userRepository.getUserProfile(currentUserUid)?.username
+                                ?: userRepository.getCurrentUser()?.displayName
+                                ?: "Someone"
+
+                            // All members who will see this activity
+                            val newFullMemberList = group.members + friendsToAdd.map { it.uid }
+
+                            // Create one activity *per friend added*
+                            friendsToAdd.forEach { friendAdded ->
+                                val activity = Activity(
+                                    activityType = ActivityType.MEMBER_ADDED.name,
+                                    actorUid = currentUserUid,
+                                    actorName = actorName,
+                                    involvedUids = newFullMemberList,
+                                    groupId = group.id,
+                                    groupName = group.name,
+                                    displayText = friendAdded.username, // <-- The name of the new member
+                                    financialImpacts = emptyMap() // No financial impact
+                                )
+                                activityRepository.logActivity(activity)
+                            }
+                            logD("Logged ${friendsToAdd.size} MEMBER_ADDED activities for group ${group.id}")
+
+                        } catch (e: Exception) {
+                            logE("Failed to log MEMBER_ADDED activity: ${e.message}")
+                            // Don't block navigation, just log the error
+                        }
+                    }
+                }
+
                 _uiState.update { it.copy(isLoading = false, addMembersSuccess = true) }
             }.onFailure { e ->
                 logE("Failed to add members: ${e.message}")
