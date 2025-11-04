@@ -42,6 +42,7 @@ import com.google.firebase.auth.FirebaseAuth
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
+import kotlin.math.absoluteValue
 
 /**
  * The main composable for the Activity screen.
@@ -289,6 +290,19 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): S
     // Find the financial impact for the *current* user
     val impact = activity.financialImpacts?.get(currentUserId) ?: 0.0
 
+    val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
+
+    if (type == ActivityType.PAYMENT_MADE) {
+        val amount = impact.absoluteValue
+        return if (activity.actorUid == currentUserId) {
+            // I was the payer (actor)
+            "You paid MYR%.2f".format(amount)
+        } else {
+            // I was the receiver
+            "You were paid MYR%.2f".format(amount)
+        }
+    }
+
     return when {
         impact < -0.01 -> "You owe MYR%.2f".format(impact.unaryMinus()) // Show positive value
         impact > 0.01 -> "You get back MYR%.2f".format(impact)
@@ -315,6 +329,16 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): S
  */
 private fun getFinancialSummaryColor(activity: Activity, currentUserId: String): Color {
     val impact = activity.financialImpacts?.get(currentUserId) ?: 0.0
+    val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
+    if (type == ActivityType.PAYMENT_MADE) {
+        return if (activity.actorUid == currentUserId) {
+            // I was the payer, show as "negative" or neutral
+            NegativeRed // Or Color.Gray, depending on preference
+        } else {
+            // I was the receiver, show as "positive"
+            PositiveGreen
+        }
+    }
     return when {
         impact < -0.01 -> NegativeRed
         impact > 0.01 -> PositiveGreen

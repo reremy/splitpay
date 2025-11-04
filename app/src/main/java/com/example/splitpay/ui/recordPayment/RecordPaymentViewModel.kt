@@ -3,12 +3,15 @@ package com.example.splitpay.ui.recordPayment
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitpay.data.model.Activity
+import com.example.splitpay.data.model.ActivityType
 import com.example.splitpay.data.model.Expense
 import com.example.splitpay.data.model.ExpenseParticipant
 import com.example.splitpay.data.model.ExpensePayer
 import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.model.Group // <-- IMPORT GROUP
 import com.example.splitpay.data.model.User
+import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository // <-- IMPORT REPO
 import com.example.splitpay.data.repository.UserRepository
@@ -54,7 +57,8 @@ sealed interface RecordPaymentUiEvent {
 class RecordPaymentViewModel(
     private val userRepository: UserRepository,
     private val expenseRepository: ExpenseRepository,
-    private val groupsRepository: GroupsRepository, // <-- INJECTED
+    private val groupsRepository: GroupsRepository,
+    private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -173,6 +177,39 @@ class RecordPaymentViewModel(
             val result = expenseRepository.addExpense(newExpense)
             result.onSuccess {
                 logD("Settlement payment saved successfully.")
+                viewModelScope.launch {
+                    try {
+                        // The Payer is the "actor"
+                        val actor = state.payer
+                        // The Receiver is the "other person" in the text
+                        val receiver = state.receiver
+                        val group = state.group!! // We checked for null at the start
+
+                        // Calculate financial impact for balance sheet
+                        // Payer's balance is restored (e.g., -500 -> 0), so +Amount
+                        // Receiver's balance is restored (e.g., +500 -> 0), so -Amount
+                        val financialImpacts = mapOf(
+                            actor.uid to totalAmount,
+                            receiver.uid to -totalAmount
+                        )
+
+                        val activity = Activity(
+                            activityType = ActivityType.PAYMENT_MADE.name,
+                            actorUid = actor.uid,
+                            actorName = actor.username,
+                            involvedUids = group.members, // All group members can see
+                            groupId = group.id,
+                            groupName = group.name,
+                            displayText = receiver.username, // The "other person"
+                            financialImpacts = financialImpacts
+                        )
+                        activityRepository.logActivity(activity)
+                        logD("Logged PAYMENT_MADE activity for group ${group.id}")
+                    } catch (e: Exception) {
+                        logE("Failed to log PAYMENT_MADE activity: ${e.message}")
+                    }
+                }
+
                 _uiEvent.emit(RecordPaymentUiEvent.SaveSuccess) // Go back on success
             }.onFailure { e ->
                 logE("Failed to save settlement: ${e.message}")
