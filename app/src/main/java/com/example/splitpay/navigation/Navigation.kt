@@ -177,6 +177,7 @@ fun Navigation(
                 "Nav->AddExpenseWithGroup: Received groupId = $groupIdFromBackStack"
             )
             AddExpenseScreen(
+                groupId = groupIdFromBackStack,
                 navBackStackEntry = backStackEntry,
                 prefilledGroupId = groupIdFromBackStack,
                 onNavigateBack = { navController.popBackStack() },

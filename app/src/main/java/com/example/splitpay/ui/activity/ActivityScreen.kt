@@ -10,6 +10,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -182,9 +183,9 @@ private fun getActivityIcon(activityTypeStr: String): ImageVector {
         when (ActivityType.valueOf(activityTypeStr)) {
             ActivityType.GROUP_CREATED,
             ActivityType.GROUP_DELETED -> Icons.Default.Group
-            ActivityType.MEMBER_ADDED,
-            ActivityType.MEMBER_REMOVED,
-            ActivityType.MEMBER_LEFT -> Icons.Default.PersonAdd
+            ActivityType.MEMBER_ADDED -> Icons.Default.PersonAdd // <-- Keep this
+            ActivityType.MEMBER_REMOVED, // <-- ADD THIS
+            ActivityType.MEMBER_LEFT -> Icons.Default.PersonRemove // <-- Use PersonRemove icon
             ActivityType.EXPENSE_ADDED,
             ActivityType.EXPENSE_UPDATED,
             ActivityType.EXPENSE_DELETED -> Icons.Default.Description
@@ -261,6 +262,16 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
                     append("'${activity.groupName}'")
                 }
             }
+            ActivityType.MEMBER_REMOVED -> {
+                append(" removed ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append("${activity.displayText}") // Removed member's name
+                }
+                append(" from ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append("'${activity.groupName}'")
+                }
+            }
             // Add other types as we implement them
             else -> {
                 append(" did an action: ${activity.displayText ?: ""}")
@@ -287,7 +298,8 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): S
             val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
             if (type == ActivityType.GROUP_CREATED ||
                 type == ActivityType.GROUP_DELETED ||
-                type == ActivityType.MEMBER_ADDED
+                type == ActivityType.MEMBER_ADDED ||
+                type == ActivityType.MEMBER_REMOVED
             ) {
                 "" // Return empty string for these types
             }

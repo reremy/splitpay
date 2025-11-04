@@ -81,6 +81,8 @@ import androidx.navigation.NavBackStackEntry // Keep this
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.Participant // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
 import com.example.splitpay.data.model.Payer // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
+import com.example.splitpay.data.repository.ActivityRepository
+import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository // Keep this
 import com.example.splitpay.data.repository.UserRepository // Keep this
 import com.example.splitpay.ui.common.UiEventHandler
@@ -102,46 +104,57 @@ import kotlin.math.roundToInt
 // import com.example.splitpay.ui.expense.Participant as UiParticipant
 // import com.example.splitpay.ui.expense.Payer as UiPayer
 
+class AddExpenseViewModelFactory(
+    private val groupsRepository: GroupsRepository,
+    private val expenseRepository: ExpenseRepository,
+    private val userRepository: UserRepository,
+    private val activityRepository: ActivityRepository, // <-- ADD THIS
+    private val savedStateHandle: SavedStateHandle
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(AddExpenseViewModel::class.java)) {
+            return AddExpenseViewModel(
+                groupsRepository,
+                userRepository,
+                expenseRepository,
+                activityRepository, // <-- PASS IT HERE
+                savedStateHandle
+            ) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddExpenseScreen(
+    groupId: String?, // Can be null if launched from "add expense" button
     // *** Keep navBackStackEntry as a parameter ***
     navBackStackEntry: NavBackStackEntry,
     prefilledGroupId: String?,
     onNavigateBack: () -> Unit,
-    onSaveSuccess: (AddExpenseUiEvent.SaveSuccess) -> Unit
+    onSaveSuccess: (AddExpenseUiEvent.SaveSuccess) -> Unit,
+    groupsRepository: GroupsRepository = GroupsRepository(),
+    expenseRepository: ExpenseRepository = ExpenseRepository(),
+    userRepository: UserRepository = UserRepository(),
+    activityRepository: ActivityRepository = ActivityRepository()
 ) {
 
+    val savedStateHandle = SavedStateHandle(mapOf("groupId" to groupId))
+    val factory = AddExpenseViewModelFactory(
+        groupsRepository,
+        expenseRepository,
+        userRepository,
+        activityRepository, // <-- PASS IT TO THE FACTORY
+        savedStateHandle
+    )
+    val viewModel: AddExpenseViewModel = viewModel(factory = factory)
     // --- USE AbstractSavedStateViewModelFactory ---
 
     // Get the owner needed for the factory
     val owner = LocalSavedStateRegistryOwner.current
 
-    // Remember the factory instance, tied to the owner and entry
-    val factory = remember(owner, navBackStackEntry) {
-        // Inherit from AbstractSavedStateViewModelFactory
-        object : AbstractSavedStateViewModelFactory(owner, navBackStackEntry.arguments) {
-            @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(
-                key: String, // Key for the ViewModel
-                modelClass: Class<T>, // Class of the ViewModel
-                handle: SavedStateHandle // The correctly populated handle provided by the factory
-            ): T {
-                // Construct the ViewModel using the provided handle and repositories
-                return AddExpenseViewModel(
-                    groupsRepository = GroupsRepository(),
-                    userRepository = UserRepository(),
-                    savedStateHandle = handle // Use the handle provided by the factory
-                ) as T
-            }
-        }
-    }
-
-    // Get the ViewModel using the factory and scoping it to the NavBackStackEntry
-    val viewModel: AddExpenseViewModel = viewModel(
-        viewModelStoreOwner = navBackStackEntry, // Scope to this navigation destination
-        factory = factory
-    )
-    // --- END OF FACTORY SETUP ---
 
 
     val uiState by viewModel.uiState.collectAsState()

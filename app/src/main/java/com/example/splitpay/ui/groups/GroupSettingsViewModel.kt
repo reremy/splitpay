@@ -225,6 +225,7 @@ class GroupSettingsViewModel(
 
 
     fun removeMember(memberUidToRemove: String) {
+        val group = uiState.value.group ?: return
         val memberToRemove = uiState.value.members.find { it.user.uid == memberUidToRemove }
 
         // Rule: Check balance before removing
@@ -248,6 +249,33 @@ class GroupSettingsViewModel(
 
             result.onSuccess {
                 logD("Successfully removed member $memberUidToRemove from group $groupId")
+
+                viewModelScope.launch {
+                    try {
+                        val actorName = userRepository.getUserProfile(currentUserUid ?: "")?.username
+                            ?: userRepository.getCurrentUser()?.displayName
+                            ?: "Someone"
+
+                        // The activity is relevant to all members who *were* in the group
+                        val allInvolvedUids = group.members
+
+                        val activity = Activity(
+                            activityType = ActivityType.MEMBER_REMOVED.name,
+                            actorUid = currentUserUid ?: "",
+                            actorName = actorName,
+                            involvedUids = allInvolvedUids, // Everyone (including removed) sees it
+                            groupId = group.id,
+                            groupName = group.name,
+                            displayText = memberToRemove?.user?.username ?: "a member", // The removed user's name
+                            financialImpacts = emptyMap() // No financial impact
+                        )
+                        activityRepository.logActivity(activity)
+                        logD("Logged MEMBER_REMOVED activity for group ${group.id}")
+                    } catch (e: Exception) {
+                        logE("Failed to log MEMBER_REMOVED activity: ${e.message}")
+                    }
+                }
+
                 // Listener should automatically update the member list in the UI
                 _uiState.update { it.copy(isLoading = false, error = null) }
             }.onFailure { e ->
