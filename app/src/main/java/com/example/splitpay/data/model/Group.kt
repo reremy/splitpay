@@ -1,5 +1,7 @@
 package com.example.splitpay.data.model
 
+import com.google.firebase.firestore.PropertyName
+
 data class Group(
     val id: String = "",
     val name: String = "",
@@ -8,5 +10,6 @@ data class Group(
     val members: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
     val iconIdentifier: String = "group",
+    @get:PropertyName("isArchived")
     val isArchived: Boolean = false
 )

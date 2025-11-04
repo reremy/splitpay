@@ -38,7 +38,8 @@ class GroupsRepository(
                 // Creator is the first member
                 members = listOf(currentUser.uid),
                 createdAt = System.currentTimeMillis(),
-                iconIdentifier = iconIdentifier // <--- ADDED ICON
+                iconIdentifier = iconIdentifier,
+                isArchived = false
             )
 
             documentRef.set(newGroup, SetOptions.merge()).await()
