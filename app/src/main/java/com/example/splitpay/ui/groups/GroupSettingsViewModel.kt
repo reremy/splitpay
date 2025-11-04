@@ -4,8 +4,11 @@ import android.util.Log.e
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitpay.data.model.Activity
+import com.example.splitpay.data.model.ActivityType
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
+import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
@@ -60,6 +63,7 @@ class GroupSettingsViewModel(
     private val groupsRepository: GroupsRepository,
     private val userRepository: UserRepository,
     private val expenseRepository: ExpenseRepository,
+    private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -299,6 +303,9 @@ class GroupSettingsViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isDeleting = true) }
             try {
+
+                val groupToDelete = uiState.value.group ?: throw Exception("Group data not available")
+
                 // First, delete all associated expenses
                 val expenseResult = expenseRepository.deleteExpensesForGroup(groupId)
                 if (expenseResult.isFailure) {
@@ -309,6 +316,31 @@ class GroupSettingsViewModel(
                 val groupResult = groupsRepository.archiveGroup(groupId)
                 if (groupResult.isFailure) {
                     throw groupResult.exceptionOrNull() ?: Exception("Failed to delete group.")
+                }
+
+                viewModelScope.launch {
+                    try {
+                        val actorName = userRepository.getUserProfile(currentUserUid ?: "")?.username
+                            ?: userRepository.getCurrentUser()?.displayName
+                            ?: "Someone"
+
+                        val activity = Activity(
+                            activityType = ActivityType.GROUP_DELETED.name, // Use GROUP_DELETED
+                            actorUid = currentUserUid ?: "",
+                            actorName = actorName,
+                            // This activity is relevant to all members who were in the group
+                            involvedUids = groupToDelete.members,
+                            groupId = groupToDelete.id,
+                            groupName = groupToDelete.name,
+                            displayText = groupToDelete.name // e.g., "You deleted 'KOKOLTRIP'"
+                            // No financial impact for this activity type
+                        )
+                        activityRepository.logActivity(activity)
+                        logD("Group deletion activity logged for ${groupToDelete.id}")
+                    } catch (e: Exception) {
+                        logE("Failed to log group deletion activity: ${e.message}")
+                        // Don't block the main flow, just log the error
+                    }
                 }
 
                 // On complete success, emit navigation event

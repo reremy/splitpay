@@ -26,6 +26,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.data.model.User
+import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
@@ -39,12 +40,19 @@ class GroupSettingsViewModelFactory(
     private val groupsRepository: GroupsRepository,
     private val userRepository: UserRepository,
     private val expenseRepository: ExpenseRepository,
+    private val activityRepository: ActivityRepository, // <-- ADD THIS
     private val savedStateHandle: SavedStateHandle
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(GroupSettingsViewModel::class.java)) {
-            return GroupSettingsViewModel(groupsRepository, userRepository, expenseRepository, savedStateHandle) as T
+            return GroupSettingsViewModel(
+                groupsRepository,
+                userRepository,
+                expenseRepository,
+                activityRepository,
+                savedStateHandle
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
@@ -60,11 +68,18 @@ fun GroupSettingsScreen(
     // Provide default repository instances, consider Hilt later
     groupsRepository: GroupsRepository = GroupsRepository(),
     userRepository: UserRepository = UserRepository(),
-    expenseRepository: ExpenseRepository = ExpenseRepository()
+    expenseRepository: ExpenseRepository = ExpenseRepository(),
+    activityRepository: ActivityRepository = ActivityRepository()
 ) {
     // --- Use SavedStateHandle with factory ---
     val savedStateHandle = SavedStateHandle(mapOf("groupId" to groupId))
-    val factory = GroupSettingsViewModelFactory(groupsRepository, userRepository, expenseRepository, savedStateHandle)
+    val factory = GroupSettingsViewModelFactory(
+        groupsRepository,
+        userRepository,
+        expenseRepository,
+        activityRepository,
+        savedStateHandle
+    )
     val viewModel: GroupSettingsViewModel = viewModel(factory = factory)
 
     val uiState by viewModel.uiState.collectAsState()

@@ -220,6 +220,12 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
                     append("'${activity.displayText}'")
                 }
             }
+            ActivityType.GROUP_DELETED -> {
+                append(" deleted the group ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append("'${activity.displayText}'")
+                }
+            }
             ActivityType.EXPENSE_ADDED -> {
                 append(" added ")
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
@@ -277,7 +283,9 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): S
         impact > 0.01 -> "You get back MYR%.2f".format(impact)
         else -> {
             // For group creation, there's no financial impact
-            if (activity.activityType == ActivityType.GROUP_CREATED.name) ""
+            if (activity.activityType == ActivityType.GROUP_CREATED.name ||
+                activity.activityType == ActivityType.GROUP_DELETED.name
+            ) ""
             // For expenses where user is not involved financially
             else "You do not owe anything"
         }
