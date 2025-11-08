@@ -1,10 +1,12 @@
 package com.example.splitpay.ui.friendsDetail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
@@ -28,6 +30,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
@@ -41,6 +44,7 @@ class FriendsDetailViewModelFactory(
     private val userRepository: UserRepository,
     private val expenseRepository: ExpenseRepository,
     private val groupsRepository: GroupsRepository,
+    private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -50,6 +54,7 @@ class FriendsDetailViewModelFactory(
                 userRepository,
                 expenseRepository,
                 groupsRepository,
+                activityRepository,
                 savedStateHandle
             ) as T
         }
@@ -65,13 +70,15 @@ fun FriendsDetailScreen(
     onNavigateBack: () -> Unit,
     userRepository: UserRepository = UserRepository(),
     expenseRepository: ExpenseRepository = ExpenseRepository(),
-    groupsRepository: GroupsRepository = GroupsRepository()
+    groupsRepository: GroupsRepository = GroupsRepository(),
+    activityRepository: ActivityRepository = ActivityRepository()
 ) {
     val savedStateHandle = SavedStateHandle(mapOf("friendId" to friendId))
     val factory = FriendsDetailViewModelFactory(
         userRepository,
         expenseRepository,
         groupsRepository,
+        activityRepository,
         savedStateHandle
     )
     val viewModel: FriendsDetailViewModel = viewModel(factory = factory)
@@ -195,7 +202,22 @@ fun FriendDetailContent(
             Spacer(Modifier.height(8.dp))
         }
 
-        // Activity List
+        // Shared Group Activities
+        val sharedGroupActivities = uiState.sharedGroupActivities
+        if (sharedGroupActivities.isNotEmpty()) {
+            items(sharedGroupActivities, key = { "activity_${it.id}" }) { activity ->
+                SharedGroupActivityCard(
+                    activity = activity,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    onClick = {
+                        navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+
+        // Activity List (Expenses)
         when {
             viewModel.uiState.value.isLoadingExpenses -> {
                 item {
@@ -210,10 +232,10 @@ fun FriendDetailContent(
                     }
                 }
             }
-            expenses.isEmpty() -> {
+            expenses.isEmpty() && sharedGroupActivities.isEmpty() -> {
                 item {
                     Text(
-                        "No expenses recorded yet with this friend.",
+                        "No activities yet with this friend.",
                         color = Color.Gray,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -223,7 +245,7 @@ fun FriendDetailContent(
                 }
             }
             else -> {
-                items(expenses, key = { it.id }) { expense ->
+                items(expenses, key = { "expense_${it.id}" }) { expense ->
                     val (lentBorrowedText, lentBorrowedColor) = viewModel.calculateUserLentBorrowed(expense)
                     val payerSummary = viewModel.formatPayerSummary(expense)
 
@@ -359,10 +381,61 @@ fun ActionButtonsRow(
 fun ActionButton(label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C)),
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Text(label, fontSize = 14.sp, color = TextWhite)
+    }
+}
+
+@Composable
+fun SharedGroupActivityCard(
+    activity: com.example.splitpay.data.model.Activity,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF2A2A2A))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Icon
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(PrimaryBlue.copy(alpha = 0.2f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = "Group",
+                tint = PrimaryBlue,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        // Content
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = activity.groupName ?: "Unknown Group",
+                color = TextWhite,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = "shared group",
+                color = Color.Gray,
+                fontSize = 14.sp
+            )
+        }
     }
 }

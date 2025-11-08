@@ -144,4 +144,30 @@ class ActivityRepository(
             Result.failure(e)
         }
     }
+
+    /**
+     * Gets all activities for a specific group
+     * Useful for displaying group-related activities (member additions, etc.)
+     */
+    suspend fun getActivitiesForGroup(groupId: String): List<Activity> {
+        return try {
+            if (groupId.isBlank()) {
+                logE("Group ID is blank")
+                return emptyList()
+            }
+
+            val querySnapshot = activitiesCollection
+                .whereEqualTo("groupId", groupId)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            val activities = querySnapshot.toObjects(Activity::class.java)
+            logD("Fetched ${activities.size} activities for group $groupId")
+            activities
+        } catch (e: Exception) {
+            logE("Error fetching activities for group $groupId: ${e.message}")
+            emptyList()
+        }
+    }
 }
