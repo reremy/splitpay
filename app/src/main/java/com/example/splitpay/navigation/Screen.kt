@@ -18,6 +18,11 @@ object Screen {
     const val FriendProfilePreviewRoute = "$FriendProfilePreview/{userId}?username={username}"
     const val FriendDetail = "friend_detail"
     const val FriendDetailRoute = "$FriendDetail/{friendId}"
+    const val FriendSettings = "friend_settings"
+    const val FriendSettingsRoute = "$FriendSettings/{friendId}"
+
+    const val SettleUpFriend = "settle_up_friend"
+    const val SettleUpFriendRoute = "$SettleUpFriend/{friendId}"
 
     // --- NEW: Settle Up Flow Routes ---
     const val SettleUp = "settle_up"
@@ -26,4 +31,5 @@ object Screen {
     const val RecordPaymentRoute = "$RecordPayment/{groupId}?memberUid={memberUid}&balance={balance}" // Pass balance as a float string
     const val MoreOptions = "more_options"
     const val MoreOptionsRoute = "$MoreOptions/{groupId}"
+
 }

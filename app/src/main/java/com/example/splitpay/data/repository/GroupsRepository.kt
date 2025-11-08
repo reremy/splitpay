@@ -93,6 +93,8 @@ class GroupsRepository(
     /**
      * Fetches the list of groups the current user is a member of once.
      */
+    // In GroupsRepository.kt, replace the getGroupsSuspend function with this:
+
     suspend fun getGroupsSuspend(): List<Group> {
         val currentUser = userRepository.getCurrentUser()
         if (currentUser == null) {
@@ -106,16 +108,18 @@ class GroupsRepository(
             val querySnapshot = groupsCollection
                 .whereArrayContains("members", uid)
                 .whereEqualTo("isArchived", false)
-                .orderBy("createdAt", Query.Direction.DESCENDING) // Optional order
-                .get() // Perform a one-time fetch
-                .await() // Wait for the result
+                // REMOVED: .orderBy("createdAt", Query.Direction.DESCENDING)
+                // We can sort in memory instead
+                .get()
+                .await()
 
             val groups = querySnapshot.toObjects(Group::class.java)
+                .sortedByDescending { it.createdAt } // Sort in memory instead
             logD("Fetched ${groups.size} groups.")
             groups
         } catch (e: Exception) {
             logE("Error fetching groups once: ${e.message}")
-            emptyList() // Return empty list on error
+            emptyList()
         }
     }
 

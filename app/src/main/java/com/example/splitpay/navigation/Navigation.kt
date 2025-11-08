@@ -24,6 +24,8 @@ import androidx.navigation.navArgument
 import com.example.splitpay.ui.addfriend.AddFriendScreen
 import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
 import com.example.splitpay.ui.expense.AddExpenseScreen
+import com.example.splitpay.ui.friendsDetail.FriendSettingsScreen
+import com.example.splitpay.ui.friendsDetail.FriendsDetailScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
 import com.example.splitpay.ui.groups.GroupDetailScreen
 import com.example.splitpay.ui.groups.GroupSettingsScreen
@@ -225,19 +227,50 @@ fun Navigation(
         ) { backStackEntry ->
             val friendId = backStackEntry.arguments?.getString("friendId") ?: "N/A"
             // Replace with your actual FriendDetailScreen composable later
+            FriendsDetailScreen(
+                friendId = friendId,
+                navController = navController,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        //Friend Settings Screen
+        composable(
+            route = Screen.FriendSettingsRoute,
+            arguments = listOf(navArgument("friendId") { type = NavType.StringType }),
+            enterTransition = { slideInFromRight() }, // Example transition
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val friendId = backStackEntry.arguments?.getString("friendId") ?: ""
+            FriendSettingsScreen(
+                friendId = friendId,
+                navController = navController,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        //Friend Settle Up Screen (Placeholder) 
+        composable(
+            route = Screen.SettleUpFriendRoute,
+            arguments = listOf(navArgument("friendId") { type = NavType.StringType }),
+            // Add transitions
+        ) { backStackEntry ->
+            val friendId = backStackEntry.arguments?.getString("friendId") ?: ""
+            // --- Placeholder ---
             Box(
-                modifier = Modifier.fillMaxSize().background(DarkBackground), // Add background
+                modifier = Modifier.fillMaxSize().background(DarkBackground),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { // Wrap in column for button
-                    Text("Friend Detail Screen for ID: $friendId (Placeholder)", color = TextWhite)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Settle Up with Friend: $friendId (Placeholder)", color = TextWhite)
                     Spacer(Modifier.height(16.dp))
-                    // Add a back button for testing navigation
                     Button(onClick = { navController.popBackStack() }) {
                         Text("Go Back")
                     }
                 }
             }
+            // --- End Placeholder ---
         }
         composable(
             route = Screen.GroupSettings, // Use constant from Screen.kt
