@@ -170,6 +170,7 @@ class AddGroupMembersViewModel(
                                     involvedUids = newFullMemberList,
                                     groupId = group.id,
                                     groupName = group.name,
+                                    entityId = friendAdded.uid, // UID of the member who was added
                                     displayText = friendAdded.username, // <-- The name of the new member
                                     financialImpacts = emptyMap() // No financial impact
                                 )
