@@ -83,18 +83,19 @@ fun ActivityDetailScreen(
 
     val uiState by viewModel.uiState.collectAsState()
 
-    // Refresh data when returning from edit screen
-    LaunchedEffect(navController.currentBackStackEntry) {
-        val currentEntry = navController.currentBackStackEntry
-        val savedStateHandle = currentEntry?.savedStateHandle
+    // Observe the refresh flag from navigation
+    val refreshNeeded = navController.currentBackStackEntry
+        ?.savedStateHandle
+        ?.getStateFlow("refresh_needed", false)
+        ?.collectAsState()
 
-        // Check if we're returning from the edit screen
-        val shouldRefresh = savedStateHandle?.get<Boolean>("refresh_needed") ?: false
-        if (shouldRefresh) {
+    // Refresh data when the flag changes to true
+    LaunchedEffect(refreshNeeded?.value) {
+        if (refreshNeeded?.value == true) {
             android.util.Log.d("ActivityDetailScreen", "Refreshing data after edit")
             viewModel.refresh()
             // Clear the flag
-            savedStateHandle?.set("refresh_needed", false)
+            navController.currentBackStackEntry?.savedStateHandle?.set("refresh_needed", false)
         }
     }
 
