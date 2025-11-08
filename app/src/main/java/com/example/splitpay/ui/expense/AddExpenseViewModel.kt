@@ -252,7 +252,7 @@ class AddExpenseViewModel(
                 var loadedGroup: Group? = null
                 val relevantUsers: List<User>
 
-                if (expense.groupId == "non_group") {
+                if (expense.groupId == "non_group" || expense.groupId == null) {
                     // Non-group expense, load friends
                     loadedGroup = nonGroupPlaceholder
                     val friendIds = userRepository.getCurrentUserFriendIds()
@@ -264,7 +264,7 @@ class AddExpenseViewModel(
                 } else {
                     // Group expense, load group and members
                     loadedGroup = try {
-                        groupsRepository.getGroupFlow(expense.groupId).firstOrNull()
+                        groupsRepository.getGroupFlow(expense.groupId!!).firstOrNull()
                     } catch (e: Exception) {
                         logE("Failed to fetch group ${expense.groupId}: ${e.message}")
                         null
@@ -327,7 +327,7 @@ class AddExpenseViewModel(
                 }
 
                 // --- 7. Create all relevant users as potential participants ---
-                val allPotentialUsers = if (expense.groupId == "non_group") {
+                val allPotentialUsers = if (expense.groupId == "non_group" || expense.groupId == null) {
                     (listOf(currentUserPayer) + relevantUsers.map { user ->
                         Payer(user.uid, user.username.takeIf { it.isNotBlank() } ?: user.fullName)
                     }).distinctBy { it.uid }
@@ -376,8 +376,8 @@ class AddExpenseViewModel(
                         description = expense.description,
                         amount = expense.totalAmount.toString(),
                         selectedGroup = loadedGroup,
-                        currentGroupId = expense.groupId,
-                        initialGroupId = expense.groupId,
+                        currentGroupId = expense.groupId ?: "non_group",
+                        initialGroupId = expense.groupId ?: "non_group",
                         paidByUsers = uiPayers,
                         participants = uiParticipants,
                         splitType = splitType,
