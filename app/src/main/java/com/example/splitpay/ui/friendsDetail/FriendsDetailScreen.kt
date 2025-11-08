@@ -196,30 +196,46 @@ fun FriendDetailContent(
         }
 
         // Activity List
-        if (expenses.isEmpty() && !viewModel.uiState.value.isLoadingExpenses) {
-            item {
-                Text(
-                    "No expenses recorded yet with this friend.",
-                    color = Color.Gray,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    textAlign = TextAlign.Center
-                )
+        when {
+            viewModel.uiState.value.isLoadingExpenses -> {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // This is the loading spinner
+                        CircularProgressIndicator(color = PrimaryBlue)
+                    }
+                }
             }
-        } else {
-            items(expenses, key = { it.id }) { expense ->
-                val (lentBorrowedText, lentBorrowedColor) = viewModel.calculateUserLentBorrowed(expense)
-                val payerSummary = viewModel.formatPayerSummary(expense)
+            expenses.isEmpty() -> {
+                item {
+                    Text(
+                        "No expenses recorded yet with this friend.",
+                        color = Color.Gray,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 32.dp),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            else -> {
+                items(expenses, key = { it.id }) { expense ->
+                    val (lentBorrowedText, lentBorrowedColor) = viewModel.calculateUserLentBorrowed(expense)
+                    val payerSummary = viewModel.formatPayerSummary(expense)
 
-                ExpenseActivityCard(
-                    expense = expense,
-                    payerSummary = payerSummary,
-                    userLentBorrowed = lentBorrowedText,
-                    userLentBorrowedColor = lentBorrowedColor,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                Spacer(Modifier.height(8.dp))
+                    ExpenseActivityCard(
+                        expense = expense,
+                        payerSummary = payerSummary,
+                        userLentBorrowed = lentBorrowedText,
+                        userLentBorrowedColor = lentBorrowedColor,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
             }
         }
 
