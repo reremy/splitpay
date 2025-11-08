@@ -208,12 +208,11 @@ class FriendsDetailViewModel(
                     // Get all activities for this group
                     val groupActivities = activityRepository.getActivitiesForGroup(group.id)
 
-                    // Filter to activities where both users are involved
+                    // Filter to MEMBER_ADDED activities where either user was added to this shared group
                     val relevantActivities = groupActivities.filter { activity ->
-                        activity.involvedUids.contains(currentUserId) &&
-                        activity.involvedUids.contains(friendId) &&
-                        // Only include MEMBER_ADDED activities for now
-                        activity.activityType == ActivityType.MEMBER_ADDED.name
+                        activity.activityType == ActivityType.MEMBER_ADDED.name &&
+                        // Show if either the friend or current user was the one added
+                        (activity.entityId == friendId || activity.entityId == currentUserId)
                     }
 
                     sharedGroupActivities.addAll(relevantActivities)
