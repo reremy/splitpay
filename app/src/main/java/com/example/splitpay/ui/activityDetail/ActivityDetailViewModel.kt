@@ -81,19 +81,48 @@ class ActivityDetailViewModel(
 
                 logD("Activity result: isSuccess=${activityResult.isSuccess}, activity=${activityResult.getOrNull()}")
 
-                if (activityResult.isFailure || activityResult.getOrNull() == null) {
-                    val errorMsg = activityResult.exceptionOrNull()?.message ?: "Activity not found"
-                    logE("Failed to load activity: $errorMsg")
+                var activity = activityResult.getOrNull()
+
+                // If we have an expenseId but no activity, load expense directly and create a minimal activity
+                if (activity == null && !expenseId.isNullOrBlank()) {
+                    logD("No activity found for expense $expenseId, loading expense directly")
+                    val expenseResult = expenseRepository.getExpenseById(expenseId)
+                    val expense = expenseResult.getOrNull()
+
+                    if (expense != null) {
+                        logD("Loaded expense directly: ${expense.id}")
+                        // Create a minimal activity for display purposes
+                        activity = com.example.splitpay.data.model.Activity(
+                            id = "expense_${expense.id}",
+                            activityType = com.example.splitpay.data.model.ActivityType.EXPENSE_ADDED.name,
+                            actorUid = expense.createdByUid,
+                            actorName = "Unknown",
+                            timestamp = expense.date,
+                            groupId = expense.groupId,
+                            groupName = null,
+                            entityId = expense.id,
+                            displayText = expense.description,
+                            totalAmount = expense.totalAmount,
+                            involvedUids = listOf(expense.createdByUid) + expense.paidBy.map { it.uid } + expense.participants.map { it.uid }
+                        )
+
+                        // Pre-load the expense into state
+                        _uiState.update { it.copy(expense = expense, activity = activity) }
+                    }
+                }
+
+                if (activity == null) {
+                    val errorMsg = "Activity and expense not found"
+                    logE(errorMsg)
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "Activity not found. $errorMsg"
+                            error = errorMsg
                         )
                     }
                     return@launch
                 }
 
-                val activity = activityResult.getOrNull()!!
                 _uiState.update { it.copy(activity = activity) }
 
                 // Load actor user
@@ -106,33 +135,39 @@ class ActivityDetailViewModel(
                 }
                 _uiState.update { it.copy(involvedUsers = involvedUsers) }
 
-                // If this is an expense activity, load expense details
+                // If this is an expense activity, load expense details (if not already loaded)
                 if (activity.activityType == ActivityType.EXPENSE_ADDED.name ||
                     activity.activityType == ActivityType.EXPENSE_UPDATED.name ||
                     activity.activityType == ActivityType.EXPENSE_DELETED.name
                 ) {
-                    activity.entityId?.let { expenseId ->
-                        val expenseResult = expenseRepository.getExpenseById(expenseId)
-                        val expense = expenseResult.getOrNull()
+                    // Check if expense was already loaded above
+                    var expense = _uiState.value.expense
 
-                        if (expense != null) {
-                            // Load payer users
-                            val payersMap = expense.paidBy.associate { payer ->
-                                payer.uid to userRepository.getUserProfile(payer.uid)
-                            }.filterValues { it != null } as Map<String, com.example.splitpay.data.model.User>
+                    // If not loaded yet, load it now
+                    if (expense == null) {
+                        activity.entityId?.let { expId ->
+                            val expenseResult = expenseRepository.getExpenseById(expId)
+                            expense = expenseResult.getOrNull()
+                        }
+                    }
 
-                            // Load participant users
-                            val participantsMap = expense.participants.associate { participant ->
-                                participant.uid to userRepository.getUserProfile(participant.uid)
-                            }.filterValues { it != null } as Map<String, com.example.splitpay.data.model.User>
+                    if (expense != null) {
+                        // Load payer users
+                        val payersMap = expense.paidBy.associate { payer ->
+                            payer.uid to userRepository.getUserProfile(payer.uid)
+                        }.filterValues { it != null } as Map<String, com.example.splitpay.data.model.User>
 
-                            _uiState.update {
-                                it.copy(
-                                    expense = expense,
-                                    payers = payersMap,
-                                    participants = participantsMap
-                                )
-                            }
+                        // Load participant users
+                        val participantsMap = expense.participants.associate { participant ->
+                            participant.uid to userRepository.getUserProfile(participant.uid)
+                        }.filterValues { it != null } as Map<String, com.example.splitpay.data.model.User>
+
+                        _uiState.update {
+                            it.copy(
+                                expense = expense,
+                                payers = payersMap,
+                                participants = participantsMap
+                            )
                         }
                     }
                 }
