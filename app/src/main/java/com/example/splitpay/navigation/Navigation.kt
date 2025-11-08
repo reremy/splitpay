@@ -196,7 +196,9 @@ fun Navigation(
                     // Set refresh flag if we're editing (going back to ActivityDetail)
                     if (expenseIdFromBackStack != null) {
                         // We came from ActivityDetail, set the refresh flag
+                        Log.d("Navigation", "Setting refresh_needed flag for ActivityDetail")
                         navController.previousBackStackEntry?.savedStateHandle?.set("refresh_needed", true)
+                        Log.d("Navigation", "Flag set, previous entry: ${navController.previousBackStackEntry?.destination?.route}")
                     }
                     // Navigate back to the previous screen
                     navController.popBackStack()

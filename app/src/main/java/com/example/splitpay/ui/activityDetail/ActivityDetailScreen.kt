@@ -10,14 +10,10 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -87,29 +83,17 @@ fun ActivityDetailScreen(
 
     val uiState by viewModel.uiState.collectAsState()
 
-    // Observe lifecycle to refresh when screen becomes visible again (e.g., returning from edit)
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                // Check if we should refresh
-                val shouldRefresh = navController.currentBackStackEntry
-                    ?.savedStateHandle
-                    ?.get<Boolean>("refresh_needed") ?: false
-
-                if (shouldRefresh) {
-                    android.util.Log.d("ActivityDetailScreen", "Refreshing data after edit (ON_RESUME)")
+    // Listen for result from edit screen
+    LaunchedEffect(navController) {
+        val currentEntry = navController.currentBackStackEntry
+        currentEntry?.savedStateHandle?.let { savedState ->
+            savedState.getStateFlow<Boolean?>("refresh_needed", null).collect { shouldRefresh ->
+                if (shouldRefresh == true) {
+                    android.util.Log.d("ActivityDetailScreen", "Refresh flag detected, refreshing data")
                     viewModel.refresh()
-                    // Clear the flag
-                    navController.currentBackStackEntry?.savedStateHandle?.set("refresh_needed", false)
+                    savedState["refresh_needed"] = null // Reset to null instead of false
                 }
             }
-        }
-
-        lifecycleOwner.lifecycle.addObserver(observer)
-
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
