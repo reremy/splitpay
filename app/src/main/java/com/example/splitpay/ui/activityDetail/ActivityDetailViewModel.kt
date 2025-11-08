@@ -165,11 +165,13 @@ class ActivityDetailViewModel(
                 }
 
                 // Delete the activity
-                val deleteActivityResult = activityRepository.deleteActivity(activityId)
-                if (deleteActivityResult.isFailure) {
-                    throw Exception("Failed to delete activity: ${deleteActivityResult.exceptionOrNull()?.message}")
+                if (activity != null) {
+                    val deleteActivityResult = activityRepository.deleteActivity(activity.id)
+                    if (deleteActivityResult.isFailure) {
+                        throw Exception("Failed to delete activity: ${deleteActivityResult.exceptionOrNull()?.message}")
+                    }
+                    logD("Activity deleted: ${activity.id}")
                 }
-                logD("Activity deleted: $activityId")
 
                 _uiState.update { it.copy(isLoading = false) }
                 _uiEvent.emit(ActivityDetailUiEvent.DeleteSuccess)

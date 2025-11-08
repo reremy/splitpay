@@ -286,7 +286,7 @@ fun ActivityMetadataSection(activity: Activity, actorUser: User?) {
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "by ${actorUser?.displayName ?: activity.actorName}",
+                        text = "by ${actorUser?.fullName ?: activity.actorName}",
                         color = Color.Gray,
                         fontSize = 14.sp
                     )
@@ -369,7 +369,7 @@ fun ExpenseDetailSection(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = payers[payer.uid]?.displayName ?: "Unknown",
+                        text = payers[payer.uid]?.fullName ?: "Unknown",
                         color = Color.LightGray
                     )
                     Text(
@@ -407,7 +407,7 @@ fun ExpenseDetailSection(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = participants[participant.uid]?.displayName ?: "Unknown",
+                            text = participants[participant.uid]?.fullName ?: "Unknown",
                             color = if (participant.uid == currentUserId) PrimaryBlue else Color.LightGray,
                             fontWeight = if (participant.uid == currentUserId) FontWeight.Bold else FontWeight.Normal
                         )
