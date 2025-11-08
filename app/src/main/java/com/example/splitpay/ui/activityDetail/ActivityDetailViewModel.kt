@@ -253,4 +253,13 @@ class ActivityDetailViewModel(
             _uiEvent.emit(ActivityDetailUiEvent.NavigateBack)
         }
     }
+
+    /**
+     * Refreshes the activity details by reloading all data.
+     * Call this when returning from edit mode to ensure changes are reflected.
+     */
+    fun refresh() {
+        logD("Refreshing activity details...")
+        loadActivityDetails()
+    }
 }

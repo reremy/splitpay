@@ -193,8 +193,14 @@ fun Navigation(
                 prefilledGroupId = groupIdFromBackStack,
                 onNavigateBack = { navController.popBackStack() },
                 onSaveSuccess = { navEvent ->
-                    // Navigate back to the previous screen (GroupDetailScreen)
-                    navController.popBackStack() }
+                    // Set refresh flag if we're editing (going back to ActivityDetail)
+                    if (expenseIdFromBackStack != null) {
+                        // We came from ActivityDetail, set the refresh flag
+                        navController.previousBackStackEntry?.savedStateHandle?.set("refresh_needed", true)
+                    }
+                    // Navigate back to the previous screen
+                    navController.popBackStack()
+                }
             )
         }
 
