@@ -1,0 +1,206 @@
+package com.example.splitpay.ui.activityDetail
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.splitpay.data.model.ActivityType
+import com.example.splitpay.data.repository.ActivityRepository
+import com.example.splitpay.data.repository.ExpenseRepository
+import com.example.splitpay.data.repository.UserRepository
+import com.example.splitpay.logger.logD
+import com.example.splitpay.logger.logE
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+
+class ActivityDetailViewModel(
+    private val activityRepository: ActivityRepository,
+    private val expenseRepository: ExpenseRepository,
+    private val userRepository: UserRepository,
+    private val savedStateHandle: SavedStateHandle
+) : ViewModel() {
+
+    private val _uiState = MutableStateFlow(ActivityDetailUiState())
+    val uiState: StateFlow<ActivityDetailUiState> = _uiState.asStateFlow()
+
+    private val _uiEvent = MutableSharedFlow<ActivityDetailUiEvent>()
+    val uiEvent = _uiEvent.asSharedFlow()
+
+    private val activityId: String? = savedStateHandle["activityId"]
+    private val expenseId: String? = savedStateHandle["expenseId"]
+    private val currentUserId: String? = FirebaseAuth.getInstance().currentUser?.uid
+
+    init {
+        if (currentUserId == null) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = "User not logged in."
+                )
+            }
+        } else if (activityId.isNullOrBlank() && expenseId.isNullOrBlank()) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    error = "Invalid activity ID or expense ID."
+                )
+            }
+        } else {
+            _uiState.update { it.copy(currentUserId = currentUserId) }
+            loadActivityDetails()
+        }
+    }
+
+    private fun loadActivityDetails() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, error = null) }
+
+            try {
+                // Load activity - either by activityId or by expenseId (entityId)
+                val activityResult = if (!activityId.isNullOrBlank()) {
+                    activityRepository.getActivityById(activityId)
+                } else if (!expenseId.isNullOrBlank()) {
+                    activityRepository.getActivityByEntityId(expenseId)
+                } else {
+                    Result.failure(IllegalArgumentException("No valid ID provided"))
+                }
+
+                if (activityResult.isFailure || activityResult.getOrNull() == null) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Activity not found."
+                        )
+                    }
+                    return@launch
+                }
+
+                val activity = activityResult.getOrNull()!!
+                _uiState.update { it.copy(activity = activity) }
+
+                // Load actor user
+                val actorUser = userRepository.getUserProfile(activity.actorUid)
+                _uiState.update { it.copy(actorUser = actorUser) }
+
+                // Load involved users
+                val involvedUsers = activity.involvedUids.mapNotNull { uid ->
+                    userRepository.getUserProfile(uid)
+                }
+                _uiState.update { it.copy(involvedUsers = involvedUsers) }
+
+                // If this is an expense activity, load expense details
+                if (activity.activityType == ActivityType.EXPENSE_ADDED.name ||
+                    activity.activityType == ActivityType.EXPENSE_UPDATED.name ||
+                    activity.activityType == ActivityType.EXPENSE_DELETED.name
+                ) {
+                    activity.entityId?.let { expenseId ->
+                        val expenseResult = expenseRepository.getExpenseById(expenseId)
+                        val expense = expenseResult.getOrNull()
+
+                        if (expense != null) {
+                            // Load payer users
+                            val payersMap = expense.paidBy.associate { payer ->
+                                payer.uid to userRepository.getUserProfile(payer.uid)
+                            }.filterValues { it != null } as Map<String, com.example.splitpay.data.model.User>
+
+                            // Load participant users
+                            val participantsMap = expense.participants.associate { participant ->
+                                participant.uid to userRepository.getUserProfile(participant.uid)
+                            }.filterValues { it != null } as Map<String, com.example.splitpay.data.model.User>
+
+                            _uiState.update {
+                                it.copy(
+                                    expense = expense,
+                                    payers = payersMap,
+                                    participants = participantsMap
+                                )
+                            }
+                        }
+                    }
+                }
+
+                _uiState.update { it.copy(isLoading = false) }
+                logD("Activity details loaded successfully for ID: $activityId")
+
+            } catch (e: Exception) {
+                logE("Error loading activity details: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Failed to load activity details: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun onDeleteClick() {
+        _uiState.update { it.copy(showDeleteDialog = true) }
+    }
+
+    fun onDismissDeleteDialog() {
+        _uiState.update { it.copy(showDeleteDialog = false) }
+    }
+
+    fun onConfirmDelete() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(showDeleteDialog = false, isLoading = true) }
+
+            try {
+                val activity = _uiState.value.activity
+                val expense = _uiState.value.expense
+
+                // Delete the expense if it exists
+                if (expense != null) {
+                    val deleteExpenseResult = expenseRepository.deleteExpense(expense.id)
+                    if (deleteExpenseResult.isFailure) {
+                        throw Exception("Failed to delete expense: ${deleteExpenseResult.exceptionOrNull()?.message}")
+                    }
+                    logD("Expense deleted: ${expense.id}")
+                }
+
+                // Delete the activity
+                val deleteActivityResult = activityRepository.deleteActivity(activityId)
+                if (deleteActivityResult.isFailure) {
+                    throw Exception("Failed to delete activity: ${deleteActivityResult.exceptionOrNull()?.message}")
+                }
+                logD("Activity deleted: $activityId")
+
+                _uiState.update { it.copy(isLoading = false) }
+                _uiEvent.emit(ActivityDetailUiEvent.DeleteSuccess)
+
+            } catch (e: Exception) {
+                logE("Error deleting activity/expense: ${e.message}")
+                _uiState.update { it.copy(isLoading = false) }
+                _uiEvent.emit(ActivityDetailUiEvent.ShowError("Failed to delete: ${e.message}"))
+            }
+        }
+    }
+
+    fun onEditClick() {
+        viewModelScope.launch {
+            val expense = _uiState.value.expense
+            if (expense != null) {
+                _uiEvent.emit(
+                    ActivityDetailUiEvent.NavigateToEditExpense(
+                        expenseId = expense.id,
+                        groupId = expense.groupId
+                    )
+                )
+            } else {
+                _uiEvent.emit(ActivityDetailUiEvent.ShowError("Cannot edit this activity"))
+            }
+        }
+    }
+
+    fun onBackClick() {
+        viewModelScope.launch {
+            _uiEvent.emit(ActivityDetailUiEvent.NavigateBack)
+        }
+    }
+}

@@ -41,6 +41,7 @@ import com.example.splitpay.ui.groups.AddGroupMembersScreen // <-- ADD THIS IMPO
 import com.example.splitpay.ui.groups.GroupSettingsScreen
 import com.example.splitpay.ui.recordPayment.RecordPaymentScreen
 import com.example.splitpay.ui.settleUp.SettleUpScreen
+import com.example.splitpay.ui.activityDetail.ActivityDetailScreen
 import kotlin.math.absoluteValue
 
 // Navigation.kt
@@ -170,20 +171,28 @@ fun Navigation(
                     type = NavType.StringType
                     nullable = true // Mark as nullable
                     defaultValue = null // Explicitly set default to null
+                },
+                // Define expenseId for edit mode
+                navArgument("expenseId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )            // ... transitions ...
         ) { backStackEntry ->
             val groupIdFromBackStack = backStackEntry.arguments?.getString("groupId")
+            val expenseIdFromBackStack = backStackEntry.arguments?.getString("expenseId")
             Log.d(
                 "AddExpenseDebug",
-                "Nav->AddExpenseWithGroup: Received groupId = $groupIdFromBackStack"
+                "Nav->AddExpenseWithGroup: Received groupId = $groupIdFromBackStack, expenseId = $expenseIdFromBackStack"
             )
             AddExpenseScreen(
                 groupId = groupIdFromBackStack,
+                expenseId = expenseIdFromBackStack,
                 navBackStackEntry = backStackEntry,
                 prefilledGroupId = groupIdFromBackStack,
                 onNavigateBack = { navController.popBackStack() },
-                onSaveSuccess = { navEvent -> 
+                onSaveSuccess = { navEvent ->
                     // Navigate back to the previous screen (GroupDetailScreen)
                     navController.popBackStack() }
             )
@@ -367,6 +376,36 @@ fun Navigation(
                     }
                 }
             }
+        }
+
+        // --- Activity Detail Screen ---
+        composable(
+            route = Screen.ActivityDetailRoute,
+            arguments = listOf(
+                navArgument("activityId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("expenseId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            ),
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val activityId = backStackEntry.arguments?.getString("activityId")
+            val expenseId = backStackEntry.arguments?.getString("expenseId")
+            ActivityDetailScreen(
+                activityId = activityId,
+                expenseId = expenseId,
+                navController = navController,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
     } // End NavHost

@@ -1,10 +1,12 @@
 package com.example.splitpay.ui.activity
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Group
@@ -33,6 +35,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.data.model.Activity
 import com.example.splitpay.data.model.ActivityType
+import androidx.navigation.NavHostController
+import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.NegativeRed
 import com.example.splitpay.ui.theme.PositiveGreen
@@ -51,6 +55,7 @@ import kotlin.math.absoluteValue
 @Composable
 fun ActivityScreen(
     innerPadding: PaddingValues,
+    navController: NavHostController,
     viewModel: ActivityViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -108,7 +113,10 @@ fun ActivityScreen(
                 items(uiState.activities, key = { it.id }) { activity ->
                     ActivityCard(
                         activity = activity,
-                        currentUserId = currentUserId ?: ""
+                        currentUserId = currentUserId ?: "",
+                        onClick = {
+                            navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                        }
                     )
                 }
             }
@@ -120,10 +128,16 @@ fun ActivityScreen(
  * A single card representing one activity item in the feed.
  */
 @Composable
-fun ActivityCard(activity: Activity, currentUserId: String) {
+fun ActivityCard(
+    activity: Activity,
+    currentUserId: String,
+    onClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
             // Add horizontal padding to the card's content
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.Top

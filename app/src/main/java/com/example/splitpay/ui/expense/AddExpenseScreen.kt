@@ -130,6 +130,7 @@ class AddExpenseViewModelFactory(
 @Composable
 fun AddExpenseScreen(
     groupId: String?, // Can be null if launched from "add expense" button
+    expenseId: String? = null, // For edit mode
     // *** Keep navBackStackEntry as a parameter ***
     navBackStackEntry: NavBackStackEntry,
     prefilledGroupId: String?,
@@ -141,7 +142,10 @@ fun AddExpenseScreen(
     activityRepository: ActivityRepository = ActivityRepository()
 ) {
 
-    val savedStateHandle = SavedStateHandle(mapOf("groupId" to groupId))
+    val savedStateHandle = SavedStateHandle(mapOf(
+        "groupId" to groupId,
+        "expenseId" to expenseId
+    ))
     val factory = AddExpenseViewModelFactory(
         groupsRepository,
         expenseRepository,
@@ -303,7 +307,8 @@ fun AddExpenseScreen(
             AddExpenseTopBar( // Use imported composable
                 onNavigateBack = viewModel::onBackClick,
                 onSave = viewModel::onSaveExpenseClick,
-                isLoading = uiState.isLoading
+                isLoading = uiState.isLoading,
+                isEditMode = expenseId != null
             )
         },
         bottomBar = {

@@ -229,4 +229,56 @@ class ExpenseRepository(
 
     // --- Other potential functions (getExpenseById, update, delete) ... ---
 
+    /**
+     * Gets a single expense by ID
+     */
+    suspend fun getExpenseById(expenseId: String): Result<Expense?> {
+        return try {
+            if (expenseId.isBlank()) {
+                return Result.failure(IllegalArgumentException("Expense ID cannot be blank"))
+            }
+            val document = expensesCollection.document(expenseId).get().await()
+            val expense = document.toObject(Expense::class.java)
+            logD("Fetched expense with ID: $expenseId")
+            Result.success(expense)
+        } catch (e: Exception) {
+            logE("Error fetching expense by ID $expenseId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Updates an existing expense
+     */
+    suspend fun updateExpense(expense: Expense): Result<Unit> {
+        return try {
+            if (expense.id.isBlank()) {
+                return Result.failure(IllegalArgumentException("Expense ID cannot be blank"))
+            }
+            expensesCollection.document(expense.id).set(expense).await()
+            logD("Expense updated successfully with ID: ${expense.id}")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error updating expense: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Deletes a single expense by ID
+     */
+    suspend fun deleteExpense(expenseId: String): Result<Unit> {
+        return try {
+            if (expenseId.isBlank()) {
+                return Result.failure(IllegalArgumentException("Expense ID cannot be blank"))
+            }
+            expensesCollection.document(expenseId).delete().await()
+            logD("Expense deleted successfully with ID: $expenseId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error deleting expense $expenseId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
 }

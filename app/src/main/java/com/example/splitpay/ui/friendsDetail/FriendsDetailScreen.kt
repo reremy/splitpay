@@ -232,7 +232,10 @@ fun FriendDetailContent(
                         payerSummary = payerSummary,
                         userLentBorrowed = lentBorrowedText,
                         userLentBorrowedColor = lentBorrowedColor,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        onClick = {
+                            navController.navigate("${Screen.ActivityDetail}?expenseId=${expense.id}")
+                        }
                     )
                     Spacer(Modifier.height(8.dp))
                 }
