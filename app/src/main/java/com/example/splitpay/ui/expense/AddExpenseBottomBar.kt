@@ -37,7 +37,8 @@ fun AddExpenseBottomBar(
     currency: String,
     onChooseGroupClick: () -> Unit,
     onCalendarClick: () -> Unit,
-    onMemoClick: () -> Unit
+    onMemoClick: () -> Unit,
+    isEditMode: Boolean = false
 ) {
 
     val (buttonText, buttonColor) = when {
@@ -66,13 +67,21 @@ fun AddExpenseBottomBar(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Choose Group Button
-            TextButton(onClick = onChooseGroupClick) {
-                Icon(Icons.Default.Group, contentDescription = "Group", tint = PrimaryBlue, modifier = Modifier.size(20.dp))
+            // Choose Group Button (disabled in edit mode)
+            TextButton(
+                onClick = onChooseGroupClick,
+                enabled = !isEditMode
+            ) {
+                Icon(
+                    Icons.Default.Group,
+                    contentDescription = "Group",
+                    tint = if (isEditMode) Color.Gray else PrimaryBlue,
+                    modifier = Modifier.size(20.dp)
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = buttonText,
-                    color = buttonColor,
+                    color = if (isEditMode) Color.Gray else buttonColor,
                     fontWeight = FontWeight.SemiBold
                 )
             }

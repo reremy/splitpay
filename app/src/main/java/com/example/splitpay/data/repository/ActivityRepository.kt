@@ -81,4 +81,93 @@ class ActivityRepository(
             listenerRegistration.remove()
         }
     }
+
+    /**
+     * Gets a single activity by ID
+     */
+    suspend fun getActivityById(activityId: String): Result<Activity?> {
+        return try {
+            if (activityId.isBlank()) {
+                return Result.failure(IllegalArgumentException("Activity ID cannot be blank"))
+            }
+            val document = activitiesCollection.document(activityId).get().await()
+            val activity = document.toObject(Activity::class.java)
+            logD("Fetched activity with ID: $activityId")
+            Result.success(activity)
+        } catch (e: Exception) {
+            logE("Error fetching activity by ID $activityId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Deletes a single activity by ID
+     */
+    suspend fun deleteActivity(activityId: String): Result<Unit> {
+        return try {
+            if (activityId.isBlank()) {
+                return Result.failure(IllegalArgumentException("Activity ID cannot be blank"))
+            }
+            activitiesCollection.document(activityId).delete().await()
+            logD("Activity deleted successfully with ID: $activityId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error deleting activity $activityId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Gets an activity by entity ID (e.g., expense ID)
+     * Useful when navigating from expense cards to activity details
+     */
+    suspend fun getActivityByEntityId(entityId: String): Result<Activity?> {
+        return try {
+            if (entityId.isBlank()) {
+                return Result.failure(IllegalArgumentException("Entity ID cannot be blank"))
+            }
+            val querySnapshot = activitiesCollection
+                .whereEqualTo("entityId", entityId)
+                .limit(1)
+                .get()
+                .await()
+
+            val activity = if (!querySnapshot.isEmpty) {
+                querySnapshot.documents[0].toObject(Activity::class.java)
+            } else {
+                null
+            }
+            logD("Fetched activity with entityId: $entityId")
+            Result.success(activity)
+        } catch (e: Exception) {
+            logE("Error fetching activity by entityId $entityId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Gets all activities for a specific group
+     * Useful for displaying group-related activities (member additions, etc.)
+     */
+    suspend fun getActivitiesForGroup(groupId: String): List<Activity> {
+        return try {
+            if (groupId.isBlank()) {
+                logE("Group ID is blank")
+                return emptyList()
+            }
+
+            val querySnapshot = activitiesCollection
+                .whereEqualTo("groupId", groupId)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            val activities = querySnapshot.toObjects(Activity::class.java)
+            logD("Fetched ${activities.size} activities for group $groupId")
+            activities
+        } catch (e: Exception) {
+            logE("Error fetching activities for group $groupId: ${e.message}")
+            emptyList()
+        }
+    }
 }

@@ -25,10 +25,17 @@ import com.example.splitpay.ui.theme.TextWhite
 fun AddExpenseTopBar(
     onNavigateBack: () -> Unit,
     onSave: () -> Unit,
-    isLoading: Boolean
+    isLoading: Boolean,
+    isEditMode: Boolean = false
 ) {
     TopAppBar(
-        title = { Text("Add expense", color = TextWhite, fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                if (isEditMode) "Edit expense" else "Add expense",
+                color = TextWhite,
+                fontWeight = FontWeight.Bold
+            )
+        },
         navigationIcon = {
             IconButton(onClick = onNavigateBack, enabled = !isLoading) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextWhite)

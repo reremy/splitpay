@@ -4,9 +4,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.splitpay.data.model.Activity
+import com.example.splitpay.data.model.ActivityType
 import com.example.splitpay.data.model.Expense
 import com.example.splitpay.data.model.ExpenseType
+import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
+import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
@@ -30,6 +34,8 @@ data class FriendDetailUiState(
     val isLoadingFriend: Boolean = true,
     val isLoadingExpenses: Boolean = true,
     val expenses: List<Expense> = emptyList(),
+    val sharedGroups: List<Group> = emptyList(),
+    val sharedGroupActivities: List<Activity> = emptyList(),
     val error: String? = null,
     val netBalance: Double = 0.0,
     val balanceBreakdown: List<BalanceDetail> = emptyList(),
@@ -45,6 +51,7 @@ class FriendsDetailViewModel(
     private val userRepository: UserRepository,
     private val expenseRepository: ExpenseRepository,
     private val groupsRepository: GroupsRepository,
+    private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -195,12 +202,31 @@ class FriendsDetailViewModel(
                     emptyMap()
                 }
 
+                // Load shared group activities
+                val sharedGroupActivities = mutableListOf<Activity>()
+                sharedGroups.forEach { group ->
+                    // Get all activities for this group
+                    val groupActivities = activityRepository.getActivitiesForGroup(group.id)
+
+                    // Filter to MEMBER_ADDED activities where either user was added to this shared group
+                    val relevantActivities = groupActivities.filter { activity ->
+                        activity.activityType == ActivityType.MEMBER_ADDED.name &&
+                        // Show if either the friend or current user was the one added
+                        (activity.entityId == friendId || activity.entityId == currentUserId)
+                    }
+
+                    sharedGroupActivities.addAll(relevantActivities)
+                }
+
+                logD("Found ${sharedGroupActivities.size} shared group activities")
                 logD("Final state: ${allExpenses.size} expenses, balance: $totalNetBalance")
 
                 _uiState.update {
                     it.copy(
                         isLoadingExpenses = false,
                         expenses = allExpenses,
+                        sharedGroups = sharedGroups,
+                        sharedGroupActivities = sharedGroupActivities,
                         netBalance = roundToCents(totalNetBalance),
                         balanceBreakdown = balanceBreakdown,
                         usersMap = usersMap,

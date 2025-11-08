@@ -173,7 +173,12 @@ fun HomeScreen3(
                     }
                 )
             }
-            composable("activity_screen") { ActivityScreen(innerPadding = innerPadding) }
+            composable("activity_screen") {
+                ActivityScreen(
+                    innerPadding = innerPadding,
+                    navController = mainNavController
+                )
+            }
             composable("profile_screen") {
                 UserProfileScreen(mainNavController = mainNavController)
             }

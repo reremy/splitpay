@@ -447,8 +447,10 @@ fun GroupDetailContent(
                     payerSummary = payerSummary,
                     userLentBorrowed = lentBorrowedText,
                     userLentBorrowedColor = lentBorrowedColor,
-                    modifier = Modifier.padding(horizontal = 16.dp)
-                    // TODO: Add onClick navigation to expense detail later
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    onClick = {
+                        navController.navigate("${Screen.ActivityDetail}?expenseId=${expense.id}")
+                    }
                 )
                 Spacer(Modifier.height(8.dp))
             }

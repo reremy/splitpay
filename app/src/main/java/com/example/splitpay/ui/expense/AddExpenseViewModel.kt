@@ -67,22 +67,30 @@ class AddExpenseViewModel(
     private val nonGroupPlaceholder = Group(id = "non_group", name = "Non-group Expenses", iconIdentifier = "info")
 
 
+    private val expenseId: String? = savedStateHandle["expenseId"]
+    private val isEditMode: Boolean = !expenseId.isNullOrBlank()
+
     init {
         // Retrieve optional groupId passed via navigation
         val prefilledGroupId: String? = savedStateHandle["groupId"]
-        Log.d("AddExpenseDebug", "ViewModel init: prefilledGroupId = $prefilledGroupId")
+        Log.d("AddExpenseDebug", "ViewModel init: prefilledGroupId = $prefilledGroupId, expenseId = $expenseId, isEditMode = $isEditMode")
 
         _uiState.update {
             it.copy(
                 initialGroupId = prefilledGroupId,
                 // --- MODIFICATION HERE ---
                 // If prefilledGroupId is null OR "non_group", default to "non_group"
-                currentGroupId = if (prefilledGroupId == null || prefilledGroupId == "non_group") "non_group" else prefilledGroupId
+                currentGroupId = if (prefilledGroupId == null || prefilledGroupId == "non_group") "non_group" else prefilledGroupId,
+                isEditMode = isEditMode
             )
         }
-        Log.d("AddExpenseDebug", "ViewModel init state: initialGroupId = ${_uiState.value.initialGroupId}, currentGroupId = ${_uiState.value.currentGroupId}")
+        Log.d("AddExpenseDebug", "ViewModel init state: initialGroupId = ${_uiState.value.initialGroupId}, currentGroupId = ${_uiState.value.currentGroupId}, isEditMode = $isEditMode")
 
-        loadInitialData(prefilledGroupId) // Start loading initial data
+        if (isEditMode) {
+            loadExpenseForEditing(expenseId!!, prefilledGroupId)
+        } else {
+            loadInitialData(prefilledGroupId) // Start loading initial data
+        }
     }
 
     /**
@@ -198,6 +206,202 @@ class AddExpenseViewModel(
                             _uiState.update { it.copy(selectedGroup = updatedGroup) }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Loads an existing expense for editing.
+     * Pre-fills all form fields with the expense data.
+     */
+    private fun loadExpenseForEditing(expenseId: String, prefilledGroupId: String?) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isInitiallyLoading = true, error = null) }
+
+            try {
+                // --- 1. Fetch the expense ---
+                val expenseResult = expenseRepository.getExpenseById(expenseId)
+                val expense = expenseResult.getOrNull()
+
+                if (expense == null) {
+                    _uiState.update {
+                        it.copy(
+                            isInitiallyLoading = false,
+                            error = "Expense not found."
+                        )
+                    }
+                    return@launch
+                }
+
+                logD("Loaded expense for editing: ${expense.id}, groupId: ${expense.groupId}")
+
+                // --- 2. Fetch current user ---
+                val currentUser = userRepository.getCurrentUser()
+                if (currentUser == null) {
+                    _uiState.update { it.copy(isInitiallyLoading = false, error = "User not logged in.") }
+                    return@launch
+                }
+                val userProfile = userRepository.getUserProfile(currentUser.uid)
+                val currentUserName = userProfile?.username?.takeIf { it.isNotBlank() }
+                    ?: userProfile?.fullName?.takeIf { it.isNotBlank() }
+                    ?: currentUser.email ?: "You"
+                val currentUserPayer = Payer(currentUser.uid, currentUserName, isChecked = true)
+
+                // --- 3. Load group or friends based on expense.groupId ---
+                var loadedGroup: Group? = null
+                val relevantUsers: List<User>
+
+                if (expense.groupId == "non_group" || expense.groupId == null) {
+                    // Non-group expense, load friends
+                    loadedGroup = nonGroupPlaceholder
+                    val friendIds = userRepository.getCurrentUserFriendIds()
+                    relevantUsers = if (friendIds.isNotEmpty()) {
+                        userRepository.getProfilesForFriends(friendIds)
+                    } else {
+                        emptyList()
+                    }
+                } else {
+                    // Group expense, load group and members
+                    loadedGroup = try {
+                        groupsRepository.getGroupFlow(expense.groupId!!).firstOrNull()
+                    } catch (e: Exception) {
+                        logE("Failed to fetch group ${expense.groupId}: ${e.message}")
+                        null
+                    }
+
+                    if (loadedGroup != null) {
+                        relevantUsers = try {
+                            if (loadedGroup.members.isNotEmpty()) {
+                                userRepository.getProfilesForFriends(loadedGroup.members)
+                            } else emptyList()
+                        } catch (e: Exception) {
+                            logE("Failed to fetch group members: ${e.message}")
+                            emptyList()
+                        }
+                    } else {
+                        logE("Group not found for expense: ${expense.groupId}")
+                        _uiState.update {
+                            it.copy(
+                                isInitiallyLoading = false,
+                                error = "Group not found for this expense."
+                            )
+                        }
+                        return@launch
+                    }
+                }
+
+                // --- 4. Create user maps for quick lookup ---
+                val userMap = relevantUsers.associateBy { it.uid }
+
+                // --- 5. Convert ExpensePayers to UI Payers ---
+                val uiPayers = expense.paidBy.mapNotNull { expensePayer ->
+                    val user = userMap[expensePayer.uid]
+                    if (user != null) {
+                        Payer(
+                            uid = user.uid,
+                            name = user.username.takeIf { it.isNotBlank() } ?: user.fullName,
+                            amount = expensePayer.paidAmount.toString(),
+                            isChecked = true
+                        )
+                    } else if (expensePayer.uid == currentUser.uid) {
+                        // Include current user even if not in group anymore
+                        Payer(
+                            uid = currentUser.uid,
+                            name = currentUserName,
+                            amount = expensePayer.paidAmount.toString(),
+                            isChecked = true
+                        )
+                    } else {
+                        logE("User not found for payer: ${expensePayer.uid}")
+                        null
+                    }
+                }
+
+                // --- 6. Determine split type from expense ---
+                val splitType = try {
+                    SplitType.valueOf(expense.splitType)
+                } catch (e: Exception) {
+                    logE("Unknown split type: ${expense.splitType}, defaulting to EQUALLY")
+                    SplitType.EQUALLY
+                }
+
+                // --- 7. Create all relevant users as potential participants ---
+                val allPotentialUsers = if (expense.groupId == "non_group" || expense.groupId == null) {
+                    (listOf(currentUserPayer) + relevantUsers.map { user ->
+                        Payer(user.uid, user.username.takeIf { it.isNotBlank() } ?: user.fullName)
+                    }).distinctBy { it.uid }
+                } else {
+                    relevantUsers.map { user ->
+                        Payer(user.uid, user.username.takeIf { it.isNotBlank() } ?: user.fullName)
+                    }.distinctBy { it.uid }
+                }
+
+                _relevantUsersForSelection.value = allPotentialUsers
+
+                // --- 8. Convert ExpenseParticipants to UI Participants ---
+                val participantUids = expense.participants.map { it.uid }.toSet()
+                val uiParticipants = allPotentialUsers.map { potentialUser ->
+                    val expenseParticipant = expense.participants.find { it.uid == potentialUser.uid }
+                    if (expenseParticipant != null) {
+                        Participant(
+                            uid = potentialUser.uid,
+                            name = potentialUser.name,
+                            isChecked = true,
+                            splitValue = when (splitType) {
+                                SplitType.EQUALLY -> "0.00"
+                                SplitType.PERCENTAGES -> expenseParticipant.initialSplitValue.toString()
+                                SplitType.SHARES -> expenseParticipant.initialSplitValue.toString()
+                                SplitType.UNEQUALLY -> expenseParticipant.owesAmount.toString()
+                                SplitType.ADJUSTMENTS -> expenseParticipant.owesAmount.toString()
+                            },
+                            owesAmount = expenseParticipant.owesAmount
+                        )
+                    } else {
+                        // User not in original split, unchecked
+                        Participant(
+                            uid = potentialUser.uid,
+                            name = potentialUser.name,
+                            isChecked = false,
+                            splitValue = "0.00",
+                            owesAmount = 0.0
+                        )
+                    }
+                }
+
+                // --- 9. Update UI state with all loaded data ---
+                _uiState.update {
+                    it.copy(
+                        isInitiallyLoading = false,
+                        description = expense.description,
+                        amount = expense.totalAmount.toString(),
+                        selectedGroup = loadedGroup,
+                        currentGroupId = expense.groupId ?: "non_group",
+                        initialGroupId = expense.groupId ?: "non_group",
+                        paidByUsers = uiPayers,
+                        participants = uiParticipants,
+                        splitType = splitType,
+                        date = expense.date,
+                        memo = expense.memo,
+                        imageUris = expense.imageUrls,
+                        error = null
+                    )
+                }
+
+                // --- 10. Fetch all available groups for the selector dropdown ---
+                groupsRepository.getGroups().collect { groups ->
+                    _availableGroups.value = groups
+                }
+
+                logD("Expense loaded successfully for editing")
+
+            } catch (e: Exception) {
+                logE("Error loading expense for editing: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isInitiallyLoading = false,
+                        error = "Failed to load expense: ${e.message}"
+                    )
                 }
             }
         }
@@ -624,57 +828,119 @@ class AddExpenseViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
 
-            val result = expenseRepository.addExpense(newExpense)
+            // --- Determine if we're creating or updating ---
+            if (isEditMode && expenseId != null) {
+                // --- UPDATE MODE ---
+                val expenseToUpdate = newExpense.copy(id = expenseId)
+                val result = expenseRepository.updateExpense(expenseToUpdate)
 
-            result.onSuccess { expenseId ->
-                viewModelScope.launch {
-                    try {
-                        // Get actor name
-                        val actorProfile = userRepository.getUserProfile(currentUser.uid)
-                        val actorName = actorProfile?.username?.takeIf { it.isNotBlank() }
-                            ?: actorProfile?.fullName?.takeIf { it.isNotBlank() }
-                            ?: "Someone"
+                result.onSuccess {
+                    viewModelScope.launch {
+                        try {
+                            // Get actor name
+                            val actorProfile = userRepository.getUserProfile(currentUser.uid)
+                            val actorName = actorProfile?.username?.takeIf { it.isNotBlank() }
+                                ?: actorProfile?.fullName?.takeIf { it.isNotBlank() }
+                                ?: "Someone"
 
-                        // Get all users involved (group members or friends in non-group)
-                        // _relevantUsersForSelection is the correct source of truth here
-                        val allInvolvedUids = _relevantUsersForSelection.value.map { it.uid }
+                            // Get all users involved
+                            val allInvolvedUids = _relevantUsersForSelection.value.map { it.uid }
 
-                        // Calculate financial impact from the lists we just created
-                        val financialImpacts = mutableMapOf<String, Double>()
-                        expensePayers.forEach { payer ->
-                            financialImpacts[payer.uid] = (financialImpacts[payer.uid] ?: 0.0) + payer.paidAmount
+                            // Calculate financial impact
+                            val financialImpacts = mutableMapOf<String, Double>()
+                            expensePayers.forEach { payer ->
+                                financialImpacts[payer.uid] = (financialImpacts[payer.uid] ?: 0.0) + payer.paidAmount
+                            }
+                            expenseParticipants.forEach { participant ->
+                                financialImpacts[participant.uid] = (financialImpacts[participant.uid] ?: 0.0) - participant.owesAmount
+                            }
+
+                            // Log EXPENSE_UPDATED activity
+                            val activity = Activity(
+                                activityType = ActivityType.EXPENSE_UPDATED.name,
+                                actorUid = currentUser.uid,
+                                actorName = actorName,
+                                involvedUids = allInvolvedUids,
+                                groupId = state.currentGroupId,
+                                groupName = state.selectedGroup?.name ?: "Non-group",
+                                entityId = expenseId, // Reference the expense being updated
+                                displayText = expenseToUpdate.description,
+                                totalAmount = totalAmount,
+                                financialImpacts = financialImpacts
+                            )
+                            activityRepository.logActivity(activity)
+                            logD("Logged EXPENSE_UPDATED activity for expense $expenseId")
+
+                        } catch (e: Exception) {
+                            logE("Failed to log EXPENSE_UPDATED activity: ${e.message}")
                         }
-                        expenseParticipants.forEach { participant ->
-                            financialImpacts[participant.uid] = (financialImpacts[participant.uid] ?: 0.0) - participant.owesAmount
-                        }
-
-                        val activity = Activity(
-                            activityType = ActivityType.EXPENSE_ADDED.name,
-                            actorUid = currentUser.uid,
-                            actorName = actorName,
-                            involvedUids = allInvolvedUids,
-                            groupId = state.currentGroupId, // e.g., "non_group" or real ID
-                            groupName = state.selectedGroup?.name
-                                ?: "Non-group", // Get name from state
-                            displayText = newExpense.description, // The expense description
-                            financialImpacts = financialImpacts
-                        )
-                        activityRepository.logActivity(activity)
-                        logD("Logged EXPENSE_ADDED activity for ${state.currentGroupId}")
-
-                    } catch (e: Exception) {
-                        logE("Failed to log EXPENSE_ADDED activity: ${e.message}")
-                        // Do not block UI flow, just log the error
                     }
+                    Log.d("AddExpenseViewModel", "Expense updated successfully: $expenseId")
+                    val isGroupDetailNav = state.initialGroupId != null && state.initialGroupId == state.currentGroupId
+                    _uiEvent.emit(AddExpenseUiEvent.SaveSuccess(isGroupDetailNav))
+                }.onFailure { exception ->
+                    logE("Failed to update expense: ${exception.message}")
+                    emitErrorDialog("Update Failed", "Could not update expense: ${exception.message}")
+                    _uiState.update { it.copy(error = "Failed to update expense.") }
                 }
-                Log.d("AddExpenseViewModel", "Expense saved successfully with ID: $expenseId")
-                val isGroupDetailNav = state.initialGroupId != null && state.initialGroupId == state.currentGroupId
-                _uiEvent.emit(AddExpenseUiEvent.SaveSuccess(isGroupDetailNav))
-            }.onFailure { exception ->
-                logE("Failed to save expense: ${exception.message}")
-                emitErrorDialog("Save Failed", "Could not save expense: ${exception.message}")
-                _uiState.update { it.copy(error = "Failed to save expense.") }
+
+            } else {
+                // --- CREATE MODE ---
+                val result = expenseRepository.addExpense(newExpense)
+
+                result.onSuccess { createdExpenseId ->
+                    viewModelScope.launch {
+                        try {
+                            // Get actor name
+                            val actorProfile = userRepository.getUserProfile(currentUser.uid)
+                            val actorName = actorProfile?.username?.takeIf { it.isNotBlank() }
+                                ?: actorProfile?.fullName?.takeIf { it.isNotBlank() }
+                                ?: "Someone"
+
+                            // Get all users involved (group members or friends in non-group)
+                            // _relevantUsersForSelection is the correct source of truth here
+                            val allInvolvedUids = _relevantUsersForSelection.value.map { it.uid }
+
+                            // Calculate financial impact from the lists we just created
+                            val financialImpacts = mutableMapOf<String, Double>()
+                            expensePayers.forEach { payer ->
+                                financialImpacts[payer.uid] = (financialImpacts[payer.uid] ?: 0.0) + payer.paidAmount
+                            }
+                            expenseParticipants.forEach { participant ->
+                                financialImpacts[participant.uid] = (financialImpacts[participant.uid] ?: 0.0) - participant.owesAmount
+                            }
+
+                            val activity = Activity(
+                                activityType = ActivityType.EXPENSE_ADDED.name,
+                                actorUid = currentUser.uid,
+                                actorName = actorName,
+                                involvedUids = allInvolvedUids,
+                                groupId = state.currentGroupId, // e.g., "non_group" or real ID
+                                groupName = state.selectedGroup?.name
+                                    ?: "Non-group", // Get name from state
+                                entityId = createdExpenseId, // Reference the new expense
+                                displayText = newExpense.description, // The expense description
+                                totalAmount = totalAmount,
+                                financialImpacts = financialImpacts
+                            )
+                            activityRepository.logActivity(activity)
+                            logD("Logged EXPENSE_ADDED activity for ${state.currentGroupId}")
+
+                        } catch (e: Exception) {
+                            logE("Failed to log EXPENSE_ADDED activity: ${e.message}")
+                            // Do not block UI flow, just log the error
+                        }
+                    }
+                    Log.d("AddExpenseViewModel", "Expense saved successfully with ID: $createdExpenseId")
+                    val isGroupDetailNav = state.initialGroupId != null && state.initialGroupId == state.currentGroupId
+                    _uiEvent.emit(AddExpenseUiEvent.SaveSuccess(isGroupDetailNav))
+                }.onFailure { exception ->
+                    logE("Failed to save expense: ${exception.message}")
+                    emitErrorDialog("Save Failed", "Could not save expense: ${exception.message}")
+                    _uiState.update { it.copy(error = "Failed to save expense.") }
+                }
             }
+
             _uiState.update { it.copy(isLoading = false) }
     }
     }
