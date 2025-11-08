@@ -308,7 +308,7 @@ fun AddExpenseScreen(
                 onNavigateBack = viewModel::onBackClick,
                 onSave = viewModel::onSaveExpenseClick,
                 isLoading = uiState.isLoading,
-                isEditMode = expenseId != null
+                isEditMode = uiState.isEditMode
             )
         },
         bottomBar = {
@@ -320,7 +320,8 @@ fun AddExpenseScreen(
                 currency = uiState.currency,
                 onChooseGroupClick = { viewModel.showGroupSelector(true) },
                 onCalendarClick = { viewModel.showDatePickerDialog(true) },
-                onMemoClick = { viewModel.showMemoDialog(true) }
+                onMemoClick = { viewModel.showMemoDialog(true) },
+                isEditMode = uiState.isEditMode
             )
         },
         containerColor = DarkBackground

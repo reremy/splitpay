@@ -26,5 +26,6 @@ data class AddExpenseUiState(
     val initialGroupId: String? = null, // Group ID passed via navigation (if any)
     val currentGroupId: String? = null, // Currently selected group ID (can be null for non-group)
     val isDatePickerDialogVisible: Boolean = false,
-    val isMemoDialogVisible: Boolean = false
+    val isMemoDialogVisible: Boolean = false,
+    val isEditMode: Boolean = false // True when editing an existing expense
 )
