@@ -36,7 +36,10 @@ class ActivityDetailViewModel(
     private val currentUserId: String? = FirebaseAuth.getInstance().currentUser?.uid
 
     init {
+        logD("ActivityDetailViewModel init - activityId: $activityId, expenseId: $expenseId, currentUserId: $currentUserId")
+
         if (currentUserId == null) {
+            logE("Current user is null")
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -44,6 +47,7 @@ class ActivityDetailViewModel(
                 )
             }
         } else if (activityId.isNullOrBlank() && expenseId.isNullOrBlank()) {
+            logE("Both activityId and expenseId are null or blank")
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -51,6 +55,7 @@ class ActivityDetailViewModel(
                 )
             }
         } else {
+            logD("Loading activity details...")
             _uiState.update { it.copy(currentUserId = currentUserId) }
             loadActivityDetails()
         }
@@ -62,19 +67,27 @@ class ActivityDetailViewModel(
 
             try {
                 // Load activity - either by activityId or by expenseId (entityId)
+                logD("Loading activity with activityId: $activityId, expenseId: $expenseId")
                 val activityResult = if (!activityId.isNullOrBlank()) {
+                    logD("Fetching activity by ID: $activityId")
                     activityRepository.getActivityById(activityId)
                 } else if (!expenseId.isNullOrBlank()) {
+                    logD("Fetching activity by expense ID: $expenseId")
                     activityRepository.getActivityByEntityId(expenseId)
                 } else {
+                    logE("No valid ID provided")
                     Result.failure(IllegalArgumentException("No valid ID provided"))
                 }
 
+                logD("Activity result: isSuccess=${activityResult.isSuccess}, activity=${activityResult.getOrNull()}")
+
                 if (activityResult.isFailure || activityResult.getOrNull() == null) {
+                    val errorMsg = activityResult.exceptionOrNull()?.message ?: "Activity not found"
+                    logE("Failed to load activity: $errorMsg")
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            error = "Activity not found."
+                            error = "Activity not found. $errorMsg"
                         )
                     }
                     return@launch

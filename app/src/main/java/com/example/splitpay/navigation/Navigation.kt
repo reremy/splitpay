@@ -400,6 +400,10 @@ fun Navigation(
         ) { backStackEntry ->
             val activityId = backStackEntry.arguments?.getString("activityId")
             val expenseId = backStackEntry.arguments?.getString("expenseId")
+            Log.d(
+                "ActivityDetailNav",
+                "Navigating to ActivityDetail - activityId: $activityId, expenseId: $expenseId"
+            )
             ActivityDetailScreen(
                 activityId = activityId,
                 expenseId = expenseId,

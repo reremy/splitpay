@@ -69,10 +69,15 @@ fun ActivityDetailScreen(
     expenseRepository: ExpenseRepository = ExpenseRepository(),
     userRepository: UserRepository = UserRepository()
 ) {
+    android.util.Log.d("ActivityDetailScreen", "Received - activityId: $activityId, expenseId: $expenseId")
+
     val savedStateHandle = SavedStateHandle(mapOf(
         "activityId" to activityId,
         "expenseId" to expenseId
     ))
+
+    android.util.Log.d("ActivityDetailScreen", "SavedStateHandle - activityId: ${savedStateHandle.get<String>("activityId")}, expenseId: ${savedStateHandle.get<String>("expenseId")}")
+
     val factory = ActivityDetailViewModelFactory(activityRepository, expenseRepository, userRepository, savedStateHandle)
     val viewModel: ActivityDetailViewModel = viewModel(factory = factory)
 
