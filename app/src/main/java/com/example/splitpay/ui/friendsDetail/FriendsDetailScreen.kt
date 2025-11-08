@@ -203,18 +203,16 @@ fun FriendDetailContent(
         }
 
         // Shared Group Activities
-        val sharedGroupActivities = uiState.sharedGroupActivities
-        if (sharedGroupActivities.isNotEmpty()) {
-            items(sharedGroupActivities, key = { "activity_${it.id}" }) { activity ->
-                SharedGroupActivityCard(
-                    activity = activity,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    onClick = {
-                        navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
-                    }
-                )
-                Spacer(Modifier.height(8.dp))
-            }
+        val sharedGroupActivities = viewModel.uiState.value.sharedGroupActivities
+        items(sharedGroupActivities, key = { "activity_${it.id}" }) { activity ->
+            SharedGroupActivityCard(
+                activity = activity,
+                modifier = Modifier.padding(horizontal = 16.dp),
+                onClick = {
+                    navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                }
+            )
+            Spacer(Modifier.height(8.dp))
         }
 
         // Activity List (Expenses)
@@ -232,7 +230,7 @@ fun FriendDetailContent(
                     }
                 }
             }
-            expenses.isEmpty() && sharedGroupActivities.isEmpty() -> {
+            expenses.isEmpty() && viewModel.uiState.value.sharedGroupActivities.isEmpty() -> {
                 item {
                     Text(
                         "No activities yet with this friend.",
