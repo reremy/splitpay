@@ -261,8 +261,8 @@ fun GroupInfoSection(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = availableIconsMap[iconIdentifier] ?: Icons.Default.Group,
-                contentDescription = "Group Icon - Click to change",
+                imageVector = availableTagsMap[iconIdentifier] ?: Icons.Default.Group,
+                contentDescription = "Group Tag - Click to change",
                 tint = TextWhite,
                 modifier = Modifier.size(32.dp)
             )
@@ -493,22 +493,23 @@ fun ChangeIconDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Change Group Icon", color = TextWhite) },
+        title = { Text("Change Group Tag", color = TextWhite) },
         text = {
-            // Re-use the IconOption composable from CreateGroupScreen logic
+            // Re-use the TagOption composable from CreateGroupScreen logic
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(availableIcons) { (identifier, icon) ->
-                    IconOption(
+                items(availableTags.size) { index ->
+                    val (identifier, icon) = availableTags[index]
+                    TagOption(
                         icon = icon,
+                        label = identifier.replaceFirstChar { it.uppercase() },
                         identifier = identifier,
                         isSelected = selectedIcon == identifier,
-                        onSelect = { selectedIcon = it } // Update local selection state
+                        onSelect = { selectedIcon = identifier } // Update local selection state
                     )
                 }
-                // Optionally add UploadImageOption here if desired
             }
         },
         confirmButton = {

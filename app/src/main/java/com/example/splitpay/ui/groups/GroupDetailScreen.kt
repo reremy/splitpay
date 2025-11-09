@@ -104,15 +104,7 @@ import java.util.Locale
 import kotlin.math.absoluteValue
 
 
-// Helper map needed for icon lookup
-val availableIconsMap = mapOf(
-    "travel" to Icons.Default.TravelExplore,
-    "family" to Icons.Default.FamilyRestroom,
-    "kitchen" to Icons.Default.Dining,
-    "other" to Icons.Default.Group,
-    "place" to Icons.Default.Place,
-    "info" to Icons.Default.Info // Add info icon mapping
-)
+// Note: availableTagsMap is now defined in CreateGroupScreen.kt and imported from there
 
 // --- ViewModel Factory ---
 class GroupDetailViewModelFactory(
@@ -294,8 +286,8 @@ fun GroupDetailHeaderDisplay(
             contentAlignment = Alignment.Center
         ) {
             // --- Use iconIdentifier from map, default to Group icon ---
-            val icon = availableIconsMap[iconIdentifier] ?: Icons.Default.Group // Use map
-            Icon(icon, contentDescription = "Group Icon", tint = TextWhite, modifier = Modifier.size(40.dp))
+            val icon = availableTagsMap[iconIdentifier] ?: Icons.Default.Group // Use map
+            Icon(icon, contentDescription = "Group Tag", tint = TextWhite, modifier = Modifier.size(40.dp))
         }
 
         Spacer(Modifier.height(12.dp))

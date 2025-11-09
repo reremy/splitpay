@@ -71,6 +71,9 @@ val availableTags = listOf(
     "utilities" to Icons.Default.Bolt,
 )
 
+// Helper map for tag icon lookup (used in GroupDetailScreen and GroupSettingsScreen)
+val availableTagsMap = availableTags.toMap()
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateGroupScreen(
