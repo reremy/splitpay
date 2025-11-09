@@ -2,8 +2,11 @@ package com.example.splitpay.ui.profile.edit
 
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import com.canhub.cropper.CropImageContract
+import com.canhub.cropper.CropImageContractOptions
+import com.canhub.cropper.CropImageOptions
+import com.canhub.cropper.CropImageView
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -79,18 +82,22 @@ fun EditProfileScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
-    // Image picker for profile picture
+    // Image cropper for profile picture (circular crop)
     val profilePictureLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.onProfilePictureSelected(it) }
+        contract = CropImageContract()
+    ) { result ->
+        if (result.isSuccessful) {
+            result.uriContent?.let { viewModel.onProfilePictureSelected(it) }
+        }
     }
 
-    // Image picker for QR code
+    // Image cropper for QR code (square crop)
     val qrCodeLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.onQrCodeSelected(it) }
+        contract = CropImageContract()
+    ) { result ->
+        if (result.isSuccessful) {
+            result.uriContent?.let { viewModel.onQrCodeSelected(it) }
+        }
     }
 
     UiEventHandler(viewModel.uiEvent) { event ->
@@ -164,7 +171,22 @@ fun EditProfileScreen(
                                     .size(120.dp)
                                     .clip(CircleShape)
                                     .background(Color(0xFF2D2D2D))
-                                    .clickable { profilePictureLauncher.launch("image/*") },
+                                    .clickable {
+                                        profilePictureLauncher.launch(
+                                            CropImageContractOptions(
+                                                uri = null,
+                                                cropImageOptions = CropImageOptions(
+                                                    imageSourceIncludeGallery = true,
+                                                    imageSourceIncludeCamera = false,
+                                                    cropShape = CropImageView.CropShape.OVAL,
+                                                    aspectRatioX = 1,
+                                                    aspectRatioY = 1,
+                                                    fixAspectRatio = true,
+                                                    guidelines = CropImageView.Guidelines.ON
+                                                )
+                                            )
+                                        )
+                                    },
                                 contentScale = ContentScale.Crop
                             )
                             // Remove button
@@ -189,7 +211,22 @@ fun EditProfileScreen(
                                     .size(120.dp)
                                     .clip(CircleShape)
                                     .background(PrimaryBlue)
-                                    .clickable { profilePictureLauncher.launch("image/*") },
+                                    .clickable {
+                                        profilePictureLauncher.launch(
+                                            CropImageContractOptions(
+                                                uri = null,
+                                                cropImageOptions = CropImageOptions(
+                                                    imageSourceIncludeGallery = true,
+                                                    imageSourceIncludeCamera = false,
+                                                    cropShape = CropImageView.CropShape.OVAL,
+                                                    aspectRatioX = 1,
+                                                    aspectRatioY = 1,
+                                                    fixAspectRatio = true,
+                                                    guidelines = CropImageView.Guidelines.ON
+                                                )
+                                            )
+                                        )
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (uiState.fullName.isNotEmpty()) {
@@ -236,7 +273,22 @@ fun EditProfileScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
-                            .clickable { qrCodeLauncher.launch("image/*") },
+                            .clickable {
+                                qrCodeLauncher.launch(
+                                    CropImageContractOptions(
+                                        uri = null,
+                                        cropImageOptions = CropImageOptions(
+                                            imageSourceIncludeGallery = true,
+                                            imageSourceIncludeCamera = false,
+                                            cropShape = CropImageView.CropShape.RECTANGLE,
+                                            aspectRatioX = 1,
+                                            aspectRatioY = 1,
+                                            fixAspectRatio = true,
+                                            guidelines = CropImageView.Guidelines.ON
+                                        )
+                                    )
+                                )
+                            },
                         colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
                         shape = RoundedCornerShape(10.dp)
                     ) {
