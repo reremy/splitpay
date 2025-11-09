@@ -63,12 +63,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended) // Uses version catalog
     implementation(libs.material3)
 
-    // Image picker and cropping
+    // Image loading with Coil
     implementation("io.coil-kt:coil-compose:2.5.0")
-    implementation("com.github.yalantis:ucrop:2.2.8")
-
-    // Activity result for image picking
-    implementation("androidx.activity:activity-compose:1.8.2")
     implementation(libs.androidx.navigation.runtime.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
