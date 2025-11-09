@@ -29,7 +29,7 @@ object Screen {
     const val SettleUp = "settle_up"
     const val SettleUpRoute = "$SettleUp/{groupId}"
     const val RecordPayment = "record_payment"
-    const val RecordPaymentRoute = "$RecordPayment/{groupId}?memberUid={memberUid}&balance={balance}&paymentId={paymentId}" // Pass balance as a float string, paymentId for edit mode
+    const val RecordPaymentRoute = "$RecordPayment/{groupId}?memberUid={memberUid}&balance={balance}&paymentId={paymentId}&payerUid={payerUid}&recipientUid={recipientUid}" // Pass balance as a float string, paymentId for edit mode, or custom payer/recipient for manual selection
     const val MoreOptions = "more_options"
     const val MoreOptionsRoute = "$MoreOptions/{groupId}"
 

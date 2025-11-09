@@ -118,6 +118,9 @@ fun RecordPaymentScreen(
     groupId: String,
     memberUid: String,
     balance: String,
+    paymentId: String? = null,
+    payerUid: String? = null,
+    recipientUid: String? = null,
     onNavigateBack: () -> Unit,
     onSaveSuccess: () -> Unit,
     // Provide default repository instances
@@ -127,11 +130,19 @@ fun RecordPaymentScreen(
     activityRepository: ActivityRepository = ActivityRepository()
 ) {
     // --- Use SavedStateHandle with factory ---
-    val savedStateHandle = SavedStateHandle(mapOf(
-        "groupId" to groupId,
-        "memberUid" to memberUid,
-        "balance" to balance
-    ))
+    val savedStateHandle = SavedStateHandle(
+        mapOf(
+            "groupId" to groupId,
+            "memberUid" to memberUid,
+            "balance" to balance
+        ).plus(
+            listOfNotNull(
+                paymentId?.let { "paymentId" to it },
+                payerUid?.let { "payerUid" to it },
+                recipientUid?.let { "recipientUid" to it }
+            ).toMap()
+        )
+    )
     val factory = RecordPaymentViewModelFactory(userRepository, expenseRepository, groupsRepository, activityRepository, savedStateHandle) // <-- PASS
     val viewModel: RecordPaymentViewModel = viewModel(factory = factory)
 

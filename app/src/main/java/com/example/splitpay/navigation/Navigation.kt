@@ -46,6 +46,7 @@ import com.example.splitpay.ui.recordPayment.RecordPaymentScreen
 import com.example.splitpay.ui.settleUp.SettleUpScreen
 import com.example.splitpay.ui.activityDetail.ActivityDetailScreen
 import com.example.splitpay.ui.profile.edit.EditProfileScreen
+import com.example.splitpay.ui.moreOptions.MoreOptionsScreen
 import kotlin.math.absoluteValue
 
 // Navigation.kt
@@ -416,19 +417,47 @@ fun Navigation(
             route = Screen.RecordPaymentRoute,
             arguments = listOf(
                 navArgument("groupId") { type = NavType.StringType },
-                navArgument("memberUid") { type = NavType.StringType },
-                navArgument("balance") { type = NavType.StringType } // Pass balance as string
+                navArgument("memberUid") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("balance") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("paymentId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("payerUid") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("recipientUid") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
             )
         ) { backStackEntry ->
-            // --- REPLACE PLACEHOLDER ---
             val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
-            val memberUid = backStackEntry.arguments?.getString("memberUid") ?: ""
-            val balance = backStackEntry.arguments?.getString("balance") ?: "0.0"
+            val memberUid = backStackEntry.arguments?.getString("memberUid")
+            val balance = backStackEntry.arguments?.getString("balance")
+            val paymentId = backStackEntry.arguments?.getString("paymentId")
+            val payerUid = backStackEntry.arguments?.getString("payerUid")
+            val recipientUid = backStackEntry.arguments?.getString("recipientUid")
 
             RecordPaymentScreen(
                 groupId = groupId,
-                memberUid = memberUid,
-                balance = balance,
+                memberUid = memberUid ?: "",
+                balance = balance ?: "0.0",
+                paymentId = paymentId,
+                payerUid = payerUid,
+                recipientUid = recipientUid,
                 onNavigateBack = { navController.popBackStack() },
                 onSaveSuccess = {
                     // Pop back to the GroupDetailScreen, removing SettleUp from the stack
@@ -441,19 +470,16 @@ fun Navigation(
             route = Screen.MoreOptionsRoute,
             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
         ) {
-            // Placeholder Screen
-            Box(
-                modifier = Modifier.fillMaxSize().background(DarkBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("More Options (Placeholder)", color = TextWhite)
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { navController.popBackStack() }) {
-                        Text("Go Back (Placeholder)")
-                    }
+            val groupId = it.arguments?.getString("groupId") ?: ""
+            MoreOptionsScreen(
+                groupId = groupId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRecordPayment = { gid, payerUid, recipientUid ->
+                    // Navigate to RecordPayment with custom payer and recipient
+                    // Balance is set to 0.0 for manual entry, payerUid and recipientUid are passed
+                    navController.navigate("${Screen.RecordPayment}/$gid?payerUid=$payerUid&recipientUid=$recipientUid&balance=0.0")
                 }
-            }
+            )
         }
 
         // --- Activity Detail Screen ---

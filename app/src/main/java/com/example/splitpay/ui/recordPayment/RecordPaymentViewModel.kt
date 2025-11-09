@@ -78,18 +78,23 @@ class RecordPaymentViewModel(
     val uiEvent: SharedFlow<RecordPaymentUiEvent> = _uiEvent.asSharedFlow()
 
     private val groupId: String = savedStateHandle["groupId"] ?: ""
-    private val memberUid: String = savedStateHandle["memberUid"] ?: ""
+    private val memberUid: String? = savedStateHandle.get<String>("memberUid")
     private val balance: Double = savedStateHandle.get<String>("balance")?.toDoubleOrNull() ?: 0.0
     private val paymentId: String? = savedStateHandle.get<String>("paymentId")
+    private val payerUid: String? = savedStateHandle.get<String>("payerUid")
+    private val recipientUid: String? = savedStateHandle.get<String>("recipientUid")
     private val currentUserId: String? = FirebaseAuth.getInstance().currentUser?.uid
 
     init {
         if (paymentId != null) {
             // Edit mode - load existing payment
             loadPaymentForEditing(paymentId)
+        } else if (payerUid != null && recipientUid != null) {
+            // Custom payer/recipient mode (from More Options)
+            loadCustomPayerRecipient(payerUid, recipientUid)
         } else {
-            // Create mode - load user details
-            if (currentUserId == null || memberUid.isBlank() || balance == 0.0) {
+            // Standard mode - calculate from balance
+            if (currentUserId == null || memberUid.isNullOrBlank() || balance == 0.0) {
                 _uiState.update { it.copy(isFetchingDetails = false, error = "Invalid payment details.") }
             } else {
                 loadUserDetails()
@@ -104,12 +109,12 @@ class RecordPaymentViewModel(
                 // Determine who is payer and receiver based on balance
                 // balance < 0 means "You owe them"
                 val isPayerUser = balance < 0
-                val payerUid = if (isPayerUser) currentUserId!! else memberUid
-                val receiverUid = if (isPayerUser) memberUid else currentUserId!!
+                val payerUidActual = if (isPayerUser) currentUserId!! else memberUid!!
+                val receiverUidActual = if (isPayerUser) memberUid!! else currentUserId!!
 
                 // Fetch profiles and group details concurrently
-                val payerDeferred = async { userRepository.getUserProfile(payerUid) }
-                val receiverDeferred = async { userRepository.getUserProfile(receiverUid) }
+                val payerDeferred = async { userRepository.getUserProfile(payerUidActual) }
+                val receiverDeferred = async { userRepository.getUserProfile(receiverUidActual) }
                 val groupDeferred = async { groupsRepository.getGroupFlow(groupId).firstOrNull() } // <-- FETCH GROUP
 
                 val payer = payerDeferred.await()
@@ -133,6 +138,43 @@ class RecordPaymentViewModel(
 
             } catch (e: Exception) {
                 logE("Failed to load user details for payment: ${e.message}")
+                _uiState.update { it.copy(isFetchingDetails = false, error = e.message) }
+            }
+        }
+    }
+
+    private fun loadCustomPayerRecipient(customPayerUid: String, customRecipientUid: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isFetchingDetails = true, error = null) }
+            try {
+                // Fetch profiles and group details concurrently
+                val payerDeferred = async { userRepository.getUserProfile(customPayerUid) }
+                val receiverDeferred = async { userRepository.getUserProfile(customRecipientUid) }
+                val groupDeferred = async { groupsRepository.getGroupFlow(groupId).firstOrNull() }
+
+                val payer = payerDeferred.await()
+                val receiver = receiverDeferred.await()
+                val group = groupDeferred.await()
+
+                if (payer == null || receiver == null || group == null) {
+                    throw Exception("Could not load user or group profiles.")
+                }
+
+                val isPayerUser = customPayerUid == currentUserId
+
+                _uiState.update {
+                    it.copy(
+                        isFetchingDetails = false,
+                        amount = "", // No pre-filled amount for custom selection
+                        payer = payer,
+                        receiver = receiver,
+                        isPayerUser = isPayerUser,
+                        group = group
+                    )
+                }
+
+            } catch (e: Exception) {
+                logE("Failed to load custom payer/recipient: ${e.message}")
                 _uiState.update { it.copy(isFetchingDetails = false, error = e.message) }
             }
         }
