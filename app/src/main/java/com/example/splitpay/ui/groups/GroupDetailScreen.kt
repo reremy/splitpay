@@ -88,6 +88,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.splitpay.data.model.Expense // <-- Add import
+import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository // <-- Add import
@@ -499,7 +500,12 @@ fun GroupDetailContent(
                     userLentBorrowedColor = lentBorrowedColor,
                     modifier = Modifier.padding(horizontal = 16.dp),
                     onClick = {
-                        navController.navigate("${Screen.ExpenseDetail}/${expense.id}")
+                        // Navigate to the correct detail page based on expense type
+                        if (expense.expenseType == ExpenseType.PAYMENT) {
+                            navController.navigate("${Screen.PaymentDetail}/${expense.id}")
+                        } else {
+                            navController.navigate("${Screen.ExpenseDetail}/${expense.id}")
+                        }
                     }
                 )
                 Spacer(Modifier.height(8.dp))
