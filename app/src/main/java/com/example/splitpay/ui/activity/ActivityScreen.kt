@@ -115,7 +115,27 @@ fun ActivityScreen(
                         activity = activity,
                         currentUserId = currentUserId ?: "",
                         onClick = {
-                            navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                            // Navigate to ExpenseDetail for expense-related activities
+                            val activityType = try {
+                                ActivityType.valueOf(activity.activityType)
+                            } catch (e: Exception) {
+                                null
+                            }
+
+                            when (activityType) {
+                                ActivityType.EXPENSE_ADDED,
+                                ActivityType.EXPENSE_UPDATED,
+                                ActivityType.EXPENSE_DELETED -> {
+                                    // Navigate to Expense Detail using entityId
+                                    if (activity.entityId != null) {
+                                        navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
+                                    }
+                                }
+                                else -> {
+                                    // For other activity types, navigate to generic activity detail
+                                    navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                                }
+                            }
                         }
                     )
                 }

@@ -24,6 +24,7 @@ import androidx.navigation.navArgument
 import com.example.splitpay.ui.addfriend.AddFriendScreen
 import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
 import com.example.splitpay.ui.expense.AddExpenseScreen
+import com.example.splitpay.ui.expense.ExpenseDetailScreen
 import com.example.splitpay.ui.friendsDetail.FriendSettingsScreen
 import com.example.splitpay.ui.friendsDetail.FriendsDetailScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
@@ -221,6 +222,26 @@ fun Navigation(
                     // Navigate back to the previous screen
                     navController.popBackStack()
                 }
+            )
+        }
+
+        // --- Expense Detail Route ---
+        composable(
+            route = Screen.ExpenseDetailRoute,
+            arguments = listOf(
+                navArgument("expenseId") {
+                    type = NavType.StringType
+                }
+            ),
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
+            ExpenseDetailScreen(
+                expenseId = expenseId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

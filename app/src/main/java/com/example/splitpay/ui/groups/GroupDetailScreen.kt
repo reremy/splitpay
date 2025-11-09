@@ -459,7 +459,7 @@ fun GroupDetailContent(
                     userLentBorrowedColor = lentBorrowedColor,
                     modifier = Modifier.padding(horizontal = 16.dp),
                     onClick = {
-                        navController.navigate("${Screen.ActivityDetail}?expenseId=${expense.id}")
+                        navController.navigate("${Screen.ExpenseDetail}/${expense.id}")
                     }
                 )
                 Spacer(Modifier.height(8.dp))

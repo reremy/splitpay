@@ -30,6 +30,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.splitpay.data.model.ActivityType
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
@@ -209,7 +210,27 @@ fun FriendDetailContent(
                 activity = activity,
                 modifier = Modifier.padding(horizontal = 16.dp),
                 onClick = {
-                    navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                    // Navigate to ExpenseDetail for expense-related activities
+                    val activityType = try {
+                        ActivityType.valueOf(activity.activityType)
+                    } catch (e: Exception) {
+                        null
+                    }
+
+                    when (activityType) {
+                        ActivityType.EXPENSE_ADDED,
+                        ActivityType.EXPENSE_UPDATED,
+                        ActivityType.EXPENSE_DELETED -> {
+                            // Navigate to Expense Detail using entityId
+                            if (activity.entityId != null) {
+                                navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
+                            }
+                        }
+                        else -> {
+                            // For other activity types, navigate to generic activity detail
+                            navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                        }
+                    }
                 }
             )
             Spacer(Modifier.height(8.dp))
@@ -254,7 +275,7 @@ fun FriendDetailContent(
                         userLentBorrowedColor = lentBorrowedColor,
                         modifier = Modifier.padding(horizontal = 16.dp),
                         onClick = {
-                            navController.navigate("${Screen.ActivityDetail}?expenseId=${expense.id}")
+                            navController.navigate("${Screen.ExpenseDetail}/${expense.id}")
                         }
                     )
                     Spacer(Modifier.height(8.dp))

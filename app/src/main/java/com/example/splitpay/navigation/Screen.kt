@@ -37,6 +37,10 @@ object Screen {
     const val ActivityDetail = "activity_detail"
     const val ActivityDetailRoute = "$ActivityDetail?activityId={activityId}&expenseId={expenseId}"
 
+    // --- Expense Detail ---
+    const val ExpenseDetail = "expense_detail"
+    const val ExpenseDetailRoute = "$ExpenseDetail/{expenseId}"
+
     // --- Edit Profile ---
     const val EditProfile = "edit_profile"
 
