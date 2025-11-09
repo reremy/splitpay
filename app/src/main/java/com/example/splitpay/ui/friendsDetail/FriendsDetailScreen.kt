@@ -205,41 +205,6 @@ fun FriendDetailContent(
             Spacer(Modifier.height(8.dp))
         }
 
-        // Shared Group Activities
-        val sharedGroupActivities = viewModel.uiState.value.sharedGroupActivities
-        items(sharedGroupActivities, key = { "activity_${it.id}" }) { activity ->
-            SharedGroupActivityCard(
-                activity = activity,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                onClick = {
-                    // Navigate to ExpenseDetail for expense-related activities
-                    val activityType = try {
-                        ActivityType.valueOf(activity.activityType)
-                    } catch (e: Exception) {
-                        null
-                    }
-
-                    when (activityType) {
-                        ActivityType.EXPENSE_ADDED -> {
-                            // Navigate to Expense Detail using entityId
-                            if (activity.entityId != null) {
-                                navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
-                            }
-                        }
-                        ActivityType.EXPENSE_UPDATED,
-                        ActivityType.EXPENSE_DELETED -> {
-                            // Edit and delete activities do nothing when clicked
-                        }
-                        else -> {
-                            // For other activity types, navigate to generic activity detail
-                            navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
-                        }
-                    }
-                }
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-
         // Activity List (Shared Groups + Payments)
         when {
             viewModel.uiState.value.isLoadingExpenses -> {
@@ -254,7 +219,7 @@ fun FriendDetailContent(
                     }
                 }
             }
-            uiState.activityCards.isEmpty() -> {
+            viewModel.uiState.value.activityCards.isEmpty() -> {
                 item {
                     Text(
                         "No activities yet with this friend.",
@@ -268,7 +233,7 @@ fun FriendDetailContent(
             }
             else -> {
                 items(
-                    uiState.activityCards,
+                    viewModel.uiState.value.activityCards,
                     key = { card ->
                         when (card) {
                             is com.example.splitpay.ui.friendsDetail.ActivityCard.SharedGroupCard -> "group_${card.groupId}_${card.mostRecentDate}"
