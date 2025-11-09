@@ -51,6 +51,7 @@ data class GroupsUiState(
     val error: String? = null,
     val membersMap: Map<String, User> = emptyMap(),
     val searchQuery: String = "",
+    val isSearchActive: Boolean = false,
     val selectedFilter: GroupFilter = GroupFilter.ALL_GROUPS,
     val showFilterDropdown: Boolean = false
 )
@@ -253,6 +254,15 @@ class GroupsViewModel(
     }
 
     // Search and Filter Functions
+    fun onSearchIconClick() {
+        _uiState.update { it.copy(isSearchActive = true) }
+    }
+
+    fun onSearchCloseClick() {
+        _uiState.update { it.copy(isSearchActive = false, searchQuery = "") }
+        applySearchAndFilter()
+    }
+
     fun onSearchQueryChange(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
         applySearchAndFilter()

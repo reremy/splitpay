@@ -1,10 +1,12 @@
 package com.example.splitpay.ui.groups
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,7 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,134 +25,106 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.splitpay.ui.theme.DarkBackground
+import com.example.splitpay.ui.theme.NegativeRed
+import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
 
 @Composable
 fun GroupsTopBarActions(
-    searchQuery: String,
     selectedFilter: GroupFilter,
     showFilterDropdown: Boolean,
-    onSearchQueryChange: (String) -> Unit,
+    onSearchIconClick: () -> Unit,
     onFilterSelected: (GroupFilter) -> Unit,
     onToggleFilterDropdown: () -> Unit,
     onNavigateToCreateGroup: () -> Unit
 ) {
-    var showSearchBar by remember { mutableStateOf(false) }
-
-    if (showSearchBar) {
-        // Search Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextField(
-                value = searchQuery,
-                onValueChange = onSearchQueryChange,
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("Search groups...", color = Color.Gray) },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF2D2D2D),
-                    unfocusedContainerColor = Color(0xFF2D2D2D),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    cursorColor = PrimaryBlue,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(8.dp),
-                singleLine = true
-            )
-            IconButton(onClick = {
-                showSearchBar = false
-                onSearchQueryChange("")
-            }) {
-                Icon(Icons.Default.Close, contentDescription = "Close Search", tint = Color.White)
-            }
-        }
-    } else {
-        // Normal Actions Row
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            // Create Group Button
-            Button(
-                onClick = onNavigateToCreateGroup,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryBlue,
-                    contentColor = Color.White
-                ),
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        // Create Group Button - Outlined style
+        Button(
+            onClick = onNavigateToCreateGroup,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = DarkBackground,
+                contentColor = Color.White
+            ),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(8.dp)
+            ),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+            Text("Create Group", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        }
+
+        // Search Icon
+        IconButton(onClick = onSearchIconClick) {
+            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
+        }
+
+        // Filter Icon with Dropdown
+        Box {
+            val filterIconColor = when (selectedFilter) {
+                GroupFilter.ALL_GROUPS -> Color.White
+                GroupFilter.OUTSTANDING_BALANCES -> Color(0xFFFF9800) // Orange (mix of red and green)
+                GroupFilter.GROUPS_YOU_OWE -> NegativeRed
+                GroupFilter.GROUPS_THAT_OWE_YOU -> PositiveGreen
+            }
+
+            IconButton(onClick = onToggleFilterDropdown) {
+                Icon(
+                    Icons.AutoMirrored.Filled.Sort,
+                    contentDescription = "Filter",
+                    tint = filterIconColor
+                )
+            }
+
+            DropdownMenu(
+                expanded = showFilterDropdown,
+                onDismissRequest = onToggleFilterDropdown,
+                modifier = Modifier
+                    .background(Color(0xFF2D2D2D))
             ) {
-                Text("Create Group", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            }
-
-            // Search Icon
-            IconButton(onClick = { showSearchBar = true }) {
-                Icon(Icons.Default.Search, contentDescription = "Search", tint = Color.White)
-            }
-
-            // Filter Icon with Dropdown
-            Box {
-                IconButton(onClick = onToggleFilterDropdown) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.Sort,
-                        contentDescription = "Filter",
-                        tint = if (selectedFilter != GroupFilter.ALL_GROUPS) PrimaryBlue else Color.White
+                Column(modifier = Modifier.padding(8.dp)) {
+                    Text(
+                        "Filter Groups",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
-                }
 
-                DropdownMenu(
-                    expanded = showFilterDropdown,
-                    onDismissRequest = onToggleFilterDropdown,
-                    modifier = Modifier
-                        .background(Color(0xFF2D2D2D))
-                ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
-                        Text(
-                            "Filter Groups",
-                            color = Color.White,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-
-                        FilterOption(
-                            text = "All Groups",
-                            selected = selectedFilter == GroupFilter.ALL_GROUPS,
-                            onClick = { onFilterSelected(GroupFilter.ALL_GROUPS) }
-                        )
-                        FilterOption(
-                            text = "Outstanding Balances",
-                            selected = selectedFilter == GroupFilter.OUTSTANDING_BALANCES,
-                            onClick = { onFilterSelected(GroupFilter.OUTSTANDING_BALANCES) }
-                        )
-                        FilterOption(
-                            text = "Groups You Owe",
-                            selected = selectedFilter == GroupFilter.GROUPS_YOU_OWE,
-                            onClick = { onFilterSelected(GroupFilter.GROUPS_YOU_OWE) }
-                        )
-                        FilterOption(
-                            text = "Groups That Owe You",
-                            selected = selectedFilter == GroupFilter.GROUPS_THAT_OWE_YOU,
-                            onClick = { onFilterSelected(GroupFilter.GROUPS_THAT_OWE_YOU) }
-                        )
-                    }
+                    FilterOption(
+                        text = "All Groups",
+                        selected = selectedFilter == GroupFilter.ALL_GROUPS,
+                        onClick = { onFilterSelected(GroupFilter.ALL_GROUPS) }
+                    )
+                    FilterOption(
+                        text = "Outstanding Balances",
+                        selected = selectedFilter == GroupFilter.OUTSTANDING_BALANCES,
+                        onClick = { onFilterSelected(GroupFilter.OUTSTANDING_BALANCES) }
+                    )
+                    FilterOption(
+                        text = "Groups You Owe",
+                        selected = selectedFilter == GroupFilter.GROUPS_YOU_OWE,
+                        onClick = { onFilterSelected(GroupFilter.GROUPS_YOU_OWE) }
+                    )
+                    FilterOption(
+                        text = "Groups That Owe You",
+                        selected = selectedFilter == GroupFilter.GROUPS_THAT_OWE_YOU,
+                        onClick = { onFilterSelected(GroupFilter.GROUPS_THAT_OWE_YOU) }
+                    )
                 }
             }
         }

@@ -74,9 +74,9 @@ fun HomeScreen3(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Request focus and show keyboard when search becomes active
-    LaunchedEffect(friendsUiState.isSearchActive) {
-        if (friendsUiState.isSearchActive) {
+    // Request focus and show keyboard when search becomes active (for friends or groups)
+    LaunchedEffect(friendsUiState.isSearchActive, groupsUiState.isSearchActive) {
+        if (friendsUiState.isSearchActive || groupsUiState.isSearchActive) {
             // Slight delay might be needed for UI to recompose before requesting focus
             delay(100)
             try {
@@ -97,24 +97,38 @@ fun HomeScreen3(
         topBar = {
             // --- Use SINGLE AppTopBar, pass search state conditionally ---
             val isFriendsScreen = currentHomeRoute == "friends_screen"
+            val isGroupsScreen = currentHomeRoute == "groups_screen"
+
             AppTopBar(
                 title = title, // Standard title (hidden during search by AppTopBar)
                 scrollBehavior = scrollBehavior,
-                // Pass search state ONLY if on friends screen
-                isSearchActive = isFriendsScreen && friendsUiState.isSearchActive,
-                searchQuery = if (isFriendsScreen) friendsUiState.searchQuery else "",
-                onSearchQueryChange = if (isFriendsScreen) friendsViewModel::onSearchQueryChange else { {} },
-                onSearchClose = if (isFriendsScreen) friendsViewModel::onSearchCloseClick else { {} },
+                // Pass search state for both friends and groups screens
+                isSearchActive = (isFriendsScreen && friendsUiState.isSearchActive) ||
+                                (isGroupsScreen && groupsUiState.isSearchActive),
+                searchQuery = when {
+                    isFriendsScreen -> friendsUiState.searchQuery
+                    isGroupsScreen -> groupsUiState.searchQuery
+                    else -> ""
+                },
+                onSearchQueryChange = when {
+                    isFriendsScreen -> friendsViewModel::onSearchQueryChange
+                    isGroupsScreen -> groupsViewModel::onSearchQueryChange
+                    else -> { {} }
+                },
+                onSearchClose = when {
+                    isFriendsScreen -> friendsViewModel::onSearchCloseClick
+                    isGroupsScreen -> groupsViewModel::onSearchCloseClick
+                    else -> { {} }
+                },
                 focusRequester = focusRequester, // Pass focus requester
                 // Standard actions (hidden during search by AppTopBar)
                 actions = {
                     // Define actions based on route
                     when (currentHomeRoute) {
                         "groups_screen" -> GroupsTopBarActions(
-                            searchQuery = groupsUiState.searchQuery,
                             selectedFilter = groupsUiState.selectedFilter,
                             showFilterDropdown = groupsUiState.showFilterDropdown,
-                            onSearchQueryChange = groupsViewModel::onSearchQueryChange,
+                            onSearchIconClick = groupsViewModel::onSearchIconClick,
                             onFilterSelected = groupsViewModel::onFilterSelected,
                             onToggleFilterDropdown = groupsViewModel::toggleFilterDropdown,
                             onNavigateToCreateGroup = { mainNavController.navigate(Screen.CreateGroup) }
