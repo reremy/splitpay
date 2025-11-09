@@ -32,57 +32,71 @@ class UserRepository(
         fullName: String,
         username: String,
         email: String,
+        phoneNumber: String,
         password: String,
         ): Result<Unit> {
         return try {
+            logI("Starting sign-up process for user: $email")
+            logD("Sign-up details - Username: $username, Phone: ${phoneNumber.take(3)}***")
 
-            logD("Attempting sign-up for user: $email")
-            //create Firebase Auth account
+            // Create Firebase Auth account
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
-            val user = authResult.user ?: return Result.failure(Exception("User creation failed."))
+            val user = authResult.user ?: run {
+                logE("Firebase Auth user creation failed - user object is null")
+                return Result.failure(Exception("User creation failed."))
+            }
 
-            logI("User created in Firebase Auth: ${user.uid}")
+            logI("Firebase Auth account created successfully - UID: ${user.uid}")
 
             // Set the Firebase User's display name using the fullName
             val profileUpdates = UserProfileChangeRequest.Builder()
                 .setDisplayName(fullName)
                 .build()
-            user.updateProfile(profileUpdates).await() // <-- ADDED: Updates displayName
-            logD("Firebase User profile updated with displayName: $fullName") // Logger: Profile updated
+            user.updateProfile(profileUpdates).await()
+            logD("Firebase User profile updated with displayName: $fullName")
 
-
-            //build user data for firestore
+            // Build user data for Firestore
             val userData = User(
                 uid = user.uid,
                 fullName = fullName,
                 username = username,
-                email = email
+                email = email,
+                phoneNumber = phoneNumber
             )
 
-            //store in Firestore
+            // Store in Firestore
+            logD("Saving user profile to Firestore for UID: ${user.uid}")
             firestore.collection("users")
                 .document(user.uid)
                 .set(userData)
                 .await()
 
-            logI("User profile saved to Firestore.")
+            logI("User profile saved to Firestore successfully - Sign-up complete for: $email")
             Result.success(Unit)
         } catch (e: Exception){
-            logE("Sign-up failed for $email: ${e.message}")
+            logE("Sign-up failed for $email: ${e.message}", e)
             Result.failure(e)
         }
     }
 
     suspend fun signIn(email: String, password: String): FirebaseUser? {
         return try {
+            logI("Starting sign-in process for user: $email")
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
-            authResult.user
+            val user = authResult.user
 
+            if (user != null) {
+                logI("Sign-in successful - UID: ${user.uid}, Email verified: ${user.isEmailVerified}")
+            } else {
+                logE("Sign-in returned null user despite no exception")
+            }
+
+            user
         } catch (e: Exception) {
+            logE("Sign-in failed for $email: ${e.message}", e)
             throw e
         }
     }
-    //return FirebaseUser if successful, caught exception if not.
 
     // This is the preferred approach
     suspend fun signOut() {

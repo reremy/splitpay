@@ -28,7 +28,8 @@ fun InputField(
     keyboardType: KeyboardType = KeyboardType.Text,
     isError: Boolean = false,
     supportingText: String? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    trailingIcon: @Composable (() -> Unit)? = null
 ){
     Column(
         modifier = modifier,
@@ -72,6 +73,7 @@ fun InputField(
                     Text(text = supportingText, color = Color.Red)
                 }
             },
+            trailingIcon = trailingIcon,
             modifier = Modifier.fillMaxWidth()
         )
 
