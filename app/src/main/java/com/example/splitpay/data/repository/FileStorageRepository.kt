@@ -159,6 +159,41 @@ class FileStorageRepository(
     }
 
     /**
+     * Uploads a payment image to Firebase Storage
+     * @param imageUri The URI of the image to upload
+     * @return The download URL of the uploaded image
+     */
+    suspend fun uploadPaymentImage(imageUri: Uri): Result<String> {
+        return try {
+            logI("Starting payment image upload")
+            logD("Image URI: $imageUri")
+
+            val paymentId = "payment_${System.currentTimeMillis()}"
+            val fileName = "${paymentId}.jpg"
+            val paymentImageRef = storageRef.child("payment_images/$fileName")
+
+            logD("Full storage path: ${paymentImageRef.path}")
+
+            // Upload the file
+            logD("Starting upload to Firebase Storage...")
+            val uploadTask = paymentImageRef.putFile(imageUri).await()
+            logI("Upload completed successfully - ${uploadTask.bytesTransferred} bytes transferred")
+
+            // Get the download URL
+            logD("Getting download URL...")
+            val downloadUrl = paymentImageRef.downloadUrl.await().toString()
+            logI("Payment image uploaded successfully. URL: ${downloadUrl.take(50)}...")
+
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            logE("Failed to upload payment image: ${e.message}", e)
+            logE("Exception type: ${e.javaClass.simpleName}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Deletes a file from Firebase Storage given its URL
      * @param fileUrl The full download URL of the file to delete
      */
