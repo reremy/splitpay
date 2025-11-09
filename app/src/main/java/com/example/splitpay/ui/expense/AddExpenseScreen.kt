@@ -3,8 +3,10 @@ package com.example.splitpay.ui.expense
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -39,6 +42,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
@@ -81,6 +85,9 @@ import androidx.lifecycle.ViewModelProvider // Keep this
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner // Keep this
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry // Keep this
+import coil.compose.AsyncImage
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.Participant // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
 import com.example.splitpay.data.model.Payer // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
@@ -407,6 +414,18 @@ fun AddExpenseScreen(
                         )
                     }
                 }
+            }
+
+            // Display Expense Image Preview (if selected or already uploaded)
+            if (uiState.selectedImageUri != null || uiState.uploadedImageUrl.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                ExpenseImagePreview(
+                    imageUri = uiState.selectedImageUri,
+                    imageUrl = uiState.uploadedImageUrl,
+                    isUploading = uiState.isUploadingImage,
+                    onRemoveClick = { viewModel.onRemoveExpenseImage() },
+                    onReplaceClick = { imagePickerLauncher.launch("image/*") }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
@@ -1116,6 +1135,105 @@ fun SplitSummary(
                     )
                 }
             }
+        }
+    }
+}
+
+// --- Expense Image Preview ---
+@Composable
+fun ExpenseImagePreview(
+    imageUri: Uri?,
+    imageUrl: String,
+    isUploading: Boolean,
+    onRemoveClick: () -> Unit,
+    onReplaceClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Expense Image",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                // X button to remove image
+                IconButton(
+                    onClick = onRemoveClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(ErrorRed),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remove image",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Image display - clickable to replace
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onReplaceClick)
+                    .background(Color(0xFF3C3C3C)),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    isUploading -> {
+                        // Show loading indicator while uploading
+                        CircularProgressIndicator(color = PrimaryBlue, modifier = Modifier.size(40.dp))
+                    }
+                    imageUri != null -> {
+                        // Show newly selected image (not yet uploaded)
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = "Selected expense image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    imageUrl.isNotEmpty() -> {
+                        // Show existing uploaded image
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "Expense image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+            }
+
+            // Hint text
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Tap image to replace",
+                color = Color.Gray,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
