@@ -331,8 +331,10 @@ fun Navigation(
             val friendId = backStackEntry.arguments?.getString("friendId") ?: ""
             FriendSettingsScreen(
                 friendId = friendId,
-                navController = navController,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToGroupDetail = { groupId ->
+                    navController.navigate("${Screen.GroupDetail}/$groupId")
+                }
             )
         }
 
