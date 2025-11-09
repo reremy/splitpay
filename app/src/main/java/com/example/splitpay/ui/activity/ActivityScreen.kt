@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.toLowerCase
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -314,7 +315,8 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
                 }
             }
             ActivityType.PAYMENT_MADE -> {
-                // displayText should be the *other* person's name
+                // For PAYMENT_MADE, displayText is just the receiver's name
+                // actor is the payer
                 append(" paid ")
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
                     append("${activity.displayText}")
@@ -327,9 +329,18 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
                 }
             }
             ActivityType.PAYMENT_UPDATED -> {
-                append(" updated a payment to ")
+                // For PAYMENT_UPDATED, displayText is "payerName|receiverName"
+                val names = activity.displayText?.split("|") ?: listOf("Someone", "Someone")
+                val payerName = names.getOrNull(0) ?: "Someone"
+                val receiverName = names.getOrNull(1) ?: "Someone"
+
+                append(" updated a payment from ")
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append("${activity.displayText}")
+                    append(payerName)
+                }
+                append(" to ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(receiverName)
                 }
                 if (activity.groupName != null) {
                     append(" in ")
@@ -339,9 +350,18 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
                 }
             }
             ActivityType.PAYMENT_DELETED -> {
-                append(" deleted a payment to ")
+                // For PAYMENT_DELETED, displayText is "payerName|receiverName"
+                val names = activity.displayText?.split("|") ?: listOf("Someone", "Someone")
+                val payerName = names.getOrNull(0) ?: "Someone"
+                val receiverName = names.getOrNull(1) ?: "Someone"
+
+                append(" deleted a payment from ")
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
-                    append("${activity.displayText}")
+                    append(payerName)
+                }
+                append(" to ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(receiverName)
                 }
                 if (activity.groupName != null) {
                     append(" in ")
@@ -382,29 +402,40 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
  * Creates the personalized financial summary.
  * e.g., "You owe MYR333.33"
  * e.g., "You get back $25.00"
+ * Returns AnnotatedString to support strikethrough for deleted/updated payments
  */
-private fun formatFinancialSummary(activity: Activity, currentUserId: String): String {
+private fun formatFinancialSummary(activity: Activity, currentUserId: String): AnnotatedString {
     // Find the financial impact for the *current* user
     val impact = activity.financialImpacts?.get(currentUserId) ?: 0.0
 
     val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
 
+    // Handle PAYMENT_UPDATED and PAYMENT_DELETED with strikethrough
+    if (type == ActivityType.PAYMENT_UPDATED || type == ActivityType.PAYMENT_DELETED) {
+        val amount = activity.totalAmount ?: 0.0
+        return buildAnnotatedString {
+            withStyle(style = SpanStyle(textDecoration = TextDecoration.LineThrough)) {
+                append("MYR%.2f".format(amount))
+            }
+        }
+    }
+
     if (type == ActivityType.PAYMENT_MADE) {
         val amount = impact.absoluteValue
-        return if (activity.actorUid == currentUserId) {
+        val text = if (activity.actorUid == currentUserId) {
             // I was the payer (actor)
             "You paid MYR%.2f".format(amount)
         } else {
             // I was the receiver
             "You were paid MYR%.2f".format(amount)
         }
+        return buildAnnotatedString { append(text) }
     }
 
-    return when {
+    val textContent = when {
         impact < -0.01 -> "You owe MYR%.2f".format(impact.unaryMinus()) // Show positive value
         impact > 0.01 -> "You get back MYR%.2f".format(impact)
         else -> {
-            // --- MODIFICATION START ---
             // Don't show "you do not owe" for non-financial events
             val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
             if (type == ActivityType.GROUP_CREATED ||
@@ -414,11 +445,11 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): S
             ) {
                 "" // Return empty string for these types
             }
-            // --- MODIFICATION END ---
             // For expenses where user is not involved financially
             else "You do not owe anything"
         }
     }
+    return buildAnnotatedString { append(textContent) }
 }
 
 /**

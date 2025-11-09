@@ -218,6 +218,7 @@ class RecordPaymentViewModel(
                         try {
                             val actorProfile = userRepository.getUserProfile(currentUserId)
                             val actorName = actorProfile?.username ?: "Someone"
+                            val payerName = state.payer.username
                             val receiverName = state.receiver.username
                             val group = state.group
 
@@ -229,7 +230,7 @@ class RecordPaymentViewModel(
                                 groupId = group?.id,
                                 groupName = group?.name,
                                 entityId = state.editingPaymentId,
-                                displayText = receiverName,
+                                displayText = "$payerName|$receiverName", // Store both payer and receiver
                                 totalAmount = totalAmount,
                                 financialImpacts = null
                             )

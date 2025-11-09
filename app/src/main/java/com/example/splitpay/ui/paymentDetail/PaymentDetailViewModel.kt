@@ -144,6 +144,9 @@ class PaymentDetailViewModel(
 
                     val payer = _uiState.value.payer
                     val recipient = _uiState.value.recipient
+                    val payerName = payer?.username?.takeIf { it.isNotBlank() }
+                        ?: payer?.fullName?.takeIf { it.isNotBlank() }
+                        ?: "Someone"
                     val recipientName = recipient?.username?.takeIf { it.isNotBlank() }
                         ?: recipient?.fullName?.takeIf { it.isNotBlank() }
                         ?: "Someone"
@@ -158,7 +161,7 @@ class PaymentDetailViewModel(
                         groupId = payment.groupId,
                         groupName = _uiState.value.groupName,
                         entityId = payment.id,
-                        displayText = recipientName, // Store recipient name for display
+                        displayText = "$payerName|$recipientName", // Store both payer and recipient
                         totalAmount = payment.totalAmount,
                         financialImpacts = null
                     )
