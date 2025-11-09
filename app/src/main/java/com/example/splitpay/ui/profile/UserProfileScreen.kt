@@ -93,12 +93,12 @@ fun UserProfileScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
+        val currentError = uiState.error
         if (uiState.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = PrimaryBlue)
             }
-        } else if (uiState.error != null && !uiState.error.contains("Sign out", ignoreCase = true)) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        } else if (currentError != null && !currentError.contains("Sign out", ignoreCase = true)) {            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Error: ${uiState.error}", color = Color.Red)
             }
         } else {
@@ -250,10 +250,9 @@ fun UserProfileScreen(
                 }
 
                 // Show logout error if any
-                if (!uiState.isLoading && uiState.error != null && uiState.error.contains("Sign out", ignoreCase = true)) {
-                    Spacer(modifier = Modifier.height(8.dp))
+                if (!uiState.isLoading && currentError != null && currentError.contains("Sign out", ignoreCase = true)) {                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = uiState.error,
+                        text = currentError,
                         color = Color.Red,
                         style = MaterialTheme.typography.bodyMedium
                     )

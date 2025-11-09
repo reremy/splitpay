@@ -405,20 +405,21 @@ fun EditProfileScreen(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Error message
-                    if (uiState.error != null) {
+                    val errorMessage = uiState.error
+                    errorMessage?.let { message -> // This block only runs if errorMessage is not null
                         Text(
-                            text = uiState.error,
+                            text = message, // 'message' is now smart-cast to a non-nullable String
                             color = Color.Red,
                             fontSize = 14.sp,
-                            modifier = Modifier.fillMaxWidth()
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
                     // Success message
-                    if (uiState.successMessage != null) {
+                    val successMessage = uiState.successMessage
+                    if (successMessage != null) {
                         Text(
-                            text = uiState.successMessage,
+                            text = successMessage,
                             color = Color.Green,
                             fontSize = 14.sp,
                             modifier = Modifier.fillMaxWidth()

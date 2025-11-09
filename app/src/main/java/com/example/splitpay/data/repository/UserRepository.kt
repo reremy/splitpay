@@ -74,7 +74,7 @@ class UserRepository(
             logI("User profile saved to Firestore successfully - Sign-up complete for: $email")
             Result.success(Unit)
         } catch (e: Exception){
-            logE("Sign-up failed for $email: ${e.message}", e)
+            logE("Sign-up failed for $email: ${e.message}")
             Result.failure(e)
         }
     }
@@ -93,7 +93,7 @@ class UserRepository(
 
             user
         } catch (e: Exception) {
-            logE("Sign-in failed for $email: ${e.message}", e)
+            logE("Sign-in failed for $email: ${e.message}")
             throw e
         }
     }

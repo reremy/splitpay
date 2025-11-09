@@ -110,7 +110,7 @@ class LoginViewModel(
                         _uiState.update { it.copy(generalError = "Check your internet connection") }
                     }
                     else -> {
-                        logE("Login failed with unexpected error: ${e.message}", e)
+                        logE("Login failed with unexpected error: ${e.message}")
                         _uiState.update { it.copy(generalError = "Login failed: ${e.message}") }
                     }
                 }

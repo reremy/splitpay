@@ -168,13 +168,13 @@ class SignUpViewModel(
                         }
 
                         else -> {
-                            logE("Unexpected sign-up error: ${e.message}", e)
+                            logE("Unexpected sign-up error: ${e.message}")
                             _uiState.update { it.copy(errorMessage = e.message ?: "Sign-up failed due to an unknown error.") }
                         }
                     }
                 }
             } catch (e: Exception) {
-                logE("Critical error during sign-up launch: ${e.message}", e)
+                logE("Critical error during sign-up launch: ${e.message}")
                 _uiState.update { it.copy(errorMessage = "A critical error occurred: ${e.message}") }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
