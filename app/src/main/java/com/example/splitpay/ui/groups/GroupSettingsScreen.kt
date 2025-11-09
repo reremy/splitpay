@@ -18,10 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.SavedStateHandle
+import coil.compose.AsyncImage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -127,6 +129,7 @@ fun GroupSettingsScreen(
                     GroupInfoSection(
                         groupName = group.name,
                         iconIdentifier = group.iconIdentifier,
+                        photoUrl = group.photoUrl,
                         onEditNameClick = { viewModel.showEditNameDialog(true) },
                         onEditIconClick = { viewModel.showChangeIconDialog(true) }
                     )
@@ -244,6 +247,7 @@ fun GroupSettingsScreen(
 fun GroupInfoSection(
     groupName: String,
     iconIdentifier: String,
+    photoUrl: String,
     onEditNameClick: () -> Unit,
     onEditIconClick: () -> Unit
 ) {
@@ -251,21 +255,34 @@ fun GroupInfoSection(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon
+        // Group Photo or Tag Icon
         Box(
             modifier = Modifier
                 .size(60.dp)
                 .clip(CircleShape)
-                .background(PrimaryBlue) // Or determine color based on icon type
-            .clickable(onClick = onEditIconClick),
+                .background(if (photoUrl.isNotEmpty()) Color.Transparent else PrimaryBlue)
+                .clickable(onClick = onEditIconClick),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = availableTagsMap[iconIdentifier] ?: Icons.Default.Group,
-                contentDescription = "Group Tag - Click to change",
-                tint = TextWhite,
-                modifier = Modifier.size(32.dp)
-            )
+            if (photoUrl.isNotEmpty()) {
+                // Display group photo
+                AsyncImage(
+                    model = photoUrl,
+                    contentDescription = "Group Photo",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Display tag icon
+                Icon(
+                    imageVector = availableTagsMap[iconIdentifier] ?: Icons.Default.Group,
+                    contentDescription = "Group Tag - Click to change",
+                    tint = TextWhite,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
         }
         Spacer(Modifier.width(16.dp))
         // Name and Type
