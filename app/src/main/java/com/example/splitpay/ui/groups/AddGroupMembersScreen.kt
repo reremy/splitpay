@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,15 +16,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.GroupsRepository
@@ -84,44 +84,11 @@ fun AddGroupMembersScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { /* Title can be empty or "Add Members" */ },
+                title = { Text("Add Members", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextWhite)
                     }
-                },
-                actions = {
-                    // Search Field integrated into TopAppBar
-                    OutlinedTextField(
-                        value = uiState.searchQuery,
-                        onValueChange = viewModel::onSearchQueryChange,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 0.dp, end = 16.dp) // Adjust padding
-                            .height(50.dp), // Control height
-                        placeholder = { Text("Search Friend's username", color = TextPlaceholder) },
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color(0xFF3C3C3C),
-                            unfocusedContainerColor = Color(0xFF3C3C3C),
-                            disabledContainerColor = Color(0xFF3C3C3C),
-                            cursorColor = PrimaryBlue,
-                            focusedIndicatorColor = Color.Transparent, // No underline
-                            unfocusedIndicatorColor = Color.Transparent,
-                            disabledIndicatorColor = Color.Transparent,
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite,
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextPlaceholder) },
-                        trailingIcon = {
-                            if (uiState.searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = Color.Gray)
-                                }
-                            }
-                        }
-                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = DarkBackground)
             )
@@ -133,23 +100,39 @@ fun AddGroupMembersScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // --- Selected Friends Row ---
-            if (uiState.selectedFriends.isNotEmpty()) {
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(uiState.selectedFriends, key = { it.uid }) { friend ->
-                        SelectedFriendChip(friend = friend, onRemove = { viewModel.onFriendDeselected(friend) })
+            // Search Field
+            OutlinedTextField(
+                value = uiState.searchQuery,
+                onValueChange = viewModel::onSearchQueryChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                placeholder = { Text("Search Friend's username", color = TextPlaceholder) },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color(0xFF3C3C3C),
+                    unfocusedContainerColor = Color(0xFF3C3C3C),
+                    disabledContainerColor = Color(0xFF3C3C3C),
+                    cursorColor = PrimaryBlue,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                    focusedTextColor = TextWhite,
+                    unfocusedTextColor = TextWhite,
+                ),
+                shape = RoundedCornerShape(8.dp),
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = TextPlaceholder) },
+                trailingIcon = {
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = Color.Gray)
+                        }
                     }
                 }
-                HorizontalDivider(color = Color(0xFF454545))
-            }
+            )
 
             // --- Available Friends List ---
-            if (uiState.isLoading && uiState.availableFriends.isEmpty()) { // Show loading only initially
+            if (uiState.isLoading && uiState.availableFriends.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = PrimaryBlue)
                 }
@@ -163,13 +146,13 @@ fun AddGroupMembersScreen(
                 }
             } else if (uiState.availableFriends.isEmpty() && uiState.allFriends.isNotEmpty()) {
                 Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("All your friends are already in this group or none found.", color = Color.Gray, textAlign = TextAlign.Center)
+                    Text("All your friends are already in this group.", color = Color.Gray, textAlign = TextAlign.Center)
                 }
             } else {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f), // Takes remaining space
+                        .weight(1f),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(uiState.availableFriends, key = { it.uid }) { friend ->
@@ -186,7 +169,6 @@ fun AddGroupMembersScreen(
                 }
             }
 
-
             // --- Done Button ---
             Button(
                 onClick = viewModel::onDoneClick,
@@ -194,52 +176,21 @@ fun AddGroupMembersScreen(
                     .fillMaxWidth()
                     .padding(16.dp)
                     .height(50.dp),
-                enabled = !uiState.isLoading, // Disable while adding
+                enabled = !uiState.isLoading && uiState.selectedFriends.isNotEmpty(),
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
             ) {
-                if (uiState.isLoading && uiState.addMembersSuccess) { // Show loading indicator on button when submitting
+                if (uiState.isLoading && uiState.selectedFriends.isNotEmpty()) {
                     CircularProgressIndicator(modifier = Modifier.size(24.dp), color = TextWhite)
                 } else {
-                    Text("Done", fontSize = 18.sp, color = TextWhite)
+                    Text("Done (${uiState.selectedFriends.size})", fontSize = 18.sp, color = TextWhite)
                 }
             }
-        } // End Column
-    } // End Scaffold
+        }
+    }
 }
 
 // --- Helper Composables ---
-
-@Composable
-fun SelectedFriendChip(friend: User, onRemove: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(contentAlignment = Alignment.TopEnd) {
-            Icon(
-                Icons.Default.AccountCircle, // Placeholder
-                contentDescription = friend.username,
-                tint = Color.Gray,
-                modifier = Modifier.size(50.dp)
-            )
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier
-                    .offset(x = 8.dp, y = (-8).dp) // Position X icon
-                    .size(20.dp)
-                    .clip(CircleShape)
-                    .background(Color.Gray)
-            ) {
-                Icon(Icons.Default.Close, contentDescription = "Remove", tint = DarkBackground, modifier = Modifier.size(14.dp))
-            }
-        }
-        Text(
-            friend.username,
-            color = Color.Gray,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-    }
-}
 
 @Composable
 fun FriendSelectItem(
@@ -251,12 +202,24 @@ fun FriendSelectItem(
         headlineContent = { Text(friend.username, color = TextWhite) },
         supportingContent = { if (friend.fullName.isNotBlank()) Text(friend.fullName, color = Color.Gray, fontSize = 12.sp) else null },
         leadingContent = {
-            Icon(
-                Icons.Default.AccountCircle, // Placeholder
-                contentDescription = null,
-                tint = Color.Gray,
-                modifier = Modifier.size(40.dp)
-            )
+            // Display profile picture if available
+            if (friend.profilePictureUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = friend.profilePictureUrl,
+                    contentDescription = "${friend.username}'s profile picture",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    tint = Color.Gray,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         },
         trailingContent = {
             if (isSelected) {
@@ -270,5 +233,5 @@ fun FriendSelectItem(
             .padding(horizontal = 16.dp),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
-    HorizontalDivider(color = Color(0xFF454545), modifier = Modifier.padding(start = 72.dp)) // Indent divider
+    HorizontalDivider(color = Color(0xFF454545), modifier = Modifier.padding(start = 72.dp))
 }
