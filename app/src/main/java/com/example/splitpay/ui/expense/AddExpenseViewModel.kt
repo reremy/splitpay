@@ -386,7 +386,7 @@ class AddExpenseViewModel(
                         splitType = splitType,
                         date = expense.date,
                         memo = expense.memo,
-                        imageUris = expense.imageUrls,
+                        uploadedImageUrl = expense.imageUrl, // Load existing image URL
                         error = null
                     )
                 }
