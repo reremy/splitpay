@@ -73,6 +73,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -98,6 +99,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import androidx.lifecycle.SavedStateHandle // <-- Add import
+import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -277,17 +279,29 @@ fun GroupDetailHeaderDisplay(
             .padding(bottom = 16.dp, top = 16.dp), // Add padding
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Group Icon
+        // Group Photo or Tag Icon
         Box(
             modifier = Modifier
                 .size(80.dp)
                 .clip(CircleShape)
-                .background(PrimaryBlue),
+                .background(if (group.photoUrl.isNotEmpty()) Color.Transparent else PrimaryBlue),
             contentAlignment = Alignment.Center
         ) {
-            // --- Use iconIdentifier from map, default to Group icon ---
-            val icon = availableTagsMap[iconIdentifier] ?: Icons.Default.Group // Use map
-            Icon(icon, contentDescription = "Group Tag", tint = TextWhite, modifier = Modifier.size(40.dp))
+            if (group.photoUrl.isNotEmpty()) {
+                // Display group photo
+                AsyncImage(
+                    model = group.photoUrl,
+                    contentDescription = "Group Photo",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Display tag icon
+                val icon = availableTagsMap[iconIdentifier] ?: Icons.Default.Group
+                Icon(icon, contentDescription = "Group Tag", tint = TextWhite, modifier = Modifier.size(40.dp))
+            }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -629,25 +643,12 @@ fun GroupMemberStatus(
                         onClick = onAddMemberClick, // Use passed lambda
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                        modifier = Modifier.weight(1f).height(48.dp)
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Add Member", modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Add Members", color = TextWhite, fontSize = 14.sp)
                     }
-                    Spacer(Modifier.width(10.dp))
-                }
-                // Share Link Button (always shown?)
-                Button(
-                    onClick = onShareLinkClick,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF454545)),
-                    // --- Adjust weight if Add Members button is hidden ---
-                    modifier = Modifier.weight(if (showAddMemberButtonInStatus) 1f else 2f).height(48.dp) // Takes full width if alone
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = "Share Link", modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Share Link", color = TextWhite, fontSize = 14.sp)
                 }
             }
         }

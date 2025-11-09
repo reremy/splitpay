@@ -89,6 +89,41 @@ class FileStorageRepository(
     }
 
     /**
+     * Uploads a group photo
+     * @param groupId The group's ID
+     * @param imageUri The local URI of the image to upload
+     * @return The download URL of the uploaded image
+     */
+    suspend fun uploadGroupPhoto(groupId: String, imageUri: Uri): Result<String> {
+        return try {
+            logI("Starting group photo upload for group: $groupId")
+            logD("Image URI: $imageUri")
+
+            val fileName = "group_${groupId}_${System.currentTimeMillis()}.jpg"
+            val groupPhotoRef = storageRef.child("group_photos/$groupId/$fileName")
+
+            logD("Full storage path: ${groupPhotoRef.path}")
+
+            // Upload the file
+            logD("Starting upload to Firebase Storage...")
+            val uploadTask = groupPhotoRef.putFile(imageUri).await()
+            logI("Upload completed successfully - ${uploadTask.bytesTransferred} bytes transferred")
+
+            // Get the download URL
+            logD("Getting download URL...")
+            val downloadUrl = groupPhotoRef.downloadUrl.await().toString()
+            logI("Group photo uploaded successfully. URL: ${downloadUrl.take(50)}...")
+
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            logE("Failed to upload group photo for group $groupId: ${e.message}", e)
+            logE("Exception type: ${e.javaClass.simpleName}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Deletes a file from Firebase Storage given its URL
      * @param fileUrl The full download URL of the file to delete
      */

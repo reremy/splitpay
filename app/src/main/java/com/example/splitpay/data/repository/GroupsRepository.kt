@@ -23,7 +23,7 @@ class GroupsRepository(
      * Creates a new expense group in Firestore.
      * The creator is automatically added as the first member.
      */
-    suspend fun createGroup(groupName: String, iconIdentifier: String): Result<Group> { // <--- UPDATED SIGNATURE
+    suspend fun createGroup(groupName: String, iconIdentifier: String, photoUrl: String = ""): Result<Group> { // <--- UPDATED SIGNATURE
         val currentUser = userRepository.getCurrentUser()
         if (currentUser == null) {
             return Result.failure(Exception("User not authenticated."))
@@ -39,6 +39,7 @@ class GroupsRepository(
                 members = listOf(currentUser.uid),
                 createdAt = System.currentTimeMillis(),
                 iconIdentifier = iconIdentifier,
+                photoUrl = photoUrl,
                 isArchived = false
             )
 

@@ -91,11 +91,10 @@ fun CreateGroupScreen(
     val uiState = viewModel.uiState.value
 
     // Image picker for group photo
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        selectedImageUri = uri
+        uri?.let { viewModel.onPhotoSelected(it) }
     }
 
     Scaffold(
@@ -145,10 +144,10 @@ fun CreateGroupScreen(
                     .clickable { imagePickerLauncher.launch("image/*") },
                 contentAlignment = Alignment.Center
             ) {
-                if (selectedImageUri != null) {
+                if (uiState.selectedPhotoUri != null) {
                     // Display selected image
                     AsyncImage(
-                        model = selectedImageUri,
+                        model = uiState.selectedPhotoUri,
                         contentDescription = "Group Photo",
                         modifier = Modifier
                             .fillMaxSize()
