@@ -19,6 +19,14 @@ class ExpenseRepository(
     private val expensesCollection = firestore.collection("expenses")
 
     /**
+     * Generates a new expense ID without saving to Firestore.
+     * Useful for uploading related files before creating the expense.
+     */
+    fun generateExpenseId(): String {
+        return expensesCollection.document().id
+    }
+
+    /**
      * Adds a new expense document to Firestore.
      * If the expense object doesn't have an ID, a new one is generated.
      */

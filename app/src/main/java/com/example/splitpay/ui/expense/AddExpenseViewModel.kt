@@ -15,8 +15,10 @@ import com.example.splitpay.data.model.ExpensePayer // Data model for saving
 import com.example.splitpay.data.model.ExpenseParticipant // Data model for saving
 import com.example.splitpay.data.model.Participant // Local UI model
 import com.example.splitpay.data.model.Payer // Local UI model
+import android.net.Uri
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
+import com.example.splitpay.data.repository.FileStorageRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.domain.usecase.CalculateSplitUseCase
@@ -42,6 +44,7 @@ class AddExpenseViewModel(
     private val groupsRepository: GroupsRepository = GroupsRepository(),
     private val userRepository: UserRepository = UserRepository(),
     private val expenseRepository: ExpenseRepository = ExpenseRepository(),
+    private val fileStorageRepository: FileStorageRepository = FileStorageRepository(),
     private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -564,12 +567,18 @@ class AddExpenseViewModel(
         _uiState.update { it.copy(memo = finalMemo.trim(), isMemoDialogVisible = false) }
     }
 
-    fun onImageAdded(uriString: String) {
-        _uiState.update { it.copy(imageUris = it.imageUris + uriString) }
+    /**
+     * Handles expense image selection from camera/gallery
+     */
+    fun onExpenseImageSelected(uri: Uri?) {
+        _uiState.update { it.copy(selectedImageUri = uri) }
     }
 
-    fun onImageRemoved(uriString: String) {
-        _uiState.update { it.copy(imageUris = it.imageUris - uriString) }
+    /**
+     * Removes the selected expense image
+     */
+    fun onRemoveExpenseImage() {
+        _uiState.update { it.copy(selectedImageUri = null, uploadedImageUrl = "") }
     }
 
     fun showDatePickerDialog(isVisible: Boolean) {
@@ -810,23 +819,47 @@ class AddExpenseViewModel(
             )
         }
 
-        // This is still correct from our last fix.
-        // state.currentGroupId will be "non_group" or a real ID.
-        val newExpense = Expense(
-            groupId = state.currentGroupId,
-            description = state.description.trim(),
-            totalAmount = totalAmount,
-            createdByUid = currentUser.uid,
-            date = state.date,
-            splitType = state.splitType.name,
-            paidBy = expensePayers,
-            participants = expenseParticipants,
-            memo = state.memo.trim(),
-            imageUrls = emptyList()
-        )
-
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
+
+            // Upload expense image if selected
+            var imageUrl = state.uploadedImageUrl // Use already uploaded URL if exists
+            if (state.selectedImageUri != null && imageUrl.isEmpty()) {
+                _uiState.update { it.copy(isUploadingImage = true) }
+
+                // Generate temporary expense ID for upload
+                val tempExpenseId = expenseRepository.generateExpenseId()
+
+                val uploadResult = fileStorageRepository.uploadExpenseImage(tempExpenseId, state.selectedImageUri)
+                uploadResult.fold(
+                    onSuccess = { url ->
+                        logD("Expense image uploaded successfully: $url")
+                        imageUrl = url
+                        _uiState.update { it.copy(uploadedImageUrl = url, isUploadingImage = false) }
+                    },
+                    onFailure = { error ->
+                        logE("Failed to upload expense image: ${error.message}")
+                        _uiState.update { it.copy(isUploadingImage = false, isLoading = false) }
+                        emitErrorDialog("Upload Failed", "Failed to upload expense image: ${error.message}")
+                        return@launch
+                    }
+                )
+            }
+
+            // This is still correct from our last fix.
+            // state.currentGroupId will be "non_group" or a real ID.
+            val newExpense = Expense(
+                groupId = state.currentGroupId,
+                description = state.description.trim(),
+                totalAmount = totalAmount,
+                createdByUid = currentUser.uid,
+                date = state.date,
+                splitType = state.splitType.name,
+                paidBy = expensePayers,
+                participants = expenseParticipants,
+                memo = state.memo.trim(),
+                imageUrl = imageUrl // Use uploaded image URL
+            )
 
             // --- Determine if we're creating or updating ---
             if (isEditMode && expenseId != null) {

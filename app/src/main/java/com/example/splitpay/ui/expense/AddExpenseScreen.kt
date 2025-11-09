@@ -1,5 +1,8 @@
 package com.example.splitpay.ui.expense
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -83,6 +86,7 @@ import com.example.splitpay.data.model.Participant // Keep this import for the U
 import com.example.splitpay.data.model.Payer // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
+import com.example.splitpay.data.repository.FileStorageRepository
 import com.example.splitpay.data.repository.GroupsRepository // Keep this
 import com.example.splitpay.data.repository.UserRepository // Keep this
 import com.example.splitpay.ui.common.UiEventHandler
@@ -108,7 +112,8 @@ class AddExpenseViewModelFactory(
     private val groupsRepository: GroupsRepository,
     private val expenseRepository: ExpenseRepository,
     private val userRepository: UserRepository,
-    private val activityRepository: ActivityRepository, // <-- ADD THIS
+    private val fileStorageRepository: FileStorageRepository,
+    private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -118,7 +123,8 @@ class AddExpenseViewModelFactory(
                 groupsRepository,
                 userRepository,
                 expenseRepository,
-                activityRepository, // <-- PASS IT HERE
+                fileStorageRepository,
+                activityRepository,
                 savedStateHandle
             ) as T
         }
@@ -139,6 +145,7 @@ fun AddExpenseScreen(
     groupsRepository: GroupsRepository = GroupsRepository(),
     expenseRepository: ExpenseRepository = ExpenseRepository(),
     userRepository: UserRepository = UserRepository(),
+    fileStorageRepository: FileStorageRepository = FileStorageRepository(),
     activityRepository: ActivityRepository = ActivityRepository()
 ) {
 
@@ -150,7 +157,8 @@ fun AddExpenseScreen(
         groupsRepository,
         expenseRepository,
         userRepository,
-        activityRepository, // <-- PASS IT TO THE FACTORY
+        fileStorageRepository,
+        activityRepository,
         savedStateHandle
     )
     val viewModel: AddExpenseViewModel = viewModel(factory = factory)
@@ -186,6 +194,13 @@ fun AddExpenseScreen(
         if (uiState.isMemoDialogVisible) {
             memoTextState.value = uiState.memo // Update local state when dialog opens
         }
+    }
+
+    // --- Image Picker for Expense Image ---
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        viewModel.onExpenseImageSelected(uri)
     }
 
     UiEventHandler(viewModel.uiEvent) { event ->
@@ -320,6 +335,7 @@ fun AddExpenseScreen(
                 currency = uiState.currency,
                 onChooseGroupClick = { viewModel.showGroupSelector(true) },
                 onCalendarClick = { viewModel.showDatePickerDialog(true) },
+                onCameraClick = { imagePickerLauncher.launch("image/*") },
                 onMemoClick = { viewModel.showMemoDialog(true) },
                 isEditMode = uiState.isEditMode
             )
