@@ -162,6 +162,16 @@ class GroupsRepository(
         }
     }
 
+    suspend fun getGroupById(groupId: String): Group? {
+        return try {
+            val snapshot = groupsCollection.document(groupId).get().await()
+            snapshot.toObject(Group::class.java)
+        } catch (e: Exception) {
+            logE("Error fetching group $groupId: ${e.message}")
+            null
+        }
+    }
+
     suspend fun updateGroupName(groupId: String, newName: String): Result<Unit> {
         return try {
             groupsCollection.document(groupId).update("name", newName).await()
@@ -180,6 +190,32 @@ class GroupsRepository(
             Result.success(Unit)
         } catch (e: Exception) {
             logE("Error updating group icon for $groupId: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateGroup(
+        groupId: String,
+        name: String? = null,
+        iconIdentifier: String? = null,
+        photoUrl: String? = null
+    ): Result<Unit> {
+        return try {
+            val updates = mutableMapOf<String, Any>()
+
+            name?.let { updates["name"] = it }
+            iconIdentifier?.let { updates["iconIdentifier"] = it }
+            photoUrl?.let { updates["photoUrl"] = it }
+
+            if (updates.isEmpty()) {
+                return Result.success(Unit)
+            }
+
+            groupsCollection.document(groupId).update(updates).await()
+            logD("Updated group $groupId with fields: ${updates.keys}")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error updating group $groupId: ${e.message}")
             Result.failure(e)
         }
     }
