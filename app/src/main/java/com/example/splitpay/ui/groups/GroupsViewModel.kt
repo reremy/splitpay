@@ -34,14 +34,25 @@ sealed interface GroupsUiEvent {
     data class NavigateToGroupDetail(val groupId: String) : GroupsUiEvent
 }
 
+enum class GroupFilter {
+    ALL_GROUPS,
+    OUTSTANDING_BALANCES,
+    GROUPS_YOU_OWE,
+    GROUPS_THAT_OWE_YOU
+}
+
 data class GroupsUiState(
     val isLoading: Boolean = true,
     val groupsWithBalances: List<GroupWithBalance> = emptyList(),
+    val filteredGroupsWithBalances: List<GroupWithBalance> = emptyList(),
     // --- START OF FIX 1 ---
     val nonGroupBalance: Double = 0.0, // <-- ADD THIS FIELD
     // --- END OF FIX 1 ---
     val error: String? = null,
-    val membersMap: Map<String, User> = emptyMap()
+    val membersMap: Map<String, User> = emptyMap(),
+    val searchQuery: String = "",
+    val selectedFilter: GroupFilter = GroupFilter.ALL_GROUPS,
+    val showFilterDropdown: Boolean = false
 )
 
 class GroupsViewModel(
@@ -198,6 +209,8 @@ class GroupsViewModel(
                             error = null
                         )
                     }
+                    // Apply search and filter after updating groups
+                    applySearchAndFilter()
                     // --- END OF FIX 5 ---
                 }
 
@@ -237,5 +250,48 @@ class GroupsViewModel(
     // Helper function for rounding
     private fun roundToCents(value: Double): Double {
         return (value * 100.0).roundToInt() / 100.0
+    }
+
+    // Search and Filter Functions
+    fun onSearchQueryChange(query: String) {
+        _uiState.update { it.copy(searchQuery = query) }
+        applySearchAndFilter()
+    }
+
+    fun onFilterSelected(filter: GroupFilter) {
+        _uiState.update { it.copy(selectedFilter = filter, showFilterDropdown = false) }
+        applySearchAndFilter()
+    }
+
+    fun toggleFilterDropdown() {
+        _uiState.update { it.copy(showFilterDropdown = !it.showFilterDropdown) }
+    }
+
+    private fun applySearchAndFilter() {
+        val currentState = _uiState.value
+        var filteredGroups = currentState.groupsWithBalances
+
+        // Apply search filter
+        if (currentState.searchQuery.isNotEmpty()) {
+            filteredGroups = filteredGroups.filter { groupWithBalance ->
+                groupWithBalance.group.name.contains(currentState.searchQuery, ignoreCase = true)
+            }
+        }
+
+        // Apply balance filter
+        filteredGroups = when (currentState.selectedFilter) {
+            GroupFilter.ALL_GROUPS -> filteredGroups
+            GroupFilter.OUTSTANDING_BALANCES -> filteredGroups.filter {
+                it.userNetBalance.absoluteValue > 0.01
+            }
+            GroupFilter.GROUPS_YOU_OWE -> filteredGroups.filter {
+                it.userNetBalance < -0.01
+            }
+            GroupFilter.GROUPS_THAT_OWE_YOU -> filteredGroups.filter {
+                it.userNetBalance > 0.01
+            }
+        }
+
+        _uiState.update { it.copy(filteredGroupsWithBalances = filteredGroups) }
     }
 }

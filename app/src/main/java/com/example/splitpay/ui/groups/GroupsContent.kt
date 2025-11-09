@@ -132,7 +132,7 @@ fun GroupsContent(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                items(uiState.groupsWithBalances) { groupWithBalance ->
+                items(uiState.filteredGroupsWithBalances) { groupWithBalance ->
                     GroupBalanceCard(
                         groupWithBalance = groupWithBalance,
                         membersMap = uiState.membersMap, // <-- PASS membersMap

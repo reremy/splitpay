@@ -42,6 +42,7 @@ import com.example.splitpay.ui.groups.ActivityTopBarActions
 import com.example.splitpay.ui.groups.GroupsContent
 import com.example.splitpay.ui.groups.GroupsTopBarActions
 import com.example.splitpay.ui.groups.GroupsUiEvent
+import com.example.splitpay.ui.groups.GroupsViewModel
 import com.example.splitpay.ui.profile.ProfileTopBarActions
 import com.example.splitpay.ui.profile.UserProfileScreen
 import kotlinx.coroutines.delay
@@ -65,6 +66,9 @@ fun HomeScreen3(
 
     val friendsViewModel: FriendsViewModel = viewModel()
     val friendsUiState by friendsViewModel.uiState.collectAsState()
+
+    val groupsViewModel: GroupsViewModel = viewModel()
+    val groupsUiState by groupsViewModel.uiState.collectAsState()
 
     // --- Focus Requester for Search Field ---
     val focusRequester = remember { FocusRequester() }
@@ -107,6 +111,12 @@ fun HomeScreen3(
                     // Define actions based on route
                     when (currentHomeRoute) {
                         "groups_screen" -> GroupsTopBarActions(
+                            searchQuery = groupsUiState.searchQuery,
+                            selectedFilter = groupsUiState.selectedFilter,
+                            showFilterDropdown = groupsUiState.showFilterDropdown,
+                            onSearchQueryChange = groupsViewModel::onSearchQueryChange,
+                            onFilterSelected = groupsViewModel::onFilterSelected,
+                            onToggleFilterDropdown = groupsViewModel::toggleFilterDropdown,
                             onNavigateToCreateGroup = { mainNavController.navigate(Screen.CreateGroup) }
                         )
                         "friends_screen" -> FriendsTopBarActions(
@@ -153,7 +163,7 @@ fun HomeScreen3(
                 GroupsContent(
                     innerPadding = innerPadding,
                     overallBalance = friendsUiState.totalNetBalance, // <-- PASS BALANCE HERE
-                    // GroupsViewModel instance is created internally by default
+                    viewModel = groupsViewModel, // Pass the same GroupsViewModel instance
                     onNavigate = { event ->
                         when (event) {
                             GroupsUiEvent.NavigateToCreateGroup -> mainNavController.navigate(Screen.CreateGroup)
