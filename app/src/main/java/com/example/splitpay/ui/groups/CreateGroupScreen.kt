@@ -23,13 +23,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Dining
-import androidx.compose.material.icons.filled.FamilyRestroom
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Image
-import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.TravelExplore
+import androidx.compose.material.icons.filled.Flight
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -64,12 +63,12 @@ import com.example.splitpay.ui.theme.PrimaryBlue
 import com.example.splitpay.ui.theme.TextWhite
 
 
-val availableIcons = listOf(
-    "travel" to Icons.Default.TravelExplore,
-    "family" to Icons.Default.FamilyRestroom,
-    "kitchen" to Icons.Default.Dining,
-    "other" to Icons.Default.Group,
-    "place" to Icons.Default.Place,
+val availableTags = listOf(
+    "friends" to Icons.Default.People,
+    "trip" to Icons.Default.Flight,
+    "rent" to Icons.Default.Home,
+    "groceries" to Icons.Default.ShoppingCart,
+    "utilities" to Icons.Default.Bolt,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,9 +93,6 @@ fun CreateGroupScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         selectedImageUri = uri
-        if (uri != null) {
-            viewModel.onIconSelected("custom_image")
-        }
     }
 
     Scaffold(
@@ -137,12 +133,12 @@ fun CreateGroupScreen(
         ) {
             Spacer(Modifier.height(24.dp))
 
-            // --- Group Icon/Photo Preview (Clickable) ---
+            // --- Group Photo Preview (Clickable) - ONLY shows photos ---
             Box(
                 modifier = Modifier
                     .size(96.dp)
                     .clip(CircleShape)
-                    .background(PrimaryBlue)
+                    .background(Color(0xFF3C3C3C))
                     .clickable { imagePickerLauncher.launch("image/*") },
                 contentAlignment = Alignment.Center
             ) {
@@ -157,23 +153,13 @@ fun CreateGroupScreen(
                         contentScale = ContentScale.Crop
                     )
                 } else {
-                    // Display selected icon or placeholder
-                    val icon = availableIcons.find { it.first == uiState.selectedIcon }?.second
-                    if (icon != null) {
-                        Icon(
-                            icon,
-                            contentDescription = "Group Icon",
-                            tint = TextWhite,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.CameraAlt,
-                            contentDescription = "Upload Photo",
-                            tint = TextWhite,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
+                    // Show camera placeholder when no photo
+                    Icon(
+                        Icons.Default.CameraAlt,
+                        contentDescription = "Upload Photo",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(48.dp)
+                    )
                 }
             }
 
@@ -198,9 +184,9 @@ fun CreateGroupScreen(
             )
             Spacer(Modifier.height(24.dp))
 
-            // --- Icon Selector ---
+            // --- Tag Selector ---
             Text(
-                text = "Select an Icon:",
+                text = "Select a tag:",
                 color = TextWhite,
                 fontSize = 18.sp,
                 modifier = Modifier.fillMaxWidth()
@@ -213,16 +199,14 @@ fun CreateGroupScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Icon Options (removed the upload image option)
-                availableIcons.forEach { (identifier, icon) ->
-                    IconOption(
+                // Tag Options
+                availableTags.forEach { (identifier, icon) ->
+                    TagOption(
                         icon = icon,
+                        label = identifier.replaceFirstChar { it.uppercase() },
                         identifier = identifier,
-                        isSelected = uiState.selectedIcon == identifier && selectedImageUri == null,
-                        onSelect = {
-                            selectedImageUri = null // Clear selected image when icon is selected
-                            viewModel.onIconSelected(identifier)
-                        }
+                        isSelected = uiState.selectedIcon == identifier,
+                        onSelect = viewModel::onIconSelected
                     )
                 }
             }
@@ -255,24 +239,36 @@ fun CreateGroupScreen(
 }
 
 @Composable
-fun IconOption(
+fun TagOption(
     icon: ImageVector,
+    label: String,
     identifier: String,
     isSelected: Boolean,
     onSelect: (String) -> Unit
 ) {
-    val borderColor = if (isSelected) Color(0xFF66BB6A) else BorderGray
+    val borderColor = if (isSelected) PrimaryBlue else BorderGray
     val backgroundColor = if (isSelected) Color(0xFF3C3C3C) else Color(0xFF2D2D2D)
 
-    Box(
-        modifier = Modifier
-            .size(60.dp)
-            .clip(CircleShape)
-            .background(backgroundColor)
-            .border(2.dp, borderColor, CircleShape)
-            .clickable { onSelect(identifier) },
-        contentAlignment = Alignment.Center
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onSelect(identifier) }
     ) {
-        Icon(icon, contentDescription = identifier, tint = TextWhite, modifier = Modifier.size(32.dp))
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .background(backgroundColor)
+                .border(2.dp, borderColor, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = identifier, tint = TextWhite, modifier = Modifier.size(32.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = if (isSelected) TextWhite else Color.Gray,
+            fontSize = 12.sp,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+        )
     }
 }

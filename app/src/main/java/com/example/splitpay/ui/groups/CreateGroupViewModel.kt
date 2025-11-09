@@ -22,7 +22,7 @@ sealed interface CreateGroupUiEvent {
 
 data class CreateGroupUiState(
     val groupName: String = "",
-    val selectedIcon: String = "group", // Default icon
+    val selectedIcon: String = "friends", // Default tag
     val isLoading: Boolean = false,
     val error: String? = null
 )
