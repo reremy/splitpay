@@ -142,11 +142,32 @@ fun UserProfileScreen(
                         contentColor = TextWhite
                     ),
                     shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    enabled = !uiState.isLoggingOut
                 ) {
-                    Icon(Icons.Default.Logout, contentDescription = "Log Out")
-                    Spacer(Modifier.width(8.dp))
-                    Text("Log Out", fontSize = 16.sp)
+                    if (uiState.isLoggingOut) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = TextWhite
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Logging out...", fontSize = 16.sp)
+                    } else {
+                        Icon(Icons.Default.Logout, contentDescription = "Log Out")
+                        Spacer(Modifier.width(8.dp))
+                        Text("Log Out", fontSize = 16.sp)
+                    }
+                }
+
+                // --- Show logout error if any ---
+                if (!uiState.isLoading && uiState.error != null && uiState.error.contains("Sign out", ignoreCase = true)) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = uiState.error,
+                        color = Color.Red,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }

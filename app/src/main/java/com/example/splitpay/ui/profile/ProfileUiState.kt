@@ -5,5 +5,6 @@ data class ProfileUiState(
     val username: String = "",
     val email: String = "",
     val isLoading: Boolean = true,
+    val isLoggingOut: Boolean = false,
     val error: String? = null,
 )
