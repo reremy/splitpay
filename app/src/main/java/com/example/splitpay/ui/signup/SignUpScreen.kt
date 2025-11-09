@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -65,6 +67,8 @@ fun SignUpScreen(
             .fillMaxHeight()
             .verticalScroll(rememberScrollState())
             .background(DarkBackground)
+            .imePadding()
+            .navigationBarsPadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -121,7 +125,7 @@ fun SignUpScreen(
 
             InputField(
                 label = "Phone Number",
-                placeholder = "+1 (123) 456-7890",
+                placeholder = "+60123456789",
                 value = uiState.phoneNumber,
                 onValueChange = { viewModel.onPhoneNumberChange(it) },
                 keyboardType = KeyboardType.Phone,
@@ -154,8 +158,8 @@ fun SignUpScreen(
 
 
             InputField(
-                label = "Re-type Password",
-                placeholder = "Re-type password",
+                label = "Confirm Password",
+                placeholder = "Confirm password",
                 value = uiState.retypePassword,
                 onValueChange = { viewModel.onRetypePasswordChange(it) },
                 visualTransformation = if (uiState.retypePasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -214,6 +218,9 @@ fun SignUpScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
+
+        // Add extra bottom padding to prevent overlap with navigation bar
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
