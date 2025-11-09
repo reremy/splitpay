@@ -39,7 +39,13 @@ class LoginViewModel(
         _uiState.update { it.copy(password = newPassword) }
     }
 
+    fun togglePasswordVisibility() {
+        _uiState.update { it.copy(passwordVisible = !it.passwordVisible) }
+        logD("Password visibility toggled: ${_uiState.value.passwordVisible}")
+    }
+
     fun onLoginClick() {
+        logI("Login initiated")
         val state = _uiState.value
 
         _uiState.update {
@@ -55,49 +61,62 @@ class LoginViewModel(
 
         if (state.email.isBlank()) {
             _uiState.update { it.copy(emailError = "Email cannot be empty") }
+            logD("Validation failed: Email is empty")
             hasError = true
         } else if (!Patterns.EMAIL_ADDRESS.matcher(state.email).matches()) {
             _uiState.update { it.copy(emailError = "Invalid email format") }
+            logD("Validation failed: Invalid email format")
             hasError = true
         }
 
         if (state.password.isBlank()) {
             _uiState.update { it.copy(passwordError = "Password cannot be empty") }
+            logD("Validation failed: Password is empty")
             hasError = true
         }
 
         if (hasError) {
-            logD("Login validation failed. Errors on screen.")
+            logI("Login validation failed")
             return
         }
 
+        logD("All validations passed, proceeding with login")
+
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            logD("Starting login request for: ${state.email}")
+            logD("Starting login API call for user: ${state.email}")
             try {
                 val user = repository.signIn(state.email, state.password)
                 if (user != null){
-                    logI("Login successful! Navigating to home.")
+                    logI("Login successful for user: ${state.email}")
                     _uiState.update { it.copy(loginSuccess = true) }
                     _uiEvent.emit(LoginUiEvent.NavigateToHome)
                 } else {
-                    logW("Login returned null user, but no exception was thrown.")
+                    logW("Login returned null user, but no exception was thrown")
                     _uiState.update { it.copy(generalError = "Login failed") }
                 }
             } catch (e: Exception) {
-                logE("Login failed with exception: ${e.message}")
                 when (e) {
-                    is FirebaseAuthInvalidUserException ->
+                    is FirebaseAuthInvalidUserException -> {
+                        logD("Login failed: No user found with this email")
                         _uiState.update { it.copy(emailError = "No user found with this email") }
-                    is FirebaseAuthInvalidCredentialsException ->
+                    }
+                    is FirebaseAuthInvalidCredentialsException -> {
+                        logD("Login failed: Invalid credentials")
                         _uiState.update { it.copy(passwordError = "Invalid email or password") }
-                    is FirebaseNetworkException ->
+                    }
+                    is FirebaseNetworkException -> {
+                        logE("Login failed: Network error")
                         _uiState.update { it.copy(generalError = "Check your internet connection") }
-                    else ->
+                    }
+                    else -> {
+                        logE("Login failed with unexpected error: ${e.message}")
                         _uiState.update { it.copy(generalError = "Login failed: ${e.message}") }
+                    }
                 }
             } finally {
                 _uiState.update { it.copy(isLoading = false) }
+                logD("Login process completed, loading state reset")
             }
         }
     }

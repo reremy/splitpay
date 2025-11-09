@@ -8,14 +8,21 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,6 +34,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -59,6 +67,8 @@ fun SignUpScreen(
             .fillMaxHeight()
             .verticalScroll(rememberScrollState())
             .background(DarkBackground)
+            .imePadding()
+            .navigationBarsPadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -114,28 +124,58 @@ fun SignUpScreen(
             )
 
             InputField(
+                label = "Phone Number",
+                placeholder = "+60123456789",
+                value = uiState.phoneNumber,
+                onValueChange = { viewModel.onPhoneNumberChange(it) },
+                keyboardType = KeyboardType.Phone,
+                isError = !uiState.phoneNumberError.isNullOrEmpty(),
+                supportingText = uiState.phoneNumberError,
+                modifier = Modifier
+                    .testTag("phoneNumberTextField")
+            )
+
+            InputField(
                 label = "Password",
                 placeholder = "password",
                 value = uiState.password,
                 onValueChange = { viewModel.onPasswordChange(it) },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (uiState.passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 isError = !uiState.passwordError.isNullOrEmpty(),
                 supportingText = uiState.passwordError,
                 modifier = Modifier
-                    .testTag("passwordTextField")
+                    .testTag("passwordTextField"),
+                trailingIcon = {
+                    IconButton(onClick = { viewModel.togglePasswordVisibility() }) {
+                        Icon(
+                            imageVector = if (uiState.passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = if (uiState.passwordVisible) "Hide password" else "Show password",
+                            tint = Color.Gray
+                        )
+                    }
+                }
             )
 
 
             InputField(
-                label = "Re-type Password",
-                placeholder = "Re-type password",
+                label = "Confirm Password",
+                placeholder = "Confirm password",
                 value = uiState.retypePassword,
                 onValueChange = { viewModel.onRetypePasswordChange(it) },
-                visualTransformation = PasswordVisualTransformation(),
+                visualTransformation = if (uiState.retypePasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 isError = !uiState.retypePasswordError.isNullOrEmpty(),
                 supportingText = uiState.retypePasswordError,
                 modifier = Modifier
-                    .testTag("retypePasswordTextField")
+                    .testTag("retypePasswordTextField"),
+                trailingIcon = {
+                    IconButton(onClick = { viewModel.toggleRetypePasswordVisibility() }) {
+                        Icon(
+                            imageVector = if (uiState.retypePasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = if (uiState.retypePasswordVisible) "Hide password" else "Show password",
+                            tint = Color.Gray
+                        )
+                    }
+                }
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -178,6 +218,9 @@ fun SignUpScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
+
+        // Add extra bottom padding to prevent overlap with navigation bar
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 

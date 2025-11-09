@@ -32,40 +32,46 @@ class UserRepository(
         fullName: String,
         username: String,
         email: String,
+        phoneNumber: String,
         password: String,
         ): Result<Unit> {
         return try {
+            logI("Starting sign-up process for user: $email")
+            logD("Sign-up details - Username: $username, Phone: ${phoneNumber.take(3)}***")
 
-            logD("Attempting sign-up for user: $email")
-            //create Firebase Auth account
+            // Create Firebase Auth account
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
-            val user = authResult.user ?: return Result.failure(Exception("User creation failed."))
+            val user = authResult.user ?: run {
+                logE("Firebase Auth user creation failed - user object is null")
+                return Result.failure(Exception("User creation failed."))
+            }
 
-            logI("User created in Firebase Auth: ${user.uid}")
+            logI("Firebase Auth account created successfully - UID: ${user.uid}")
 
             // Set the Firebase User's display name using the fullName
             val profileUpdates = UserProfileChangeRequest.Builder()
                 .setDisplayName(fullName)
                 .build()
-            user.updateProfile(profileUpdates).await() // <-- ADDED: Updates displayName
-            logD("Firebase User profile updated with displayName: $fullName") // Logger: Profile updated
+            user.updateProfile(profileUpdates).await()
+            logD("Firebase User profile updated with displayName: $fullName")
 
-
-            //build user data for firestore
+            // Build user data for Firestore
             val userData = User(
                 uid = user.uid,
                 fullName = fullName,
                 username = username,
-                email = email
+                email = email,
+                phoneNumber = phoneNumber
             )
 
-            //store in Firestore
+            // Store in Firestore
+            logD("Saving user profile to Firestore for UID: ${user.uid}")
             firestore.collection("users")
                 .document(user.uid)
                 .set(userData)
                 .await()
 
-            logI("User profile saved to Firestore.")
+            logI("User profile saved to Firestore successfully - Sign-up complete for: $email")
             Result.success(Unit)
         } catch (e: Exception){
             logE("Sign-up failed for $email: ${e.message}")
@@ -75,14 +81,22 @@ class UserRepository(
 
     suspend fun signIn(email: String, password: String): FirebaseUser? {
         return try {
+            logI("Starting sign-in process for user: $email")
             val authResult = auth.signInWithEmailAndPassword(email, password).await()
-            authResult.user
+            val user = authResult.user
 
+            if (user != null) {
+                logI("Sign-in successful - UID: ${user.uid}, Email verified: ${user.isEmailVerified}")
+            } else {
+                logE("Sign-in returned null user despite no exception")
+            }
+
+            user
         } catch (e: Exception) {
+            logE("Sign-in failed for $email: ${e.message}")
             throw e
         }
     }
-    //return FirebaseUser if successful, caught exception if not.
 
     // This is the preferred approach
     suspend fun signOut() {
@@ -125,6 +139,59 @@ class UserRepository(
             logE("Error getting user profile for $uid: ${e.message}")
             null
         }
+    }
+
+    /**
+     * Updates user profile fields in Firestore
+     * @param uid The user's UID
+     * @param updates Map of field names to new values
+     * @return Result indicating success or failure
+     */
+    suspend fun updateUserProfile(uid: String, updates: Map<String, Any>): Result<Unit> {
+        return try {
+            logI("Updating profile for user: $uid with ${updates.keys.joinToString()}")
+            usersCollection.document(uid).update(updates).await()
+            logI("Profile updated successfully for user: $uid")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error updating user profile for $uid: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Updates the user's full name
+     */
+    suspend fun updateFullName(uid: String, fullName: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("fullName" to fullName))
+    }
+
+    /**
+     * Updates the user's email
+     */
+    suspend fun updateEmail(uid: String, email: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("email" to email))
+    }
+
+    /**
+     * Updates the user's phone number
+     */
+    suspend fun updatePhoneNumber(uid: String, phoneNumber: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("phoneNumber" to phoneNumber))
+    }
+
+    /**
+     * Updates the user's profile picture URL
+     */
+    suspend fun updateProfilePicture(uid: String, profilePictureUrl: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("profilePictureUrl" to profilePictureUrl))
+    }
+
+    /**
+     * Updates the user's QR code URL
+     */
+    suspend fun updateQrCode(uid: String, qrCodeUrl: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("qrCodeUrl" to qrCodeUrl))
     }
 
     // Gets the current user's profile, including the friends list field

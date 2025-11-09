@@ -14,6 +14,6 @@ fun Any.logW(message: String) {
     Log.w(this::class.java.simpleName, message)
 }
 
-fun Any.logE(message: String) {
+fun Any.logE(message: String, throwable: Throwable? = null) {
     Log.e(this::class.java.simpleName, message)
 }

@@ -115,7 +115,9 @@ fun HomeScreen3(
                             onFilterClick = friendsViewModel::onFilterIconClick
                         )
                         "activity_screen" -> ActivityTopBarActions()
-                        "profile_screen" -> ProfileTopBarActions(onEditProfile = { /* TODO */ })
+                        "profile_screen" -> ProfileTopBarActions(
+                            onEditProfile = { mainNavController.navigate(Screen.EditProfile) }
+                        )
                         else -> { /* Default Menu */ }
                     }
                 }

@@ -42,6 +42,7 @@ import com.example.splitpay.ui.groups.GroupSettingsScreen
 import com.example.splitpay.ui.recordPayment.RecordPaymentScreen
 import com.example.splitpay.ui.settleUp.SettleUpScreen
 import com.example.splitpay.ui.activityDetail.ActivityDetailScreen
+import com.example.splitpay.ui.profile.edit.EditProfileScreen
 import kotlin.math.absoluteValue
 
 // Navigation.kt
@@ -417,6 +418,19 @@ fun Navigation(
                 expenseId = expenseId,
                 navController = navController,
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // --- Edit Profile Screen ---
+        composable(
+            route = Screen.EditProfile,
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) {
+            EditProfileScreen(
+                navController = navController
             )
         }
 

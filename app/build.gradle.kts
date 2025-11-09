@@ -58,9 +58,17 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
     implementation(libs.kotlinx.coroutines.play.services) // Uses version catalog
     implementation(libs.androidx.compose.material.icons.extended) // Uses version catalog
     implementation(libs.material3)
+
+    // Image loading with Coil
+    implementation("io.coil-kt:coil-compose:2.5.0")
+
+    // Image cropping
+    implementation("com.vanniktech:android-image-cropper:4.5.0")
+
     implementation(libs.androidx.navigation.runtime.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
