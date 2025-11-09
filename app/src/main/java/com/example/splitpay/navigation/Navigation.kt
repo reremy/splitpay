@@ -27,6 +27,7 @@ import com.example.splitpay.ui.expense.AddExpenseScreen
 import com.example.splitpay.ui.friendsDetail.FriendSettingsScreen
 import com.example.splitpay.ui.friendsDetail.FriendsDetailScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
+import com.example.splitpay.ui.groups.EditGroupScreen
 import com.example.splitpay.ui.groups.GroupDetailScreen
 import com.example.splitpay.ui.groups.GroupSettingsScreen
 import com.example.splitpay.ui.home.HomeScreen3
@@ -126,6 +127,22 @@ fun Navigation(
                         popUpTo(Screen.CreateGroup) { inclusive = true }
                     }
                 },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // Route for editing a group
+        composable(
+            route = Screen.EditGroup,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            EditGroupScreen(
+                groupId = groupId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -303,7 +320,9 @@ fun Navigation(
                 groupId = groupId,
                 onNavigateBack = { navController.popBackStack(Screen.Home, inclusive = false) },
                 // --- Pass navigation action for adding members ---
-                onNavigateToAddMembers = { navController.navigate("add_group_members/$groupId") }
+                onNavigateToAddMembers = { navController.navigate("add_group_members/$groupId") },
+                // --- Pass navigation action for editing group ---
+                onNavigateToEditGroup = { navController.navigate("edit_group/$groupId") }
             )
         }
 

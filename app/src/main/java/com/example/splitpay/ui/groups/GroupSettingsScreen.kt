@@ -67,6 +67,7 @@ fun GroupSettingsScreen(
     groupId: String, // Receive groupId from navigation
     onNavigateBack: () -> Unit,
     onNavigateToAddMembers: () -> Unit,
+    onNavigateToEditGroup: () -> Unit,
     // Provide default repository instances, consider Hilt later
     groupsRepository: GroupsRepository = GroupsRepository(),
     userRepository: UserRepository = UserRepository(),
@@ -130,8 +131,7 @@ fun GroupSettingsScreen(
                         groupName = group.name,
                         iconIdentifier = group.iconIdentifier,
                         photoUrl = group.photoUrl,
-                        onEditNameClick = { viewModel.showEditNameDialog(true) },
-                        onEditIconClick = { viewModel.showChangeIconDialog(true) }
+                        onEditClick = onNavigateToEditGroup
                     )
                 }
 
@@ -248,8 +248,7 @@ fun GroupInfoSection(
     groupName: String,
     iconIdentifier: String,
     photoUrl: String,
-    onEditNameClick: () -> Unit,
-    onEditIconClick: () -> Unit
+    onEditClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -260,8 +259,7 @@ fun GroupInfoSection(
             modifier = Modifier
                 .size(60.dp)
                 .clip(CircleShape)
-                .background(if (photoUrl.isNotEmpty()) Color.Transparent else PrimaryBlue)
-                .clickable(onClick = onEditIconClick),
+                .background(if (photoUrl.isNotEmpty()) Color.Transparent else PrimaryBlue),
             contentAlignment = Alignment.Center
         ) {
             if (photoUrl.isNotEmpty()) {
@@ -278,7 +276,7 @@ fun GroupInfoSection(
                 // Display tag icon
                 Icon(
                     imageVector = availableTagsMap[iconIdentifier] ?: Icons.Default.Group,
-                    contentDescription = "Group Tag - Click to change",
+                    contentDescription = "Group Tag",
                     tint = TextWhite,
                     modifier = Modifier.size(32.dp)
                 )
@@ -295,7 +293,7 @@ fun GroupInfoSection(
             )
         }
         // Edit Button
-        IconButton(onClick = onEditNameClick) {
+        IconButton(onClick = onEditClick) {
             Icon(Icons.Default.Edit, contentDescription = "Edit Group Info", tint = Color.Gray)
         }
     }

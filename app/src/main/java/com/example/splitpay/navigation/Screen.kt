@@ -6,6 +6,7 @@ object Screen {
     const val Login = "login"
     const val Home = "Home"
     const val CreateGroup = "create_group"
+    const val EditGroup = "edit_group/{groupId}"
     const val GroupDetail = "group_detail/{groupId}"
     const val NonGroupDetail = "non_group_detail"
     const val GroupSettings = "group_settings/{groupId}"
