@@ -6,6 +6,8 @@ data class User(
     val username: String = "",
     val email: String = "",
     val phoneNumber: String = "",
+    val profilePictureUrl: String = "",
+    val qrCodeUrl: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val friends: List<String> = emptyList()
 )
