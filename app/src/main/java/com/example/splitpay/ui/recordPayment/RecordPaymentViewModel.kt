@@ -170,7 +170,7 @@ class RecordPaymentViewModel(
                 paidBy = listOf(ExpensePayer(uid = state.payer.uid, paidAmount = totalAmount)),
                 participants = listOf(ExpenseParticipant(uid = state.receiver.uid, owesAmount = totalAmount)),
                 memo = state.memo.trim(), // <-- USE STATE MEMO
-                imageUrls = emptyList(), // TODO: Handle image uploads later
+                imageUrl = "", // No image for payments
                 expenseType = ExpenseType.PAYMENT
             )
 

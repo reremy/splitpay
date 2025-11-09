@@ -275,8 +275,8 @@ fun RecordPaymentScreen(
                 currency = "MYR", // Hardcoded for now
                 onChooseGroupClick = {}, // <-- DISABLES button click
                 onCalendarClick = { viewModel.showDatePickerDialog(true) },
+                onCameraClick = {}, // Not used for payments
                 onMemoClick = { viewModel.showMemoDialog(true) }
-                // TODO: Add camera click handler
             )
         },
         containerColor = DarkBackground
