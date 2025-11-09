@@ -45,6 +45,9 @@ class ProfileViewModel(
                             fullName = userDoc.fullName,
                             username = userDoc.username,
                             email = currentUser.email ?: "",
+                            phoneNumber = userDoc.phoneNumber,
+                            profilePictureUrl = userDoc.profilePictureUrl,
+                            qrCodeUrl = userDoc.qrCodeUrl,
                             isLoading = false
                         )
                     }
@@ -60,6 +63,18 @@ class ProfileViewModel(
         }
     }
 
+
+    fun toggleQrCodeVisibility() {
+        _uiState.update { it.copy(showQrCode = !it.showQrCode) }
+        logD("QR code visibility toggled: ${_uiState.value.showQrCode}")
+    }
+
+    fun navigateToEditProfile() {
+        viewModelScope.launch {
+            logD("Navigating to Edit Profile screen")
+            _uiEvent.emit(ProfileUiEvent.NavigateToEditProfile)
+        }
+    }
 
     fun signOut() {
         viewModelScope.launch {
