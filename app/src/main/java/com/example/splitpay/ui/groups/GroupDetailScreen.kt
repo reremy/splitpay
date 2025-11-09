@@ -2,6 +2,7 @@ package com.example.splitpay.ui.groups
 
 import android.R.attr.onClick
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable // Import clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -270,7 +272,8 @@ fun GroupDetailHeaderDisplay(
     group: Group,
     iconIdentifier: String?,
     overallBalance: Double,
-    balanceBreakdown: List<MemberBalanceDetail>
+    balanceBreakdown: List<MemberBalanceDetail>,
+    membersMap: Map<String, User> // Add membersMap parameter
 ) { // Added parameter
     Column(
         modifier = Modifier
@@ -315,7 +318,18 @@ fun GroupDetailHeaderDisplay(
             textAlign = TextAlign.Center
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
+
+        // Stacked Member Photos
+        if (group.id != "non_group") {
+            StackedMemberPhotos(
+                memberIds = group.members,
+                membersMap = membersMap
+            )
+            Spacer(Modifier.height(16.dp))
+        } else {
+            Spacer(Modifier.height(16.dp))
+        }
 
         // --- Overall Balance ---
         val overallBalanceText = when {
@@ -388,7 +402,8 @@ fun GroupDetailContent(
                 group = group,
                 iconIdentifier = group.iconIdentifier,
                 overallBalance = uiState.currentUserOverallBalance, // <-- Pass overall balance
-                balanceBreakdown = uiState.balanceBreakdown       // <-- Pass breakdown list
+                balanceBreakdown = uiState.balanceBreakdown,      // <-- Pass breakdown list
+                membersMap = uiState.membersMap                     // <-- Pass membersMap
             )
             Spacer(Modifier.height(16.dp))
         }
@@ -401,20 +416,7 @@ fun GroupDetailContent(
             }
         }
 
-        // --- 2. Conditionally hide Action Buttons and Member Status for non-group ---
-        if (!isNonGroup) {
-            item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    GroupMemberStatus(
-                        memberCount = group.members.size,
-                        groupName = group.name,
-                        onAddMemberClick = { navController.navigate("add_group_members/$groupId") },
-                        onShareLinkClick = { /*TODO*/ }
-                    )
-                    Spacer(Modifier.height(24.dp))
-                }
-            }
-        }
+        // --- 2. Removed GroupMemberStatus - now using stacked member photos in header ---
 
         // --- 3. Activities Title ---
         item {
@@ -650,6 +652,82 @@ fun GroupMemberStatus(
                         Text("Add Members", color = TextWhite, fontSize = 14.sp)
                     }
                 }
+            }
+        }
+    }
+}
+// --- Stacked Member Photos Component ---
+@Composable
+fun StackedMemberPhotos(
+    memberIds: List<String>,
+    membersMap: Map<String, User>,
+    maxVisible: Int = 5 // Show max 5 photos, then "+X" for remaining
+) {
+    val members = memberIds.mapNotNull { membersMap[it] }
+
+    if (members.isEmpty()) return
+
+    Row(
+        modifier = Modifier.height(32.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val visibleMembers = members.take(maxVisible)
+        val remainingCount = members.size - visibleMembers.size
+
+        visibleMembers.forEachIndexed { index, member ->
+            Box(
+                modifier = Modifier
+                    .offset(x = (index * -8).dp) // Overlap by 8dp
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, DarkBackground, CircleShape), // Border to separate overlapping photos
+                contentAlignment = Alignment.Center
+            ) {
+                if (member.profilePictureUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = member.profilePictureUrl,
+                        contentDescription = member.username,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF3C3C3C)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.AccountCircle,
+                            contentDescription = member.username,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Show "+X" indicator if there are more members
+        if (remainingCount > 0) {
+            Box(
+                modifier = Modifier
+                    .offset(x = (visibleMembers.size * -8).dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF3C3C3C))
+                    .border(2.dp, DarkBackground, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+$remainingCount",
+                    color = TextWhite,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }
