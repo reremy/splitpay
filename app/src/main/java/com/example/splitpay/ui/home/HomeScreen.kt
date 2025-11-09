@@ -110,6 +110,11 @@ fun HomeScreen3(
                     isGroupsScreen -> groupsUiState.searchQuery
                     else -> ""
                 },
+                searchPlaceholder = when {
+                    isFriendsScreen -> "Search friends..."
+                    isGroupsScreen -> "Search groups..."
+                    else -> "Search..."
+                },
                 onSearchQueryChange = when {
                     isFriendsScreen -> friendsViewModel::onSearchQueryChange
                     isGroupsScreen -> groupsViewModel::onSearchQueryChange

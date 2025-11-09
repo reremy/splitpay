@@ -1,24 +1,20 @@
 package com.example.splitpay.ui.groups
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,7 +28,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.NegativeRed
 import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
@@ -50,22 +45,9 @@ fun GroupsTopBarActions(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Create Group Button - Outlined style
-        Button(
-            onClick = onNavigateToCreateGroup,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = DarkBackground,
-                contentColor = Color.White
-            ),
-            shape = RoundedCornerShape(8.dp),
-            modifier = Modifier.border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(8.dp)
-            ),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            Text("Create Group", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        // Create Group Icon
+        IconButton(onClick = onNavigateToCreateGroup) {
+            Icon(Icons.Default.Add, contentDescription = "Create Group", tint = Color.White)
         }
 
         // Search Icon

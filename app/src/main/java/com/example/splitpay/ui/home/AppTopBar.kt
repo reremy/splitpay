@@ -24,6 +24,7 @@ fun AppTopBar(
     // --- NEW Search Parameters ---
     isSearchActive: Boolean = false, // Is search mode active?
     searchQuery: String = "",        // Current search text
+    searchPlaceholder: String = "Search...", // Search placeholder text
     onSearchQueryChange: (String) -> Unit = {}, // Callback for text changes
     onSearchClose: () -> Unit = {}, // Callback to close search mode
     focusRequester: FocusRequester = FocusRequester(), // To manage focus
@@ -46,7 +47,7 @@ fun AppTopBar(
                         .padding(end = 0.dp) // Use padding on Row instead if needed
                         //.height(48.dp) // Control height
                         .focusRequester(focusRequester), // Apply focus requester
-                    placeholder = { Text("Search friends...", color = TextPlaceholder) },
+                    placeholder = { Text(searchPlaceholder, color = TextPlaceholder) },
                     singleLine = true,
                     textStyle = LocalTextStyle.current.copy(color = TextWhite, fontSize = MaterialTheme.typography.bodyLarge.fontSize), // Match title style
                     colors = TextFieldDefaults.colors( // Minimal styling
