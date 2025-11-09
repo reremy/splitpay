@@ -26,7 +26,7 @@ import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
 import com.example.splitpay.ui.expense.AddExpenseScreen
 import com.example.splitpay.ui.expense.ExpenseDetailScreen
 import com.example.splitpay.ui.paymentDetail.PaymentDetailScreen
-import com.example.splitpay.ui.friendsDetail.FriendSettingsScreen
+import com.example.splitpay.ui.friendSettings.FriendSettingsScreen
 import com.example.splitpay.ui.friendsDetail.FriendsDetailScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
 import com.example.splitpay.ui.groups.EditGroupScreen
