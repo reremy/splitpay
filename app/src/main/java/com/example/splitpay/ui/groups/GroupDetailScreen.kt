@@ -275,8 +275,7 @@ fun GroupDetailHeaderDisplay(
     iconIdentifier: String?,
     overallBalance: Double,
     balanceBreakdown: List<MemberBalanceDetail>,
-    membersMap: Map<String, User>, // Add membersMap parameter
-    onAddMembersClick: () -> Unit // Add callback for "Add Members" button
+    membersMap: Map<String, User> // Add membersMap parameter
 ) { // Added parameter
     Column(
         modifier = Modifier
@@ -323,51 +322,13 @@ fun GroupDetailHeaderDisplay(
 
         Spacer(Modifier.height(8.dp))
 
-        // Stacked Member Photos or Single Member Message
+        // Stacked Member Photos
         if (group.id != "non_group") {
-            if (group.members.size == 1) {
-                // Show single member message with Add Members button
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "There is only one member in this group",
-                            color = Color.Gray,
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.Center
-                        )
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = onAddMembersClick,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.Add, contentDescription = "Add Members", modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Add Members", color = TextWhite, fontSize = 14.sp)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-            } else {
-                // Show stacked member photos for groups with multiple members
-                StackedMemberPhotos(
-                    memberIds = group.members,
-                    membersMap = membersMap
-                )
-                Spacer(Modifier.height(16.dp))
-            }
+            StackedMemberPhotos(
+                memberIds = group.members,
+                membersMap = membersMap
+            )
+            Spacer(Modifier.height(16.dp))
         } else {
             Spacer(Modifier.height(16.dp))
         }
@@ -444,11 +405,7 @@ fun GroupDetailContent(
                 iconIdentifier = group.iconIdentifier,
                 overallBalance = uiState.currentUserOverallBalance, // <-- Pass overall balance
                 balanceBreakdown = uiState.balanceBreakdown,      // <-- Pass breakdown list
-                membersMap = uiState.membersMap,                   // <-- Pass membersMap
-                onAddMembersClick = {
-                    // Navigate to add group members screen
-                    navController.navigate("${Screen.AddGroupMembers}/$groupId")
-                }
+                membersMap = uiState.membersMap                    // <-- Pass membersMap
             )
             Spacer(Modifier.height(16.dp))
         }
@@ -461,7 +418,47 @@ fun GroupDetailContent(
             }
         }
 
-        // --- 2. Removed GroupMemberStatus - now using stacked member photos in header ---
+        // --- 2. Single Member Message (if applicable) ---
+        if (groupId != "non_group" && group.members.size == 1) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "There is only one member in this group",
+                            color = Color.Gray,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                // Navigate to add group members screen
+                                navController.navigate("add_group_members/$groupId")
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Members", modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add Members", color = TextWhite, fontSize = 14.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
 
         // --- 3. Activities Title ---
         item {
