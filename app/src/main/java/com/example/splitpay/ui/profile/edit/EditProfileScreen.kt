@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -50,6 +51,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -191,7 +193,7 @@ fun EditProfileScreen(
                             )
                             // Remove button
                             IconButton(
-                                onClick = { viewModel.removeProfilePicture() },
+                                onClick = { viewModel.showDeleteProfilePictureDialog() },
                                 modifier = Modifier
                                     .size(32.dp)
                                     .align(Alignment.TopEnd)
@@ -309,7 +311,7 @@ fun EditProfileScreen(
                                 )
                                 // Remove button
                                 IconButton(
-                                    onClick = { viewModel.removeQrCode() },
+                                    onClick = { viewModel.showDeleteQrCodeDialog() },
                                     modifier = Modifier
                                         .size(32.dp)
                                         .align(Alignment.TopEnd)
@@ -517,5 +519,61 @@ fun EditProfileScreen(
                 }
             }
         }
+    }
+
+    // Delete Profile Picture Confirmation Dialog
+    if (uiState.showDeleteProfilePictureDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.hideDeleteProfilePictureDialog() },
+            title = { Text("Delete Profile Picture?", color = TextWhite) },
+            text = {
+                Text(
+                    "This will permanently delete your profile picture from storage. You'll need to upload a new one if you want to add it again.",
+                    color = Color.Gray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.confirmDeleteProfilePicture() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Delete", color = TextWhite)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.hideDeleteProfilePictureDialog() }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF2D2D2D)
+        )
+    }
+
+    // Delete QR Code Confirmation Dialog
+    if (uiState.showDeleteQrCodeDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.hideDeleteQrCodeDialog() },
+            title = { Text("Delete QR Code?", color = TextWhite) },
+            text = {
+                Text(
+                    "This will permanently delete your payment QR code from storage. You'll need to upload a new one if you want to add it again.",
+                    color = Color.Gray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.confirmDeleteQrCode() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Delete", color = TextWhite)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.hideDeleteQrCodeDialog() }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF2D2D2D)
+        )
     }
 }

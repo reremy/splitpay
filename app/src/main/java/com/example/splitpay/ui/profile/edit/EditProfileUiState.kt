@@ -18,6 +18,10 @@ data class EditProfileUiState(
     val isSaving: Boolean = false,
     val isUploadingProfilePicture: Boolean = false,
     val isUploadingQrCode: Boolean = false,
+    val isDeletingProfilePicture: Boolean = false,
+    val isDeletingQrCode: Boolean = false,
+    val showDeleteProfilePictureDialog: Boolean = false,
+    val showDeleteQrCodeDialog: Boolean = false,
     val error: String? = null,
     val successMessage: String? = null
 )

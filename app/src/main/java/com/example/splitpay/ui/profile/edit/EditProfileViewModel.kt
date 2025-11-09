@@ -88,14 +88,140 @@ class EditProfileViewModel(
         _uiState.update { it.copy(qrCodeUri = uri) }
     }
 
-    fun removeProfilePicture() {
-        logD("Removing profile picture")
-        _uiState.update { it.copy(profilePictureUri = null, profilePictureUrl = "") }
+    fun showDeleteProfilePictureDialog() {
+        logD("Showing delete profile picture confirmation dialog")
+        _uiState.update { it.copy(showDeleteProfilePictureDialog = true) }
     }
 
-    fun removeQrCode() {
-        logD("Removing QR code")
-        _uiState.update { it.copy(qrCodeUri = null, qrCodeUrl = "") }
+    fun hideDeleteProfilePictureDialog() {
+        _uiState.update { it.copy(showDeleteProfilePictureDialog = false) }
+    }
+
+    fun showDeleteQrCodeDialog() {
+        logD("Showing delete QR code confirmation dialog")
+        _uiState.update { it.copy(showDeleteQrCodeDialog = true) }
+    }
+
+    fun hideDeleteQrCodeDialog() {
+        _uiState.update { it.copy(showDeleteQrCodeDialog = false) }
+    }
+
+    fun confirmDeleteProfilePicture() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDeletingProfilePicture = true, showDeleteProfilePictureDialog = false) }
+            logI("Deleting profile picture from storage and Firestore")
+
+            try {
+                val currentUser = userRepository.getCurrentUser()
+                if (currentUser == null) {
+                    logE("Cannot delete profile picture: User not signed in")
+                    _uiState.update { it.copy(error = "User not signed in", isDeletingProfilePicture = false) }
+                    return@launch
+                }
+
+                val currentUrl = _uiState.value.profilePictureUrl
+
+                // Delete from Firebase Storage if exists
+                if (currentUrl.isNotEmpty()) {
+                    logD("Deleting profile picture from Firebase Storage")
+                    fileStorageRepository.deleteFile(currentUrl)
+                }
+
+                // Update Firestore to remove URL
+                logD("Updating Firestore to remove profile picture URL")
+                val updateResult = userRepository.updateProfilePicture(currentUser.uid, "")
+
+                updateResult.fold(
+                    onSuccess = {
+                        logI("Profile picture deleted successfully")
+                        _uiState.update {
+                            it.copy(
+                                profilePictureUri = null,
+                                profilePictureUrl = "",
+                                isDeletingProfilePicture = false,
+                                successMessage = "Profile picture removed"
+                            )
+                        }
+                    },
+                    onFailure = { e ->
+                        logE("Failed to delete profile picture: ${e.message}", e)
+                        _uiState.update {
+                            it.copy(
+                                error = "Failed to delete profile picture: ${e.message}",
+                                isDeletingProfilePicture = false
+                            )
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                logE("Error deleting profile picture: ${e.message}", e)
+                _uiState.update {
+                    it.copy(
+                        error = e.message ?: "Failed to delete profile picture",
+                        isDeletingProfilePicture = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun confirmDeleteQrCode() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDeletingQrCode = true, showDeleteQrCodeDialog = false) }
+            logI("Deleting QR code from storage and Firestore")
+
+            try {
+                val currentUser = userRepository.getCurrentUser()
+                if (currentUser == null) {
+                    logE("Cannot delete QR code: User not signed in")
+                    _uiState.update { it.copy(error = "User not signed in", isDeletingQrCode = false) }
+                    return@launch
+                }
+
+                val currentUrl = _uiState.value.qrCodeUrl
+
+                // Delete from Firebase Storage if exists
+                if (currentUrl.isNotEmpty()) {
+                    logD("Deleting QR code from Firebase Storage")
+                    fileStorageRepository.deleteFile(currentUrl)
+                }
+
+                // Update Firestore to remove URL
+                logD("Updating Firestore to remove QR code URL")
+                val updateResult = userRepository.updateQrCode(currentUser.uid, "")
+
+                updateResult.fold(
+                    onSuccess = {
+                        logI("QR code deleted successfully")
+                        _uiState.update {
+                            it.copy(
+                                qrCodeUri = null,
+                                qrCodeUrl = "",
+                                isDeletingQrCode = false,
+                                successMessage = "QR code removed"
+                            )
+                        }
+                    },
+                    onFailure = { e ->
+                        logE("Failed to delete QR code: ${e.message}", e)
+                        _uiState.update {
+                            it.copy(
+                                error = "Failed to delete QR code: ${e.message}",
+                                isDeletingQrCode = false
+                            )
+                        }
+                    }
+                )
+            } catch (e: Exception) {
+                logE("Error deleting QR code: ${e.message}", e)
+                _uiState.update {
+                    it.copy(
+                        error = e.message ?: "Failed to delete QR code",
+                        isDeletingQrCode = false
+                    )
+                }
+            }
+        }
     }
 
     fun saveProfile() {
