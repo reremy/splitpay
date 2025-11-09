@@ -5,7 +5,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
+import com.example.splitpay.ui.theme.PrimaryBlue
 
 // =========================================================================
 // NEW: Profile Top Bar Actions
@@ -13,6 +13,6 @@ import androidx.compose.ui.graphics.Color
 @Composable
 fun ProfileTopBarActions(onEditProfile: () -> Unit) {
     IconButton(onClick = onEditProfile) {
-        Icon(Icons.Default.Edit, contentDescription = "Edit Profile", tint = Color.White)
+        Icon(Icons.Default.Edit, contentDescription = "Edit Profile", tint = PrimaryBlue)
     }
 }
