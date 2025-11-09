@@ -674,32 +674,6 @@ fun ParticipantsList(
                     )
                 }
             }
-            // Add participants field placeholder
-            OutlinedTextField(
-                value = "",
-                onValueChange = { /* TODO: Handle adding more members */ },
-                placeholder = { Text("Add participants (e.g., search name)", color = TextPlaceholder) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF3C3C3C),
-                    unfocusedContainerColor = Color(0xFF3C3C3C),
-                    disabledContainerColor = Color(0xFF3C3C3C),
-                    cursorColor = PrimaryBlue,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                    focusedTextColor = TextWhite,
-                    unfocusedTextColor = TextWhite,
-                    disabledTextColor = Color.Gray,
-                    focusedPlaceholderColor = TextPlaceholder,
-                    unfocusedPlaceholderColor = TextPlaceholder
-                ),
-                shape = RoundedCornerShape(8.dp),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Participants", tint = TextPlaceholder)} // Use filled Search
-            )
         }
     }
 }

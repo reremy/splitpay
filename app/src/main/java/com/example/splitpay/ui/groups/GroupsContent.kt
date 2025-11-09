@@ -34,16 +34,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import com.example.splitpay.data.model.GroupWithBalance
 import com.example.splitpay.data.model.User
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.common.OverallBalanceHeader
 import com.example.splitpay.ui.common.UiEventHandler
+import com.example.splitpay.ui.groups.availableTagsMap
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.ErrorRed
 import com.example.splitpay.ui.theme.NegativeRed
@@ -185,21 +188,34 @@ fun GroupBalanceCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Group Icon/Image Placeholder
+                // Group Photo or Tag Icon
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(PrimaryBlue),
+                        .background(if (groupWithBalance.group.photoUrl.isNotEmpty()) Color.Transparent else PrimaryBlue),
                     contentAlignment = Alignment.Center
                 ) {
-                    // Placeholder icon for groups without image
-                    Icon(
-                        Icons.Default.Group,
-                        contentDescription = "Group Icon",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (groupWithBalance.group.photoUrl.isNotEmpty()) {
+                        // Display group photo
+                        AsyncImage(
+                            model = groupWithBalance.group.photoUrl,
+                            contentDescription = "Group Photo",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        // Display tag icon
+                        val tagIcon = availableTagsMap[groupWithBalance.group.iconIdentifier] ?: Icons.Default.Group
+                        Icon(
+                            tagIcon,
+                            contentDescription = "Group Tag",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
 
                 Text(
