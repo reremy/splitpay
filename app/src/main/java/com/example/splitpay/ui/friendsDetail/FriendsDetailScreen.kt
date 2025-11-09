@@ -21,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,6 +41,7 @@ import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.groups.ExpenseActivityCard
+import com.example.splitpay.ui.groups.availableTagsMap
 import com.example.splitpay.ui.theme.*
 import kotlin.math.absoluteValue
 
@@ -295,20 +298,31 @@ fun FriendDetailHeader(
             .padding(bottom = 16.dp, top = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Friend Icon
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(PrimaryBlue),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.AccountCircle,
-                contentDescription = "Friend Icon",
-                tint = TextWhite,
-                modifier = Modifier.size(40.dp)
+        // Friend Profile Picture
+        if (friend.profilePictureUrl.isNotEmpty()) {
+            AsyncImage(
+                model = friend.profilePictureUrl,
+                contentDescription = "${friend.username}'s profile",
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(PrimaryBlue),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = "Friend Icon",
+                    tint = TextWhite,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -444,7 +458,8 @@ fun SharedGroupActivityCard(
 
         Spacer(Modifier.width(12.dp))
 
-        // Group Icon
+        // Group Icon based on iconIdentifier
+        val groupIcon = card.group?.iconIdentifier?.let { availableTagsMap[it] } ?: Icons.Default.Group
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -453,7 +468,7 @@ fun SharedGroupActivityCard(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Group,
+                imageVector = groupIcon,
                 contentDescription = "Group",
                 tint = PrimaryBlue,
                 modifier = Modifier.size(24.dp)
