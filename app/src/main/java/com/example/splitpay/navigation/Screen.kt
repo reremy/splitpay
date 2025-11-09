@@ -41,6 +41,10 @@ object Screen {
     const val ExpenseDetail = "expense_detail"
     const val ExpenseDetailRoute = "$ExpenseDetail/{expenseId}"
 
+    // --- Payment Detail ---
+    const val PaymentDetail = "payment_detail"
+    const val PaymentDetailRoute = "$PaymentDetail/{paymentId}"
+
     // --- Edit Profile ---
     const val EditProfile = "edit_profile"
 

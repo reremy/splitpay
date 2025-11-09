@@ -25,6 +25,7 @@ import com.example.splitpay.ui.addfriend.AddFriendScreen
 import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
 import com.example.splitpay.ui.expense.AddExpenseScreen
 import com.example.splitpay.ui.expense.ExpenseDetailScreen
+import com.example.splitpay.ui.paymentDetail.PaymentDetailScreen
 import com.example.splitpay.ui.friendsDetail.FriendSettingsScreen
 import com.example.splitpay.ui.friendsDetail.FriendsDetailScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
@@ -245,6 +246,30 @@ fun Navigation(
                 onNavigateToEdit = { expId, groupId ->
                     // Navigate to AddExpenseScreen in edit mode
                     navController.navigate("${Screen.AddExpense}?groupId=$groupId&expenseId=$expId")
+                }
+            )
+        }
+
+        // --- Payment Detail Route ---
+        composable(
+            route = Screen.PaymentDetailRoute,
+            arguments = listOf(
+                navArgument("paymentId") {
+                    type = NavType.StringType
+                }
+            ),
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
+            PaymentDetailScreen(
+                paymentId = paymentId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { payId, groupId ->
+                    // Navigate to RecordPaymentScreen in edit mode
+                    navController.navigate("${Screen.RecordPayment}/$groupId?paymentId=$payId")
                 }
             )
         }

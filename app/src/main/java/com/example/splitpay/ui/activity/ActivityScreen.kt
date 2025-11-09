@@ -134,6 +134,16 @@ fun ActivityScreen(
                                     // Edit and delete activities do nothing when clicked
                                     // User requested: "for editing and deleting expense activities, clicking on the activity in the activity page won't do anything"
                                 }
+                                ActivityType.PAYMENT_MADE,
+                                ActivityType.PAYMENT_UPDATED -> {
+                                    // Navigate to Payment Detail using entityId
+                                    if (activity.entityId != null) {
+                                        navController.navigate("${Screen.PaymentDetail}/${activity.entityId}")
+                                    }
+                                }
+                                ActivityType.PAYMENT_DELETED -> {
+                                    // Deleted payment activities do nothing when clicked
+                                }
                                 else -> {
                                     // For other activity types, navigate to generic activity detail
                                     navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
@@ -227,7 +237,9 @@ private fun getActivityIcon(activityTypeStr: String): ImageVector {
             ActivityType.EXPENSE_ADDED,
             ActivityType.EXPENSE_UPDATED,
             ActivityType.EXPENSE_DELETED -> Icons.Default.Description
-            ActivityType.PAYMENT_MADE -> Icons.Default.Payment
+            ActivityType.PAYMENT_MADE,
+            ActivityType.PAYMENT_UPDATED,
+            ActivityType.PAYMENT_DELETED -> Icons.Default.Payment
         }
     } catch (e: IllegalArgumentException) {
         Icons.Default.Description // Fallback icon
@@ -304,6 +316,30 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
             ActivityType.PAYMENT_MADE -> {
                 // displayText should be the *other* person's name
                 append(" paid ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append("${activity.displayText}")
+                }
+                if (activity.groupName != null) {
+                    append(" in ")
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append("'${activity.groupName}'")
+                    }
+                }
+            }
+            ActivityType.PAYMENT_UPDATED -> {
+                append(" updated a payment to ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append("${activity.displayText}")
+                }
+                if (activity.groupName != null) {
+                    append(" in ")
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append("'${activity.groupName}'")
+                    }
+                }
+            }
+            ActivityType.PAYMENT_DELETED -> {
+                append(" deleted a payment to ")
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
                     append("${activity.displayText}")
                 }
