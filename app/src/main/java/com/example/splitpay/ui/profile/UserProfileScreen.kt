@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
@@ -31,11 +32,16 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -59,6 +65,7 @@ import com.example.splitpay.ui.theme.PrimaryBlue
 import com.example.splitpay.ui.theme.TextWhite
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserProfileScreen(
     viewModel: ProfileViewModel = viewModel(),
@@ -92,7 +99,31 @@ fun UserProfileScreen(
         )
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Profile", color = TextWhite) },
+                actions = {
+                    IconButton(onClick = { viewModel.navigateToEditProfile() }) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit Profile",
+                            tint = PrimaryBlue
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = DarkBackground
+                )
+            )
+        },
+        containerColor = DarkBackground
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
         val currentError = uiState.error
         if (uiState.isLoading) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -208,21 +239,6 @@ fun UserProfileScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Edit Profile Button
-                OutlinedButton(
-                    onClick = { viewModel.navigateToEditProfile() },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryBlue),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
-                ) {
-                    Icon(Icons.Default.AccountCircle, contentDescription = "Edit Profile")
-                    Spacer(Modifier.width(8.dp))
-                    Text("Edit Profile", fontSize = 16.sp)
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
                 // Log Out Button
                 Button(
                     onClick = { viewModel.signOut() },
@@ -260,6 +276,7 @@ fun UserProfileScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
+        }
         }
     }
 }
