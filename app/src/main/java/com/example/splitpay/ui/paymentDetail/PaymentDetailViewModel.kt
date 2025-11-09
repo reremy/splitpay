@@ -86,7 +86,7 @@ class PaymentDetailViewModel(
 
                 // Load group name if payment is in a group
                 val groupName = payment.groupId?.let { groupId ->
-                    groupsRepository.getGroup(groupId).getOrNull()?.name
+                    groupsRepository.getGroupById(groupId)?.name
                 }
 
                 _uiState.update {
