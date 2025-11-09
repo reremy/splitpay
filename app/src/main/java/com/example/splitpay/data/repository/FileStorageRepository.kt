@@ -23,23 +23,30 @@ class FileStorageRepository(
     suspend fun uploadProfilePicture(userId: String, imageUri: Uri): Result<String> {
         return try {
             logI("Starting profile picture upload for user: $userId")
+            logD("Storage bucket: ${storage.reference.bucket}")
+            logD("Image URI: $imageUri")
 
             val fileName = "profile_${userId}_${System.currentTimeMillis()}.jpg"
             val profilePicRef = storageRef.child("profile_pictures/$userId/$fileName")
 
-            logD("Uploading to path: profile_pictures/$userId/$fileName")
+            logD("Full storage path: ${profilePicRef.path}")
+            logD("Storage bucket: ${profilePicRef.bucket}")
 
             // Upload the file
+            logD("Starting upload to Firebase Storage...")
             val uploadTask = profilePicRef.putFile(imageUri).await()
-            logD("Upload completed successfully")
+            logI("Upload completed successfully - ${uploadTask.bytesTransferred} bytes transferred")
 
             // Get the download URL
+            logD("Getting download URL...")
             val downloadUrl = profilePicRef.downloadUrl.await().toString()
             logI("Profile picture uploaded successfully. URL: ${downloadUrl.take(50)}...")
 
             Result.success(downloadUrl)
         } catch (e: Exception) {
             logE("Failed to upload profile picture for user $userId: ${e.message}", e)
+            logE("Exception type: ${e.javaClass.simpleName}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }
@@ -53,23 +60,30 @@ class FileStorageRepository(
     suspend fun uploadQrCode(userId: String, imageUri: Uri): Result<String> {
         return try {
             logI("Starting QR code upload for user: $userId")
+            logD("Storage bucket: ${storage.reference.bucket}")
+            logD("Image URI: $imageUri")
 
             val fileName = "qr_${userId}_${System.currentTimeMillis()}.jpg"
             val qrCodeRef = storageRef.child("qr_codes/$userId/$fileName")
 
-            logD("Uploading to path: qr_codes/$userId/$fileName")
+            logD("Full storage path: ${qrCodeRef.path}")
+            logD("Storage bucket: ${qrCodeRef.bucket}")
 
             // Upload the file
+            logD("Starting upload to Firebase Storage...")
             val uploadTask = qrCodeRef.putFile(imageUri).await()
-            logD("Upload completed successfully")
+            logI("Upload completed successfully - ${uploadTask.bytesTransferred} bytes transferred")
 
             // Get the download URL
+            logD("Getting download URL...")
             val downloadUrl = qrCodeRef.downloadUrl.await().toString()
             logI("QR code uploaded successfully. URL: ${downloadUrl.take(50)}...")
 
             Result.success(downloadUrl)
         } catch (e: Exception) {
             logE("Failed to upload QR code for user $userId: ${e.message}", e)
+            logE("Exception type: ${e.javaClass.simpleName}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }
