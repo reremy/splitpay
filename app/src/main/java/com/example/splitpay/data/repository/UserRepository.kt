@@ -141,6 +141,59 @@ class UserRepository(
         }
     }
 
+    /**
+     * Updates user profile fields in Firestore
+     * @param uid The user's UID
+     * @param updates Map of field names to new values
+     * @return Result indicating success or failure
+     */
+    suspend fun updateUserProfile(uid: String, updates: Map<String, Any>): Result<Unit> {
+        return try {
+            logI("Updating profile for user: $uid with ${updates.keys.joinToString()}")
+            usersCollection.document(uid).update(updates).await()
+            logI("Profile updated successfully for user: $uid")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error updating user profile for $uid: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Updates the user's full name
+     */
+    suspend fun updateFullName(uid: String, fullName: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("fullName" to fullName))
+    }
+
+    /**
+     * Updates the user's email
+     */
+    suspend fun updateEmail(uid: String, email: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("email" to email))
+    }
+
+    /**
+     * Updates the user's phone number
+     */
+    suspend fun updatePhoneNumber(uid: String, phoneNumber: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("phoneNumber" to phoneNumber))
+    }
+
+    /**
+     * Updates the user's profile picture URL
+     */
+    suspend fun updateProfilePicture(uid: String, profilePictureUrl: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("profilePictureUrl" to profilePictureUrl))
+    }
+
+    /**
+     * Updates the user's QR code URL
+     */
+    suspend fun updateQrCode(uid: String, qrCodeUrl: String): Result<Unit> {
+        return updateUserProfile(uid, mapOf("qrCodeUrl" to qrCodeUrl))
+    }
+
     // Gets the current user's profile, including the friends list field
     suspend fun getCurrentUserProfileWithFriends(): User? {
         val currentUser = getCurrentUser() ?: return null

@@ -1,0 +1,98 @@
+package com.example.splitpay.data.repository
+
+import android.net.Uri
+import com.example.splitpay.logger.logD
+import com.example.splitpay.logger.logE
+import com.example.splitpay.logger.logI
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+import kotlinx.coroutines.tasks.await
+
+class FileStorageRepository(
+    private val storage: FirebaseStorage = FirebaseStorage.getInstance()
+) {
+
+    private val storageRef: StorageReference = storage.reference
+
+    /**
+     * Uploads a profile picture for a user
+     * @param userId The user's UID
+     * @param imageUri The local URI of the image to upload
+     * @return The download URL of the uploaded image, or null if failed
+     */
+    suspend fun uploadProfilePicture(userId: String, imageUri: Uri): Result<String> {
+        return try {
+            logI("Starting profile picture upload for user: $userId")
+
+            val fileName = "profile_${userId}_${System.currentTimeMillis()}.jpg"
+            val profilePicRef = storageRef.child("profile_pictures/$userId/$fileName")
+
+            logD("Uploading to path: profile_pictures/$userId/$fileName")
+
+            // Upload the file
+            val uploadTask = profilePicRef.putFile(imageUri).await()
+            logD("Upload completed successfully")
+
+            // Get the download URL
+            val downloadUrl = profilePicRef.downloadUrl.await().toString()
+            logI("Profile picture uploaded successfully. URL: ${downloadUrl.take(50)}...")
+
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            logE("Failed to upload profile picture for user $userId: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Uploads a QR code image for a user
+     * @param userId The user's UID
+     * @param imageUri The local URI of the QR code image to upload
+     * @return The download URL of the uploaded image, or null if failed
+     */
+    suspend fun uploadQrCode(userId: String, imageUri: Uri): Result<String> {
+        return try {
+            logI("Starting QR code upload for user: $userId")
+
+            val fileName = "qr_${userId}_${System.currentTimeMillis()}.jpg"
+            val qrCodeRef = storageRef.child("qr_codes/$userId/$fileName")
+
+            logD("Uploading to path: qr_codes/$userId/$fileName")
+
+            // Upload the file
+            val uploadTask = qrCodeRef.putFile(imageUri).await()
+            logD("Upload completed successfully")
+
+            // Get the download URL
+            val downloadUrl = qrCodeRef.downloadUrl.await().toString()
+            logI("QR code uploaded successfully. URL: ${downloadUrl.take(50)}...")
+
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            logE("Failed to upload QR code for user $userId: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Deletes a file from Firebase Storage given its URL
+     * @param fileUrl The full download URL of the file to delete
+     */
+    suspend fun deleteFile(fileUrl: String): Result<Unit> {
+        return try {
+            if (fileUrl.isEmpty()) {
+                return Result.success(Unit)
+            }
+
+            logD("Attempting to delete file: ${fileUrl.take(50)}...")
+            val fileRef = storage.getReferenceFromUrl(fileUrl)
+            fileRef.delete().await()
+            logI("File deleted successfully")
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Failed to delete file: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+}

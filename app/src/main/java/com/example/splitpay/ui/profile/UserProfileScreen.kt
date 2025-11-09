@@ -75,7 +75,7 @@ fun UserProfileScreen(
                 }
             }
             ProfileUiEvent.NavigateToEditProfile -> {
-                mainNavController.navigate("editProfile")
+                mainNavController.navigate(Screen.EditProfile)
             }
         }
     }
