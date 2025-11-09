@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add // Keep this import
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dining
@@ -88,6 +89,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.splitpay.data.model.Expense // <-- Add import
 import com.example.splitpay.data.model.Group
+import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository // <-- Add import
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository // <-- Add import
