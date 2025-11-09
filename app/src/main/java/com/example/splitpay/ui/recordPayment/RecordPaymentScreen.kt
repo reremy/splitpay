@@ -76,6 +76,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
+import com.example.splitpay.data.repository.FileStorageRepository
 import com.example.splitpay.data.repository.GroupsRepository // <-- IMPORT
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.ui.common.UiEventHandler
@@ -95,6 +96,7 @@ class RecordPaymentViewModelFactory(
     private val expenseRepository: ExpenseRepository,
     private val groupsRepository: GroupsRepository,
     private val activityRepository: ActivityRepository,
+    private val fileStorageRepository: FileStorageRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -105,8 +107,9 @@ class RecordPaymentViewModelFactory(
                 expenseRepository,
                 groupsRepository,
                 activityRepository,
+                fileStorageRepository,
                 savedStateHandle
-            ) as T // <-- PASS
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
@@ -127,7 +130,8 @@ fun RecordPaymentScreen(
     userRepository: UserRepository = UserRepository(),
     expenseRepository: ExpenseRepository = ExpenseRepository(),
     groupsRepository: GroupsRepository = GroupsRepository(),
-    activityRepository: ActivityRepository = ActivityRepository()
+    activityRepository: ActivityRepository = ActivityRepository(),
+    fileStorageRepository: FileStorageRepository = FileStorageRepository()
 ) {
     // --- Use SavedStateHandle with factory ---
     val savedStateHandle = SavedStateHandle(
@@ -143,7 +147,14 @@ fun RecordPaymentScreen(
             ).toMap()
         )
     )
-    val factory = RecordPaymentViewModelFactory(userRepository, expenseRepository, groupsRepository, activityRepository, savedStateHandle) // <-- PASS
+    val factory = RecordPaymentViewModelFactory(
+        userRepository,
+        expenseRepository,
+        groupsRepository,
+        activityRepository,
+        fileStorageRepository,
+        savedStateHandle
+    )
     val viewModel: RecordPaymentViewModel = viewModel(factory = factory)
 
     val uiState by viewModel.uiState.collectAsState()
