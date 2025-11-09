@@ -85,14 +85,6 @@ fun UserProfileScreen(
         viewModel.loadUserProfile()
     }
 
-    // QR Code Bottom Sheet
-    if (uiState.showQrCode) {
-        QrCodeBottomSheet(
-            qrCodeUrl = uiState.qrCodeUrl,
-            onDismiss = { viewModel.toggleQrCodeVisibility() }
-        )
-    }
-
     Box(modifier = Modifier.fillMaxSize().background(DarkBackground)) {
         val currentError = uiState.error
         if (uiState.isLoading) {
@@ -244,6 +236,14 @@ fun UserProfileScreen(
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
+        }
+
+        // QR Code Bottom Sheet - Rendered on top
+        if (uiState.showQrCode) {
+            QrCodeBottomSheet(
+                qrCodeUrl = uiState.qrCodeUrl,
+                onDismiss = { viewModel.toggleQrCodeVisibility() }
+            )
         }
     }
 }
