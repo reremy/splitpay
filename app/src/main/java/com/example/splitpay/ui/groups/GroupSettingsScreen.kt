@@ -355,12 +355,23 @@ fun MemberListItem(
         },
         supportingContent = { Text(memberData.user.email, color = Color.Gray, fontSize = 12.sp) },
         leadingContent = {
-            Icon(
-                Icons.Default.AccountCircle, // Placeholder icon
-                contentDescription = "Member",
-                tint = Color.Gray,
-                modifier = Modifier.size(40.dp)
-            )
+            if (memberData.user.profilePictureUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = memberData.user.profilePictureUrl,
+                    contentDescription = "${memberData.user.username}'s profile picture",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = "Member",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
