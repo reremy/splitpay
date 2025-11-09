@@ -166,16 +166,14 @@ fun UserProfileScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // QR Code Button
-                if (uiState.qrCodeUrl.isNotEmpty()) {
-                    TextButton(
-                        onClick = { viewModel.toggleQrCodeVisibility() },
-                        colors = ButtonDefaults.textButtonColors(contentColor = PrimaryBlue)
-                    ) {
-                        Icon(Icons.Default.QrCode2, contentDescription = "QR Code", modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Show Payment QR", fontSize = 14.sp)
-                    }
+                // QR Code Button - Always visible
+                TextButton(
+                    onClick = { viewModel.toggleQrCodeVisibility() },
+                    colors = ButtonDefaults.textButtonColors(contentColor = PrimaryBlue)
+                ) {
+                    Icon(Icons.Default.QrCode2, contentDescription = "QR Code", modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Show Payment QR", fontSize = 14.sp)
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
@@ -315,24 +313,46 @@ fun QrCodeBottomSheet(
                             .background(Color.White)
                             .padding(16.dp)
                     )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "Scan to send payment",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
                 } else {
                     Box(
                         modifier = Modifier
                             .size(250.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White),
+                            .background(Color(0xFF1A1A1A)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("No QR Code uploaded", color = Color.Gray)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.QrCode2,
+                                contentDescription = null,
+                                tint = Color.Gray,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "No QR code available",
+                                color = Color.Gray,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "Upload your payment QR code in Edit Profile",
+                        color = Color.Gray,
+                        fontSize = 14.sp
+                    )
                 }
-
-                Spacer(Modifier.height(16.dp))
-                Text(
-                    "Scan to send payment",
-                    color = Color.Gray,
-                    fontSize = 14.sp
-                )
                 Spacer(Modifier.height(16.dp))
 
                 Button(
