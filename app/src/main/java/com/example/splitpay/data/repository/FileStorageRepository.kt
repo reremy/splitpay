@@ -124,6 +124,41 @@ class FileStorageRepository(
     }
 
     /**
+     * Uploads an expense image
+     * @param expenseId The expense's ID
+     * @param imageUri The local URI of the image to upload
+     * @return The download URL of the uploaded image
+     */
+    suspend fun uploadExpenseImage(expenseId: String, imageUri: Uri): Result<String> {
+        return try {
+            logI("Starting expense image upload for expense: $expenseId")
+            logD("Image URI: $imageUri")
+
+            val fileName = "expense_${expenseId}_${System.currentTimeMillis()}.jpg"
+            val expenseImageRef = storageRef.child("expense_images/$expenseId/$fileName")
+
+            logD("Full storage path: ${expenseImageRef.path}")
+
+            // Upload the file
+            logD("Starting upload to Firebase Storage...")
+            val uploadTask = expenseImageRef.putFile(imageUri).await()
+            logI("Upload completed successfully - ${uploadTask.bytesTransferred} bytes transferred")
+
+            // Get the download URL
+            logD("Getting download URL...")
+            val downloadUrl = expenseImageRef.downloadUrl.await().toString()
+            logI("Expense image uploaded successfully. URL: ${downloadUrl.take(50)}...")
+
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            logE("Failed to upload expense image for expense $expenseId: ${e.message}", e)
+            logE("Exception type: ${e.javaClass.simpleName}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Deletes a file from Firebase Storage given its URL
      * @param fileUrl The full download URL of the file to delete
      */

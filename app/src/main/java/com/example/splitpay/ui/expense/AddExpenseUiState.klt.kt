@@ -1,5 +1,6 @@
 package com.example.splitpay.ui.expense
 
+import android.net.Uri
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.Participant
 import com.example.splitpay.data.model.Payer
@@ -21,8 +22,9 @@ data class AddExpenseUiState(
     val isSplitEditorVisible: Boolean = false,
     val date: Long = System.currentTimeMillis(),
     val memo: String = "",
-    val imageUris: List<String> = emptyList(),
-    val isUploadingImages: Boolean = false,
+    val selectedImageUri: Uri? = null, // Selected expense image before upload
+    val uploadedImageUrl: String = "", // Uploaded image URL from Firebase
+    val isUploadingImage: Boolean = false,
     val initialGroupId: String? = null, // Group ID passed via navigation (if any)
     val currentGroupId: String? = null, // Currently selected group ID (can be null for non-group)
     val isDatePickerDialogVisible: Boolean = false,
