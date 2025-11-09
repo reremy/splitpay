@@ -249,7 +249,7 @@ fun FriendDetailContent(
                                 onClick = {
                                     // Navigate to group detail page
                                     if (card.groupId != null) {
-                                        navController.navigate("${Screen.GroupDetail}/${card.groupId}")
+                                        navController.navigate("group_detail/${card.groupId}")
                                     }
                                 }
                             )
