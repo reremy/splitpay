@@ -241,7 +241,11 @@ fun Navigation(
             val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
             ExpenseDetailScreen(
                 expenseId = expenseId,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { expId, groupId ->
+                    // Navigate to AddExpenseScreen in edit mode
+                    navController.navigate("${Screen.AddExpense}?groupId=$groupId&expenseId=$expId")
+                }
             )
         }
 

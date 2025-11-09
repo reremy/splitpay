@@ -124,12 +124,15 @@ fun ActivityScreen(
 
                             when (activityType) {
                                 ActivityType.EXPENSE_ADDED,
-                                ActivityType.EXPENSE_UPDATED,
-                                ActivityType.EXPENSE_DELETED -> {
+                                ActivityType.EXPENSE_UPDATED -> {
                                     // Navigate to Expense Detail using entityId
                                     if (activity.entityId != null) {
                                         navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
                                     }
+                                }
+                                ActivityType.EXPENSE_DELETED -> {
+                                    // EXPENSE_DELETED is clickable but does nothing (expense no longer exists)
+                                    // User requested: "when user click on this activity, nothing will happen"
                                 }
                                 else -> {
                                     // For other activity types, navigate to generic activity detail
