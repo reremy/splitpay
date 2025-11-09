@@ -306,7 +306,7 @@ class RecordPaymentViewModel(
                     )
 
                     val result = expenseRepository.addExpense(newExpense)
-                    result.onSuccess { createdExpense ->
+                    result.onSuccess { createdExpenseId ->
                         logD("Settlement payment saved successfully.")
 
                         // Log PAYMENT_MADE activity
@@ -327,7 +327,7 @@ class RecordPaymentViewModel(
                                 involvedUids = group.members,
                                 groupId = group.id,
                                 groupName = group.name,
-                                entityId = createdExpense.id,
+                                entityId = createdExpenseId,
                                 displayText = receiver.username,
                                 totalAmount = totalAmount,
                                 financialImpacts = financialImpacts
