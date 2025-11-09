@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -21,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,7 +35,7 @@ import java.util.Locale
 
 /**
  * Screen that displays detailed information about an expense.
- * Layout matches AddExpenseScreen for consistency.
+ * Order: Description, Amount, Date, Group, Split, Image, Memo
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,23 +150,72 @@ fun ExpenseDetailContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
-        // Display Selected Date (like AddExpenseScreen)
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(Date(expense.date)),
-                color = Color.Gray,
-                fontSize = 14.sp
-            )
+        // 1. DESCRIPTION (centered, large, prominent)
+        Text(
+            text = expense.description,
+            color = TextWhite,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+        )
+
+        Spacer(Modifier.height(16.dp))
+
+        // 2. AMOUNT (centered, very large)
+        Text(
+            text = "MYR %.2f".format(expense.totalAmount),
+            color = TextWhite,
+            fontSize = 36.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        // 3. DATE (centered, gray)
+        Text(
+            text = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(Date(expense.date)),
+            color = Color.Gray,
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        // 4. GROUP (if it's a group expense)
+        if (expense.groupId != null && expense.groupId != "non_group") {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Group:",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = uiState.groupName ?: "Unknown Group",
+                        color = TextWhite,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
         }
 
-        // Paid By / Split Selector Card (similar to AddExpenseScreen)
+        // 5. SPLIT (Paid by + Participants with profile photos)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
@@ -175,26 +226,42 @@ fun ExpenseDetailContent(
                 Text(
                     text = "Paid by",
                     color = Color.Gray,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 expense.paidBy.forEach { payer ->
-                    val payerName = uiState.usersMap[payer.uid]?.username
-                        ?: uiState.usersMap[payer.uid]?.fullName
+                    val user = uiState.usersMap[payer.uid]
+                    val payerName = user?.username
+                        ?: user?.fullName
                         ?: "Unknown"
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // User avatar placeholder
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryBlue)
-                            )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            // Profile photo
+                            if (user?.profilePictureUrl?.isNotEmpty() == true) {
+                                AsyncImage(
+                                    model = user.profilePictureUrl,
+                                    contentDescription = "$payerName's profile",
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.AccountCircle,
+                                    contentDescription = payerName,
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
                             Spacer(Modifier.width(12.dp))
                             Text(text = payerName, color = TextWhite, fontSize = 15.sp)
                         }
@@ -208,7 +275,7 @@ fun ExpenseDetailContent(
                 }
 
                 Divider(
-                    modifier = Modifier.padding(vertical = 12.dp),
+                    modifier = Modifier.padding(vertical = 16.dp),
                     color = Color(0xFF4D4D4D)
                 )
 
@@ -216,26 +283,42 @@ fun ExpenseDetailContent(
                 Text(
                     text = "Split (${expense.splitType.lowercase().replaceFirstChar { it.uppercase() }})",
                     color = Color.Gray,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
                 expense.participants.forEach { participant ->
-                    val participantName = uiState.usersMap[participant.uid]?.username
-                        ?: uiState.usersMap[participant.uid]?.fullName
+                    val user = uiState.usersMap[participant.uid]
+                    val participantName = user?.username
+                        ?: user?.fullName
                         ?: "Unknown"
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // User avatar placeholder
-                            Box(
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(PrimaryBlue)
-                            )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            // Profile photo
+                            if (user?.profilePictureUrl?.isNotEmpty() == true) {
+                                AsyncImage(
+                                    model = user.profilePictureUrl,
+                                    contentDescription = "$participantName's profile",
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Default.AccountCircle,
+                                    contentDescription = participantName,
+                                    tint = Color.Gray,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                            }
                             Spacer(Modifier.width(12.dp))
                             Text(text = participantName, color = TextWhite, fontSize = 15.sp)
                         }
@@ -250,40 +333,36 @@ fun ExpenseDetailContent(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        // 6. EXPENSE IMAGE (if exists)
+        if (expense.imageUrl.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Expense Image",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    AsyncImage(
+                        model = expense.imageUrl,
+                        contentDescription = "Expense Image",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+        }
 
-        // Amount and Description (like AddExpenseScreen)
-        OutlinedTextField(
-            value = "MYR %.2f".format(expense.totalAmount),
-            onValueChange = {},
-            label = { Text("Amount", color = TextPlaceholder) },
-            enabled = false,
-            modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.colors(
-                disabledContainerColor = Color(0xFF3C3C3C),
-                disabledTextColor = TextWhite,
-                disabledLabelColor = TextPlaceholder
-            ),
-            shape = RoundedCornerShape(8.dp)
-        )
-
-        Spacer(Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = expense.description,
-            onValueChange = {},
-            label = { Text("Description", color = TextPlaceholder) },
-            enabled = false,
-            modifier = Modifier.fillMaxWidth(),
-            colors = TextFieldDefaults.colors(
-                disabledContainerColor = Color(0xFF3C3C3C),
-                disabledTextColor = TextWhite,
-                disabledLabelColor = TextPlaceholder
-            ),
-            shape = RoundedCornerShape(8.dp)
-        )
-
-        // Display Memo if exists
+        // 7. MEMO (if exists)
         if (expense.memo.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             Card(
@@ -308,51 +387,6 @@ fun ExpenseDetailContent(
             }
         }
 
-        // Expense Image (if exists)
-        if (expense.imageUrl.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                AsyncImage(
-                    model = expense.imageUrl,
-                    contentDescription = "Expense Image",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Crop
-                )
-            }
-        }
-
-        // Group Information (if it's a group expense)
-        if (expense.groupId != null && expense.groupId != "non_group") {
-            Spacer(Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Group",
-                        color = Color.Gray,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = uiState.groupName ?: "Unknown Group",
-                        color = TextWhite,
-                        fontSize = 14.sp
-                    )
-                }
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(24.dp))
     }
 }
