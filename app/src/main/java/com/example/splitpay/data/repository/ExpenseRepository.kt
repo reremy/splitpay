@@ -77,30 +77,23 @@ class ExpenseRepository(
         if (currentUserUid.isBlank() || friendUid.isBlank()) return emptyList()
         return try {
             val userIds = listOf(currentUserUid, friendUid)
-            // Query 1: Where either user is a participant
-            val participantsQuery = expensesCollection
-                .whereEqualTo("groupId", null)
-                .whereArrayContainsAny("participants.uid", userIds)
+
+            // Query for expenses with groupId == "non_group"
+            val nonGroupQuery = expensesCollection
+                .whereEqualTo("groupId", "non_group")
                 .get()
                 .await()
-            // Query 2: Where currentUser created it
-            val createdByCurrentUserQuery = expensesCollection
+
+            // Also query for expenses with groupId == null (for backward compatibility)
+            val nullGroupQuery = expensesCollection
                 .whereEqualTo("groupId", null)
-                .whereEqualTo("createdByUid", currentUserUid)
-                .get()
-                .await()
-            // Query 3: Where friend created it
-            val createdByFriendQuery = expensesCollection
-                .whereEqualTo("groupId", null)
-                .whereEqualTo("createdByUid", friendUid)
                 .get()
                 .await()
 
             // Combine results and filter duplicates
             val potentialExpenses = mutableSetOf<Expense>()
-            potentialExpenses.addAll(participantsQuery.toObjects())
-            potentialExpenses.addAll(createdByCurrentUserQuery.toObjects())
-            potentialExpenses.addAll(createdByFriendQuery.toObjects())
+            potentialExpenses.addAll(nonGroupQuery.toObjects())
+            potentialExpenses.addAll(nullGroupQuery.toObjects())
 
             // Local Filtering: Ensure BOTH users are actually involved.
             val filteredExpenses = potentialExpenses.filter { expense ->
@@ -155,6 +148,7 @@ class ExpenseRepository(
 
     /**
      * Gets a real-time flow of all non-group expenses where the user is a participant.
+     * NOTE: This only gets expenses with groupId == null. For groupId == "non_group", use getExpensesFlowForGroup("non_group")
      */
     fun getNonGroupExpensesFlow(currentUserUid: String): Flow<List<Expense>> = callbackFlow {
         if (currentUserUid.isBlank()) {
