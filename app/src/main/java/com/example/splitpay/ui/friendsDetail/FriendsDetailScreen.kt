@@ -1,33 +1,44 @@
 package com.example.splitpay.ui.friendsDetail
 
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import coil.compose.AsyncImage
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.splitpay.ui.groups.expenseCategoriesMap
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -191,7 +202,11 @@ fun FriendDetailContent(
         // Action Buttons
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                ActionButtonsRow(navController = navController, friendId = friendId)
+                ActionButtonsRow(
+                    navController = navController,
+                    friendId = friendId,
+                    viewModel = viewModel
+                )
                 Spacer(Modifier.height(24.dp))
             }
         }
@@ -390,8 +405,16 @@ fun FriendDetailHeader(
 @Composable
 fun ActionButtonsRow(
     navController: NavHostController,
-    friendId: String
+    friendId: String,
+    viewModel: FriendsDetailViewModel
 ) {
+    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsState()
+
+    // State for charts bottom sheet
+    val showChartsSheet = remember { mutableStateOf(false) }
+    val chartsSheetState = rememberModalBottomSheetState()
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -401,9 +424,49 @@ fun ActionButtonsRow(
         ActionButton("Settle Up") {
             navController.navigate("${Screen.SelectBalanceToSettle}/$friendId")
         }
-        ActionButton("Charts") {}
-        ActionButton("Balances") {}
-        ActionButton("Export") {}
+        ActionButton("Charts") {
+            showChartsSheet.value = true
+        }
+        ActionButton("Reminder") {
+            viewModel.showReminderDialog()
+        }
+        ActionButton("Export") {
+            val exportData = viewModel.exportFriendData()
+            val sendIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, exportData)
+                type = "text/plain"
+            }
+            val shareIntent = Intent.createChooser(sendIntent, "Export Friend Data")
+            context.startActivity(shareIntent)
+        }
+    }
+
+    // Charts Bottom Sheet
+    if (showChartsSheet.value) {
+        ModalBottomSheet(
+            onDismissRequest = { showChartsSheet.value = false },
+            sheetState = chartsSheetState,
+            containerColor = Color(0xFF2D2D2D)
+        ) {
+            ChartsSheetContent(
+                chartData = uiState.chartData,
+                friendName = uiState.friend?.username ?: "Friend"
+            )
+        }
+    }
+
+    // Reminder Dialog
+    if (uiState.showReminderDialog) {
+        ReminderDialog(
+            friendName = uiState.friend?.username ?: "Friend",
+            onDismiss = { viewModel.dismissReminderDialog() },
+            onSend = { message ->
+                // For now, just show a toast or dismiss
+                // In a real app, this would send a notification or message
+                viewModel.dismissReminderDialog()
+            }
+        )
     }
 }
 
@@ -512,4 +575,270 @@ fun SharedGroupActivityCard(
             )
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChartsSheetContent(
+    chartData: ChartData,
+    friendName: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        Text(
+            text = "Charts for $friendName",
+            color = TextWhite,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        if (chartData.categoryBreakdown.isEmpty() && chartData.dailySpending.isEmpty() && chartData.groupBreakdown.isEmpty()) {
+            Text(
+                text = "No expense data available for charts.",
+                color = Color.Gray,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(vertical = 32.dp),
+                textAlign = TextAlign.Center
+            )
+        } else {
+            // 1. Category Breakdown
+            if (chartData.categoryBreakdown.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Spending by Category",
+                            color = TextWhite,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        chartData.categoryBreakdown.forEach { category ->
+                            HorizontalBarChart(
+                                label = category.category.replaceFirstChar { it.uppercase() },
+                                value = category.amount,
+                                percentage = category.percentage,
+                                color = PrimaryBlue
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+
+            // 2. Group Breakdown
+            if (chartData.groupBreakdown.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Spending by Group",
+                            color = TextWhite,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        chartData.groupBreakdown.forEach { group ->
+                            HorizontalBarChart(
+                                label = group.groupName,
+                                value = group.amount,
+                                percentage = group.percentage,
+                                color = PositiveGreen
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+
+            // 3. Daily Spending
+            if (chartData.dailySpending.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Daily Spending",
+                            color = TextWhite,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+
+                        DailySpendingChart(
+                            dailySpending = chartData.dailySpending,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+fun HorizontalBarChart(
+    label: String,
+    value: Double,
+    percentage: Float,
+    color: Color
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = TextWhite,
+                fontSize = 14.sp,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "MYR %.2f (%.1f%%)".format(value, percentage),
+                color = Color.Gray,
+                fontSize = 13.sp
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        // Progress bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFF4D4D4D))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(percentage / 100f)
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(color)
+            )
+        }
+    }
+}
+
+@Composable
+fun DailySpendingChart(
+    dailySpending: List<DailySpending>,
+    modifier: Modifier = Modifier
+) {
+    val maxAmount = dailySpending.maxOfOrNull { it.amount } ?: 1.0
+
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            dailySpending.takeLast(7).forEach { day ->
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    val heightFraction = (day.amount / maxAmount).toFloat().coerceIn(0.1f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .width(24.dp)
+                            .height((150 * heightFraction).dp)
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(PrimaryBlue)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = SimpleDateFormat("dd", Locale.getDefault()).format(Date(day.date)),
+                        color = Color.Gray,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            text = "Last ${dailySpending.takeLast(7).size} days",
+            color = Color.Gray,
+            fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReminderDialog(
+    friendName: String,
+    onDismiss: () -> Unit,
+    onSend: (String) -> Unit
+) {
+    val reminderMessage = remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send Reminder to $friendName", color = TextWhite) },
+        text = {
+            Column {
+                Text(
+                    "Send a friendly reminder to $friendName about outstanding balances.",
+                    color = Color.Gray,
+                    fontSize = 14.sp
+                )
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = reminderMessage.value,
+                    onValueChange = { reminderMessage.value = it },
+                    label = { Text("Message (optional)", color = Color.Gray) },
+                    placeholder = { Text("Add a personal message...", color = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = PrimaryBlue,
+                        unfocusedBorderColor = Color.Gray
+                    ),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSend(reminderMessage.value) },
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            ) {
+                Text("Send", color = TextWhite)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = Color.Gray)
+            }
+        },
+        containerColor = Color(0xFF2D2D2D)
+    )
 }
