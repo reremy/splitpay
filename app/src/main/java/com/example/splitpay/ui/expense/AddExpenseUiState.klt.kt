@@ -22,7 +22,7 @@ data class AddExpenseUiState(
     val isSplitEditorVisible: Boolean = false,
     val date: Long = System.currentTimeMillis(),
     val memo: String = "",
-    val category: String = "general", // Expense category (e.g., general, groceries, trip, etc.)
+    val category: String = "misc", // Expense category (e.g., misc, food & drink, groceries, etc.)
     val selectedImageUri: Uri? = null, // Selected expense image before upload
     val uploadedImageUrl: String = "", // Uploaded image URL from Firebase
     val isUploadingImage: Boolean = false,
