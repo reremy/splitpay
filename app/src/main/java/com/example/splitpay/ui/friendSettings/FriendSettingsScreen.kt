@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -167,13 +168,13 @@ fun FriendSettingsScreen(
             AlertDialog(
                 onDismissRequest = viewModel::clearRemovalError,
                 title = { Text("Cannot Remove Friend", color = TextWhite) },
-                text = { Text(errorMessage, color = Color.Gray) },
+                text = { Text(errorMessage, color = MaterialTheme.colorScheme.onSurfaceVariant) },
                 confirmButton = {
                     TextButton(onClick = viewModel::clearRemovalError) {
                         Text("OK", color = PrimaryBlue)
                     }
                 },
-                containerColor = Color(0xFF2D2D2D)
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
 
@@ -188,7 +189,7 @@ fun FriendSettingsScreen(
                         Text("OK", color = PrimaryBlue)
                     }
                 },
-                containerColor = Color(0xFF2D2D2D)
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
     }
@@ -220,7 +221,7 @@ fun FriendSettingsContent(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = Color(0xFF2D2D2D)
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             ) {
                 Column(
@@ -269,7 +270,7 @@ fun FriendSettingsContent(
                     if (friend.username.isNotBlank() && friend.username != friend.fullName) {
                         Text(
                             text = "@${friend.username}",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 16.sp
                         )
                     }
@@ -278,7 +279,7 @@ fun FriendSettingsContent(
                     if (friend.email.isNotBlank()) {
                         Text(
                             text = friend.email,
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp
                         )
                     }
@@ -330,7 +331,7 @@ fun FriendSettingsContent(
                             .height(56.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2D2D2D)
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
                     ) {
                         Icon(
@@ -354,7 +355,7 @@ fun FriendSettingsContent(
                             .height(56.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2D2D2D)
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
                     ) {
                         Icon(
@@ -378,7 +379,7 @@ fun FriendSettingsContent(
                             .height(56.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2D2D2D)
+                            containerColor = MaterialTheme.colorScheme.surface
                         )
                     ) {
                         Icon(
@@ -412,7 +413,7 @@ fun SharedGroupCard(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
@@ -450,7 +451,7 @@ fun SharedGroupCard(
                 )
                 Text(
                     text = "${group.members.size} members",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             }
@@ -459,7 +460,7 @@ fun SharedGroupCard(
             Icon(
                 Icons.Default.ChevronRight,
                 contentDescription = "Navigate",
-                tint = Color.Gray
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -474,7 +475,7 @@ fun RemoveFriendDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2D2D2D),
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
                 text = "Remove from Friends?",
@@ -525,7 +526,7 @@ fun BlockUserDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2D2D2D),
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
                 text = "Block User?",
@@ -568,7 +569,7 @@ fun ReportUserDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF2D2D2D),
+        containerColor = MaterialTheme.colorScheme.surface,
         title = {
             Text(
                 text = "Report User",

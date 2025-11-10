@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle // Placeholder icon
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,7 +92,7 @@ fun FriendListItem(
             .clickable { onFriendClick(friend.uid) },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
@@ -114,7 +115,7 @@ fun FriendListItem(
                 Icon(
                     imageVector = Icons.Default.AccountCircle,
                     contentDescription = "Profile",
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(56.dp)
                 )
             }
@@ -151,7 +152,7 @@ fun FriendListItem(
                     if (friend.balanceBreakdown.size > 2) {
                         Text(
                             text = "and ${friend.balanceBreakdown.size - 2} more...",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 12.sp,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
                         )
@@ -199,7 +200,7 @@ fun FriendListItem(
                     Text(
                         text = "settled up",
                         fontSize = 13.sp,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
                     )
                 }

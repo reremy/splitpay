@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Divider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -34,7 +35,7 @@ fun OverallBalanceHeader(
     val balanceColor = when {
         totalBalance > 0.01 -> PositiveGreen
         totalBalance < -0.01 -> NegativeRed
-        else -> Color.Gray
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Column( // Use Column to apply padding and then divider

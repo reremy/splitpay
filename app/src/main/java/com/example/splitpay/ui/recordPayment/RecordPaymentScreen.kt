@@ -87,6 +87,7 @@ import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.NegativeRed
 import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
 import com.example.splitpay.ui.theme.TextPlaceholder
 import com.example.splitpay.ui.theme.TextWhite
 
@@ -211,27 +212,27 @@ fun RecordPaymentScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.showDatePickerDialog(false) }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            colors = DatePickerDefaults.colors(containerColor = Color(0xFF2D2D2D)) // Dark background
+            colors = DatePickerDefaults.colors(containerColor = MaterialTheme.colorScheme.surface) // Dark background
         ) {
             DatePicker(
                 state = datePickerState,
                 colors = DatePickerDefaults.colors(
-                    containerColor = Color(0xFF2D2D2D), // Ensure inner container is also dark
+                    containerColor = MaterialTheme.colorScheme.surface, // Ensure inner container is also dark
                     titleContentColor = TextWhite,
                     headlineContentColor = TextWhite,
-                    weekdayContentColor = Color.Gray,
+                    weekdayContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     subheadContentColor = TextWhite, // Month/Year selector text
                     yearContentColor = TextWhite,
                     currentYearContentColor = PrimaryBlue,
                     selectedYearContentColor = TextWhite,
                     selectedYearContainerColor = PrimaryBlue,
                     dayContentColor = TextWhite,
-                    disabledDayContentColor = Color.Gray.copy(alpha = 0.5f),
+                    disabledDayContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     selectedDayContentColor = DarkBackground, // Text color on selected day
-                    disabledSelectedDayContentColor = Color.Gray,
+                    disabledSelectedDayContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     selectedDayContainerColor = PrimaryBlue, // Background of selected day
                     todayContentColor = PrimaryBlue, // Color for today's number (if not selected)
                     todayDateBorderColor = PrimaryBlue, // Border for today
@@ -254,16 +255,16 @@ fun RecordPaymentScreen(
                     placeholder = { Text("Enter memo details...", color = TextPlaceholder) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors( // Use colors for consistency
-                        focusedContainerColor = Color(0xFF3C3C3C),
-                        unfocusedContainerColor = Color(0xFF3C3C3C),
-                        disabledContainerColor = Color(0xFF3C3C3C),
+                        focusedContainerColor = SurfaceDark,
+                        unfocusedContainerColor = SurfaceDark,
+                        disabledContainerColor = SurfaceDark,
                         cursorColor = PrimaryBlue,
                         focusedIndicatorColor = PrimaryBlue,
-                        unfocusedIndicatorColor = Color.Gray,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         disabledIndicatorColor = Color.Transparent,
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,
-                        disabledTextColor = Color.Gray,
+                        disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         focusedPlaceholderColor = TextPlaceholder,
                         unfocusedPlaceholderColor = TextPlaceholder
                     ),
@@ -277,9 +278,9 @@ fun RecordPaymentScreen(
                 ) { Text("Done") }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.showMemoDialog(false) }) { Text("Cancel", color = Color.Gray) }
+                TextButton(onClick = { viewModel.showMemoDialog(false) }) { Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant) }
             },
-            containerColor = Color(0xFF2D2D2D) // Dialog background
+            containerColor = MaterialTheme.colorScheme.surface // Dialog background
         )
     }
 
@@ -305,10 +306,10 @@ fun RecordPaymentScreen(
             },
             dismissButton = {
                 TextButton(onClick = viewModel::onDismissBalanceWarning) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -402,7 +403,7 @@ fun RecordPaymentScreen(
 
                     Text(
                         text = "This feature does not move money.",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 }
@@ -458,7 +459,7 @@ fun PaymentUserDisplay(payer: User, receiver: User, isPayerUser: Boolean) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = "pays",
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(40.dp) // Increased from 24dp to 40dp
             )
 
@@ -558,7 +559,7 @@ fun PaymentImagePreview(
 ) {
     androidx.compose.material3.Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -569,7 +570,7 @@ fun PaymentImagePreview(
             ) {
                 Text(
                     text = "Payment Image",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -604,7 +605,7 @@ fun PaymentImagePreview(
                     .height(200.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onReplaceClick)
-                    .background(Color(0xFF3C3C3C)),
+                    .background(SurfaceDark),
                 contentAlignment = Alignment.Center
             ) {
                 when {
@@ -637,7 +638,7 @@ fun PaymentImagePreview(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "Tap image to replace",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()

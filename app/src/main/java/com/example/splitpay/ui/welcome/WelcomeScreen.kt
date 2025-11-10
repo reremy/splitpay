@@ -28,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.ui.common.ButtonSizeModifier
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.BorderGray
+import com.example.splitpay.ui.theme.DarkBackground
 
 
 //@Composable
@@ -72,7 +73,7 @@ fun WelcomeScreen(
         modifier = Modifier
             .fillMaxWidth()
             .fillMaxHeight()
-            .background(Color(0xFF1E1E1E)),
+            .background(DarkBackground),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
 
@@ -91,7 +92,7 @@ fun WelcomeScreen(
                 contentColor = Color.White,
                 containerColor = Color(0xFF1D6985)
             ),
-            border = BorderStroke(width = 1.dp, color = Color(0xFF747474)),
+            border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outline),
             modifier = ButtonSizeModifier
                 .testTag("signUpButton"),
             shape = RoundedCornerShape(10.dp),
@@ -108,7 +109,7 @@ fun WelcomeScreen(
             onClick = { viewModel.onLogInClick() },
             colors = ButtonDefaults.buttonColors(
                 contentColor = Color.White,
-                containerColor = Color(0xFF1E1E1E)
+                containerColor = DarkBackground
             ),
             border = BorderStroke(width = 1.dp, color = BorderGray),
             modifier = ButtonSizeModifier

@@ -46,6 +46,7 @@ import com.example.splitpay.ui.groups.GroupsUiEvent
 import com.example.splitpay.ui.groups.GroupsViewModel
 import com.example.splitpay.ui.profile.ProfileTopBarActions
 import com.example.splitpay.ui.profile.UserProfileScreen
+import com.example.splitpay.ui.theme.PositiveGreen
 import kotlinx.coroutines.delay
 
 
@@ -191,7 +192,7 @@ fun HomeScreen3(
                         // Replace Screen.CreateGroup with your new "Screen.AddExpense" route
                         mainNavController.navigate(Screen.AddExpense) // TEMPORARY: Navigate to an expense/add screen
                     },
-                    containerColor = Color(0xFF66BB6A)
+                    containerColor = PositiveGreen
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Expense")
                 }

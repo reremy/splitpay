@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.MaterialTheme
 import coil.compose.AsyncImage
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.groups.expenseCategoriesMap
@@ -120,7 +121,7 @@ fun ExpenseDetailScreen(
             text = {
                 Text(
                     "This will permanently delete this expense and create a deletion activity. This action cannot be undone.",
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -133,10 +134,10 @@ fun ExpenseDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.dismissDeleteDialog() }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }
@@ -181,7 +182,7 @@ fun ExpenseDetailContent(
         // 3. DATE (centered, gray)
         Text(
             text = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(Date(expense.date)),
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
@@ -192,7 +193,7 @@ fun ExpenseDetailContent(
         // 4. CATEGORY
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(12.dp)
         ) {
             Row(
@@ -201,7 +202,7 @@ fun ExpenseDetailContent(
             ) {
                 Text(
                     text = "Category:",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f)
                 )
@@ -232,7 +233,7 @@ fun ExpenseDetailContent(
         if (expense.groupId != null && expense.groupId != "non_group") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
@@ -241,7 +242,7 @@ fun ExpenseDetailContent(
                 ) {
                     Text(
                         text = "Group:",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         modifier = Modifier.weight(1f)
                     )
@@ -259,14 +260,14 @@ fun ExpenseDetailContent(
         // 6. SPLIT (Paid by + Participants with profile photos)
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 // Paid by section
                 Text(
                     text = "Paid by",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -299,7 +300,7 @@ fun ExpenseDetailContent(
                                 Icon(
                                     Icons.Default.AccountCircle,
                                     contentDescription = payerName,
-                                    tint = Color.Gray,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(36.dp)
                                 )
                             }
@@ -317,13 +318,13 @@ fun ExpenseDetailContent(
 
                 Divider(
                     modifier = Modifier.padding(vertical = 16.dp),
-                    color = Color(0xFF4D4D4D)
+                    color = MaterialTheme.colorScheme.outline
                 )
 
                 // Split details section
                 Text(
                     text = "Split (${expense.splitType.lowercase().replaceFirstChar { it.uppercase() }})",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -356,7 +357,7 @@ fun ExpenseDetailContent(
                                 Icon(
                                     Icons.Default.AccountCircle,
                                     contentDescription = participantName,
-                                    tint = Color.Gray,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(36.dp)
                                 )
                             }
@@ -379,13 +380,13 @@ fun ExpenseDetailContent(
             Spacer(Modifier.height(16.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Expense Image",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -408,13 +409,13 @@ fun ExpenseDetailContent(
             Spacer(Modifier.height(16.dp))
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Memo",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )

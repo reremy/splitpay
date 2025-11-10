@@ -100,10 +100,13 @@ import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.expense.AddExpenseBottomBar // Import AddExpenseBottomBar
 import com.example.splitpay.ui.groups.expenseCategories // Import expense categories
 import com.google.firebase.auth.FirebaseAuth
+import androidx.compose.material3.MaterialTheme
 import com.example.splitpay.ui.expense.AddExpenseTopBar // Import AddExpenseTopBar
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.ErrorRed
+import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
 import com.example.splitpay.ui.theme.TextPlaceholder
 import com.example.splitpay.ui.theme.TextWhite
 import java.text.SimpleDateFormat
@@ -238,7 +241,7 @@ fun AddExpenseScreen(
                     Text("OK", color = PrimaryBlue)
                 }
             },
-            containerColor = Color(0xFF2D2D2D) // Dialog background
+            containerColor = MaterialTheme.colorScheme.surface // Dialog background
         )
     }
 
@@ -259,16 +262,16 @@ fun AddExpenseScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.showDatePickerDialog(false) }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            colors = DatePickerDefaults.colors(containerColor = Color(0xFF2D2D2D)) // Dark background
+            colors = DatePickerDefaults.colors(containerColor = MaterialTheme.colorScheme.surface) // Dark background
         ) {
             DatePicker(
                 state = datePickerState,
                 // Customize colors further if needed
                 colors = DatePickerDefaults.colors(
-                    containerColor = Color(0xFF2D2D2D), // Ensure inner container is also dark
+                    containerColor = MaterialTheme.colorScheme.surface, // Ensure inner container is also dark
                     titleContentColor = TextWhite,
                     headlineContentColor = TextWhite,
                     weekdayContentColor = Color.Gray,
@@ -303,9 +306,9 @@ fun AddExpenseScreen(
                     placeholder = { Text("Enter memo details...", color = TextPlaceholder) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = TextFieldDefaults.colors( // Use colors for consistency
-                        focusedContainerColor = Color(0xFF3C3C3C),
-                        unfocusedContainerColor = Color(0xFF3C3C3C),
-                        disabledContainerColor = Color(0xFF3C3C3C),
+                        focusedContainerColor = SurfaceDark,
+                        unfocusedContainerColor = SurfaceDark,
+                        disabledContainerColor = SurfaceDark,
                         cursorColor = PrimaryBlue,
                         focusedIndicatorColor = PrimaryBlue,
                         unfocusedIndicatorColor = Color.Gray,
@@ -328,7 +331,7 @@ fun AddExpenseScreen(
             dismissButton = {
                 TextButton(onClick = { viewModel.showMemoDialog(false) }) { Text("Cancel", color = Color.Gray) }
             },
-            containerColor = Color(0xFF2D2D2D) // Dialog background
+            containerColor = MaterialTheme.colorScheme.surface // Dialog background
         )
     }
 
@@ -382,7 +385,7 @@ fun AddExpenseScreen(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.CalendarToday, contentDescription = "Date", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.CalendarToday, contentDescription = "Date", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = SimpleDateFormat("EEE, dd MMM yyyy", Locale.getDefault()).format(
@@ -390,7 +393,7 @@ fun AddExpenseScreen(
                             uiState.date
                         )
                     ), // Format the date
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     modifier = Modifier.clickable { viewModel.showDatePickerDialog(true) } // Allow clicking text too
                 )
@@ -417,11 +420,11 @@ fun AddExpenseScreen(
                 Spacer(Modifier.height(16.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(2.dp)
                 ) {
                     Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).clickable { viewModel.showMemoDialog(true) }, verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Notes, contentDescription = "Memo", tint = Color.Gray, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Notes, contentDescription = "Memo", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(
                             text = uiState.memo,
@@ -523,7 +526,7 @@ fun PaidSplitSelector(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -536,7 +539,7 @@ fun PaidSplitSelector(
             ) {
                 Text(
                     text = "Paid by ",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp
                 )
                 Text(
@@ -550,7 +553,7 @@ fun PaidSplitSelector(
                 if (uiState.paidByUsers.size > 1) {
                     Text(
                         text = " +${uiState.paidByUsers.size - 1} others",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 }
@@ -558,10 +561,10 @@ fun PaidSplitSelector(
                 Icon(
                     Icons.Default.ChevronRight,
                     contentDescription = "Change Paid By",
-                    tint = Color.Gray
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Divider(Modifier.padding(vertical = 8.dp), color = Color(0xFF454545))
+            Divider(Modifier.padding(vertical = 8.dp), color = SurfaceDark)
 
             // Split Row
             Row(
@@ -572,7 +575,7 @@ fun PaidSplitSelector(
             ) {
                 Text(
                     text = "and split ",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp
                 )
                 Text(
@@ -585,7 +588,7 @@ fun PaidSplitSelector(
                 Icon(
                     Icons.Default.ChevronRight,
                     contentDescription = "Change Split",
-                    tint = Color.Gray
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -601,7 +604,7 @@ fun AmountAndDescriptionFields(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(
@@ -625,7 +628,7 @@ fun AmountAndDescriptionFields(
                     onValueChange = onAmountChange,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = TextStyle(
-                        color = Color(0xFF66BB6A), // Green text for amount
+                        color = PositiveGreen, // Green text for amount
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.End
@@ -646,7 +649,7 @@ fun AmountAndDescriptionFields(
                     }
                 )
             }
-            Divider(Modifier.padding(vertical = 8.dp), color = Color(0xFF454545))
+            Divider(Modifier.padding(vertical = 8.dp), color = SurfaceDark)
 
             // Description Input
             TextField(
@@ -695,7 +698,7 @@ fun ParticipantsList(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -727,21 +730,21 @@ fun ParticipantsList(
                         enabled = !isDisabled,
                         colors = CheckboxDefaults.colors(
                             checkedColor = PrimaryBlue,
-                            uncheckedColor = Color.Gray,
-                            disabledCheckedColor = Color.Gray,
-                            disabledUncheckedColor = Color.DarkGray
+                            uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledCheckedColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledUncheckedColor = MaterialTheme.colorScheme.outline
                         )
                     )
                     Text(
                         text = if (isCurrentUser) "${participant.name} (you)" else participant.name,
-                        color = if (isDisabled) Color.Gray else TextWhite,
+                        color = if (isDisabled) MaterialTheme.colorScheme.onSurfaceVariant else TextWhite,
                         modifier = Modifier.weight(1f).padding(start = 8.dp)
                     )
                     Text(
                         "RM %.2f".format(participant.owesAmount),
                         color = if (participant.isChecked) {
-                            if (isDisabled) Color.DarkGray else Color.Gray
-                        } else Color.DarkGray
+                            if (isDisabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurfaceVariant
+                        } else MaterialTheme.colorScheme.outline
                     )
                 }
             }
@@ -765,7 +768,7 @@ fun GroupSelectorDialog(
         confirmButton = { },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.Gray)
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         containerColor = Color(0xFF2D2D2D),
@@ -782,10 +785,10 @@ fun GroupSelectorDialog(
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Person, contentDescription = "Non-group", tint = Color.Gray, modifier = Modifier.padding(end = 16.dp))
+                        Icon(Icons.Default.Person, contentDescription = "Non-group", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 16.dp))
                         Text("Non-group expense", color = TextWhite, modifier = Modifier.weight(1f))
                     }
-                    Divider(color = Color(0xFF454545))
+                    Divider(color = SurfaceDark)
                 }
                 items(groups) { group ->
                     Row(
@@ -798,10 +801,10 @@ fun GroupSelectorDialog(
                             .padding(vertical = 12.dp, horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Default.Group, contentDescription = "Group Icon", tint = Color.Gray, modifier = Modifier.padding(end = 16.dp))
+                        Icon(Icons.Default.Group, contentDescription = "Group Icon", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 16.dp))
                         Text(group.name, color = TextWhite, modifier = Modifier.weight(1f))
                     }
-                    Divider(color = Color(0xFF454545))
+                    Divider(color = SurfaceDark)
                 }
             }
         }
@@ -856,7 +859,7 @@ fun PayerSelectorDialog(
                         } else {
                             "Total Paid: RM %.2f".format(totalPaidInDialog)
                         },
-                        color = if (isAmountBalanced) Color(0xFF66BB6A) else ErrorRed,
+                        color = if (isAmountBalanced) PositiveGreen else ErrorRed,
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
                 }
@@ -913,9 +916,9 @@ fun PayerListItem(
                 modifier = Modifier.width(90.dp),
                 textStyle = TextStyle(textAlign = TextAlign.End, color = TextWhite, fontSize = 14.sp),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF3C3C3C),
-                    unfocusedContainerColor = Color(0xFF3C3C3C),
-                    disabledContainerColor = Color(0xFF3C3C3C),
+                    focusedContainerColor = SurfaceDark,
+                    unfocusedContainerColor = SurfaceDark,
+                    disabledContainerColor = SurfaceDark,
                     cursorColor = PrimaryBlue,
                     focusedIndicatorColor = PrimaryBlue,
                     unfocusedIndicatorColor = Color.Transparent,
@@ -998,7 +1001,7 @@ fun SplitEditorTopBar(
         title = { Text(title, color = TextWhite, fontWeight = FontWeight.Bold) },
         navigationIcon = {
             IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         actions = {
@@ -1007,7 +1010,7 @@ fun SplitEditorTopBar(
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
             ) { Text("Done") }
         },
-        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF2D2D2D))
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
     )
 }
 
@@ -1018,7 +1021,7 @@ fun SplitTypeChooser(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(10.dp)
     ) {
         Column(Modifier.padding(vertical = 4.dp)) {
@@ -1032,11 +1035,11 @@ fun SplitTypeChooser(
                 ) {
                     Text(type.label, color = TextWhite, modifier = Modifier.weight(1f))
                     if (type == currentType) {
-                        Icon(Icons.Default.Check, contentDescription = "Selected", tint = Color(0xFF66BB6A))
+                        Icon(Icons.Default.Check, contentDescription = "Selected", tint = PositiveGreen)
                     }
                 }
                 if (type != SplitType.entries.last()) {
-                    Divider(color = Color(0xFF454545), modifier = Modifier.padding(horizontal = 16.dp))
+                    Divider(color = SurfaceDark, modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
         }
@@ -1064,7 +1067,7 @@ fun SplitParticipantsList(
         items(participants, key = { it.uid }) { participant ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Row(
@@ -1102,11 +1105,11 @@ fun SplitParticipantsList(
                                 errorTextColor = ErrorRed
                             ),
                             shape = RoundedCornerShape(8.dp),
-                            prefix = if (unitLabel == null && splitType != SplitType.SHARES && splitType != SplitType.PERCENTAGES) { { Text("RM", color = Color.Gray, fontSize = 14.sp) } } else null,
-                            suffix = if (unitLabel != null) { { Text(unitLabel, color = Color.Gray, fontSize = 14.sp) } } else null,
+                            prefix = if (unitLabel == null && splitType != SplitType.SHARES && splitType != SplitType.PERCENTAGES) { { Text("RM", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) } } else null,
+                            suffix = if (unitLabel != null) { { Text(unitLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp) } } else null,
                         )
                     } else {
-                        Text("RM %.2f".format(participant.owesAmount), color = Color.Gray, fontSize = 14.sp)
+                        Text("RM %.2f".format(participant.owesAmount), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                     }
                 }
             }
@@ -1132,20 +1135,20 @@ fun SplitSummary(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(10.dp)
     ) {
         Column(Modifier.padding(16.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Total Expense:", color = Color.Gray)
+                Text("Total Expense:", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("RM %.2f".format(totalAmount), color = TextWhite, fontWeight = FontWeight.SemiBold)
             }
             Spacer(Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Total Allocated:", color = Color.Gray)
+                Text("Total Allocated:", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(
                     "RM %.2f".format(totalOwed),
-                    color = if (isBalanced) Color(0xFF66BB6A) else ErrorRed,
+                    color = if (isBalanced) PositiveGreen else ErrorRed,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -1163,7 +1166,7 @@ fun SplitSummary(
                 Spacer(Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     val label = if (splitType == SplitType.PERCENTAGES) "Total %:" else "Total Shares:"
-                    Text(label, color = Color.Gray)
+                    Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
                         if (splitType == SplitType.PERCENTAGES) "%.2f %%".format(totalInputValue) else "%.2f".format(totalInputValue),
                         color = if (splitType == SplitType.PERCENTAGES && !isPercentCorrect) ErrorRed else TextWhite,
@@ -1186,7 +1189,7 @@ fun ExpenseImagePreview(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -1197,7 +1200,7 @@ fun ExpenseImagePreview(
             ) {
                 Text(
                     text = "Expense Image",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -1232,7 +1235,7 @@ fun ExpenseImagePreview(
                     .height(200.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onReplaceClick)
-                    .background(Color(0xFF3C3C3C)),
+                    .background(SurfaceDark),
                 contentAlignment = Alignment.Center
             ) {
                 when {
@@ -1265,7 +1268,7 @@ fun ExpenseImagePreview(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = "Tap image to replace",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
@@ -1302,7 +1305,7 @@ fun CategorySelectorDialog(
                         Icon(
                             imageVector = icon,
                             contentDescription = categoryId,
-                            tint = if (categoryId == currentCategory) PrimaryBlue else Color.Gray,
+                            tint = if (categoryId == currentCategory) PrimaryBlue else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(Modifier.width(16.dp))

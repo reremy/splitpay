@@ -33,6 +33,7 @@ import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.UserRepository
+import com.example.splitpay.ui.theme.CardBackground
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.NegativeRed
 import com.example.splitpay.ui.theme.PositiveGreen
@@ -282,7 +283,7 @@ fun ActivityDetailContent(
 fun ActivityMetadataSection(activity: Activity, actorUser: User?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -306,7 +307,7 @@ fun ActivityMetadataSection(activity: Activity, actorUser: User?) {
                     )
                     Text(
                         text = "by ${actorUser?.fullName ?: activity.actorName}",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 }
@@ -317,7 +318,7 @@ fun ActivityMetadataSection(activity: Activity, actorUser: User?) {
             // Timestamp
             Text(
                 text = formatTimestamp(activity.timestamp),
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp
             )
 
@@ -326,7 +327,7 @@ fun ActivityMetadataSection(activity: Activity, actorUser: User?) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Group: ${activity.groupName}",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -344,7 +345,7 @@ fun ExpenseDetailSection(
     // Description and Amount
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -369,7 +370,7 @@ fun ExpenseDetailSection(
     // Who Paid Section
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -389,7 +390,7 @@ fun ExpenseDetailSection(
                 ) {
                     Text(
                         text = payers[payer.uid]?.fullName ?: "Unknown",
-                        color = Color.LightGray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = "MYR %.2f".format(payer.paidAmount),
@@ -406,7 +407,7 @@ fun ExpenseDetailSection(
     // Split Details Section
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -427,7 +428,7 @@ fun ExpenseDetailSection(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = participants[participant.uid]?.fullName ?: "Unknown",
-                            color = if (participant.uid == currentUserId) PrimaryBlue else Color.LightGray,
+                            color = if (participant.uid == currentUserId) PrimaryBlue else MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = if (participant.uid == currentUserId) FontWeight.Bold else FontWeight.Normal
                         )
                     }
@@ -439,7 +440,7 @@ fun ExpenseDetailSection(
                 }
                 HorizontalDivider(
                     modifier = Modifier.padding(vertical = 4.dp),
-                    color = Color.DarkGray
+                    color = MaterialTheme.colorScheme.outline
                 )
             }
         }
@@ -450,7 +451,7 @@ fun ExpenseDetailSection(
         Spacer(modifier = Modifier.height(16.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+            colors = CardDefaults.cardColors(containerColor = CardBackground),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -463,7 +464,7 @@ fun ExpenseDetailSection(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = expense.memo,
-                    color = Color.LightGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -474,7 +475,7 @@ fun ExpenseDetailSection(
 fun PaymentDetailSection(activity: Activity) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -497,7 +498,7 @@ fun PaymentDetailSection(activity: Activity) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = activity.displayText,
-                    color = Color.LightGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -508,7 +509,7 @@ fun PaymentDetailSection(activity: Activity) {
 fun MemberActivityDetailSection(activity: Activity) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -522,7 +523,7 @@ fun MemberActivityDetailSection(activity: Activity) {
             if (activity.displayText != null) {
                 Text(
                     text = "Member: ${activity.displayText}",
-                    color = Color.LightGray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp
                 )
             }
@@ -534,7 +535,7 @@ fun MemberActivityDetailSection(activity: Activity) {
 fun GroupActivityDetailSection(activity: Activity) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -548,7 +549,7 @@ fun GroupActivityDetailSection(activity: Activity) {
             if (activity.groupName != null) {
                 Text(
                     text = "Group: ${activity.groupName}",
-                    color = Color.LightGray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp
                 )
             }
@@ -560,7 +561,7 @@ fun GroupActivityDetailSection(activity: Activity) {
 fun GenericActivityDetailSection(activity: Activity) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2A2A2A)),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -574,7 +575,7 @@ fun GenericActivityDetailSection(activity: Activity) {
             if (activity.displayText != null) {
                 Text(
                     text = activity.displayText,
-                    color = Color.LightGray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
