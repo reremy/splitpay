@@ -118,11 +118,24 @@ class RecordPaymentViewModel(
                 // Fetch profiles and group details concurrently
                 val payerDeferred = async { userRepository.getUserProfile(payerUidActual) }
                 val receiverDeferred = async { userRepository.getUserProfile(receiverUidActual) }
-                val groupDeferred = async { groupsRepository.getGroupFlow(groupId).firstOrNull() } // <-- FETCH GROUP
+
+                // Handle non-group as special case
+                val groupDeferred = async {
+                    if (groupId == "non_group") {
+                        Group(
+                            id = "non_group",
+                            name = "Non-group expenses",
+                            members = listOf(currentUserId ?: "", memberUid ?: ""),
+                            iconIdentifier = "info"
+                        )
+                    } else {
+                        groupsRepository.getGroupFlow(groupId).firstOrNull()
+                    }
+                }
 
                 val payer = payerDeferred.await()
                 val receiver = receiverDeferred.await()
-                val group = groupDeferred.await() // <-- AWAIT GROUP
+                val group = groupDeferred.await()
 
                 if (payer == null || receiver == null || group == null) {
                     throw Exception("Could not load user or group profiles.")
@@ -154,7 +167,20 @@ class RecordPaymentViewModel(
                 // Fetch profiles and group details concurrently
                 val payerDeferred = async { userRepository.getUserProfile(customPayerUid) }
                 val receiverDeferred = async { userRepository.getUserProfile(customRecipientUid) }
-                val groupDeferred = async { groupsRepository.getGroupFlow(groupId).firstOrNull() }
+
+                // Handle non-group as special case
+                val groupDeferred = async {
+                    if (groupId == "non_group") {
+                        Group(
+                            id = "non_group",
+                            name = "Non-group expenses",
+                            members = listOf(customPayerUid, customRecipientUid),
+                            iconIdentifier = "info"
+                        )
+                    } else {
+                        groupsRepository.getGroupFlow(groupId).firstOrNull()
+                    }
+                }
 
                 val payer = payerDeferred.await()
                 val receiver = receiverDeferred.await()
@@ -389,7 +415,20 @@ class RecordPaymentViewModel(
                 // Fetch profiles and group
                 val payerDeferred = async { userRepository.getUserProfile(payerUid) }
                 val receiverDeferred = async { userRepository.getUserProfile(recipientUid) }
-                val groupDeferred = async { payment.groupId?.let { groupsRepository.getGroupFlow(it).firstOrNull() } }
+                val groupDeferred = async {
+                    payment.groupId?.let { gId ->
+                        if (gId == "non_group") {
+                            Group(
+                                id = "non_group",
+                                name = "Non-group expenses",
+                                members = listOf(payerUid, recipientUid),
+                                iconIdentifier = "info"
+                            )
+                        } else {
+                            groupsRepository.getGroupFlow(gId).firstOrNull()
+                        }
+                    }
+                }
 
                 val payer = payerDeferred.await()
                 val receiver = receiverDeferred.await()
