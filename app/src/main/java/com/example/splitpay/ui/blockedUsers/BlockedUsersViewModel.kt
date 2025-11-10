@@ -35,12 +35,23 @@ class BlockedUsersViewModel(
             _uiState.update { it.copy(isLoading = true, error = null) }
 
             try {
-                val currentUser = userRepository.getCurrentUserProfile()
-                if (currentUser == null) {
+                val currentUserUid = userRepository.getCurrentUser()?.uid
+                if (currentUserUid == null) {
                     _uiState.update {
                         it.copy(
                             isLoading = false,
                             error = "User not logged in."
+                        )
+                    }
+                    return@launch
+                }
+
+                val currentUser = userRepository.getUserProfile(currentUserUid)
+                if (currentUser == null) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "User profile not found."
                         )
                     }
                     return@launch

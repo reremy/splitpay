@@ -144,22 +144,18 @@ class FriendSettingsViewModel(
                 }
 
                 // 2. Check if there are any non-group expenses with balance
-                val nonGroupExpenses = expenseRepository.getNonGroupExpenses(currentUserId!!).getOrNull() ?: emptyList()
+                val nonGroupExpenses = expenseRepository.getNonGroupExpensesBetweenUsers(currentUserId!!, friendId)
 
                 // Calculate balance between current user and friend in non-group expenses
                 var balance = 0.0
                 for (expense in nonGroupExpenses) {
-                    // Check if both users are involved in this expense
                     val currentUserPaidAmount = expense.paidBy.find { it.uid == currentUserId }?.paidAmount ?: 0.0
                     val friendPaidAmount = expense.paidBy.find { it.uid == friendId }?.paidAmount ?: 0.0
                     val currentUserOwes = expense.participants.find { it.uid == currentUserId }?.owesAmount ?: 0.0
                     val friendOwes = expense.participants.find { it.uid == friendId }?.owesAmount ?: 0.0
 
-                    // Only consider expenses where both users are involved (either as payer or participant)
-                    if ((currentUserPaidAmount > 0 || currentUserOwes > 0) && (friendPaidAmount > 0 || friendOwes > 0)) {
-                        // Calculate net balance for this expense
-                        balance += (currentUserPaidAmount - currentUserOwes) - (friendPaidAmount - friendOwes)
-                    }
+                    // Calculate net balance for this expense
+                    balance += (currentUserPaidAmount - currentUserOwes) - (friendPaidAmount - friendOwes)
                 }
 
                 if (kotlin.math.abs(balance) > 0.01) {

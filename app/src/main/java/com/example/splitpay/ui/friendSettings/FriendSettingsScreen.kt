@@ -155,11 +155,11 @@ fun FriendSettingsScreen(
         }
 
         // Removal Error Dialog
-        if (uiState.removalError != null) {
+        uiState.removalError?.let { errorMessage ->
             AlertDialog(
                 onDismissRequest = viewModel::clearRemovalError,
                 title = { Text("Cannot Remove Friend", color = TextWhite) },
-                text = { Text(uiState.removalError, color = Color.Gray) },
+                text = { Text(errorMessage, color = Color.Gray) },
                 confirmButton = {
                     TextButton(onClick = viewModel::clearRemovalError) {
                         Text("OK", color = PrimaryBlue)
