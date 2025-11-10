@@ -40,73 +40,35 @@ fun FriendsScreenContent(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // --- Use a Box to allow anchoring the DropdownMenu ---
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(DarkBackground) // Use your theme background
-        ) {
-            // Overall Balance Header
-            OverallBalanceHeader(
-                totalBalance = uiState.totalNetBalance
-            )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DarkBackground)
+    ) {
+        // Overall Balance Header
+        OverallBalanceHeader(
+            totalBalance = uiState.totalNetBalance
+        )
 
-            // Friends List - LazyColumn with contentPadding to prevent bottom nav from covering items
-            when {
-                // ... (Loading, Empty states) ...
-                else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        // Add content padding to ensure last items are visible above bottom nav
-                        contentPadding = PaddingValues(bottom = 16.dp)
-                    ) {
-                        items(uiState.filteredAndSearchedFriends, key = { it.uid }) { friend ->
-                            FriendListItem(
-                                friend = friend,
-                                onFriendClick = { onFriendClick(friend.uid) }
-                            )
-                        }
+        // Friends List - LazyColumn with contentPadding to prevent bottom nav from covering items
+        when {
+            // ... (Loading, Empty states) ...
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    // Add content padding to ensure last items are visible above bottom nav
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    items(uiState.filteredAndSearchedFriends, key = { it.uid }) { friend ->
+                        FriendListItem(
+                            friend = friend,
+                            onFriendClick = { onFriendClick(friend.uid) }
+                        )
                     }
                 }
             }
         }
-
-        // --- DropdownMenu positioned at top-right, below the app bar ---
-        DropdownMenu(
-            expanded = uiState.isFilterMenuExpanded,
-            onDismissRequest = viewModel::onDismissFilterMenu,
-            modifier = Modifier
-                .background(DialogBackground)
-                .align(Alignment.TopEnd)
-                .padding(top = 8.dp, end = 8.dp)
-        ) {
-            val filterOptions = mapOf(
-                FriendFilterType.ALL to "All friends",
-                FriendFilterType.OUTSTANDING to "Outstanding balances",
-                FriendFilterType.OWES_YOU to "Friends who owe you",
-                FriendFilterType.YOU_OWE to "Friends you owe"
-            )
-
-            filterOptions.forEach { (type, text) ->
-                DropdownMenuItem(
-                    text = { Text(text, color = TextWhite) },
-                    onClick = { viewModel.applyFilter(type) },
-                    leadingIcon = {
-                        RadioButton(
-                            selected = (type == uiState.currentFilter),
-                            onClick = { viewModel.applyFilter(type) },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = PrimaryBlue,
-                                unselectedColor = Color.Gray
-                            )
-                        )
-                    },
-                    contentPadding = PaddingValues(horizontal = 12.dp)
-                )
-            }
-        } // End DropdownMenu
-    } // End of outer Box
+    }
 }
 
 

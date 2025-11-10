@@ -139,9 +139,13 @@ fun HomeScreen3(
                             onNavigateToCreateGroup = { mainNavController.navigate(Screen.CreateGroup) }
                         )
                         "friends_screen" -> FriendsTopBarActions(
-                            onSearchClick = friendsViewModel::onSearchIconClick, // To activate search
+                            onSearchClick = friendsViewModel::onSearchIconClick,
                             onAddFriendClick = { mainNavController.navigate(Screen.AddFriend) },
-                            onFilterClick = friendsViewModel::onFilterIconClick
+                            onFilterClick = friendsViewModel::onFilterIconClick,
+                            isFilterMenuExpanded = friendsUiState.isFilterMenuExpanded,
+                            currentFilter = friendsUiState.currentFilter,
+                            onDismissFilterMenu = friendsViewModel::onDismissFilterMenu,
+                            onApplyFilter = friendsViewModel::applyFilter
                         )
                         "activity_screen" -> ActivityTopBarActions()
                         "profile_screen" -> ProfileTopBarActions(
