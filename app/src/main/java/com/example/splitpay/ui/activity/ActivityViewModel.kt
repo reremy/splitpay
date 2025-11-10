@@ -3,21 +3,52 @@ package com.example.splitpay.ui.activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.Activity
+import com.example.splitpay.data.model.ActivityType
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logE
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+
+// Filter types
+enum class ActivityFilterType {
+    ALL,
+    EXPENSES,
+    PAYMENTS,
+    GROUP_ACTIVITIES
+}
+
+enum class TimePeriodFilter {
+    ALL_TIME,
+    TODAY,
+    THIS_WEEK,
+    THIS_MONTH
+}
+
+enum class SortOrder {
+    NEWEST_FIRST,
+    OLDEST_FIRST
+}
 
 // UI State for the Activity Screen
 data class ActivityUiState(
     val isLoading: Boolean = true,
-    val activities: List<Activity> = emptyList(),
-    val error: String? = null
+    val allActivities: List<Activity> = emptyList(),
+    val filteredActivities: List<Activity> = emptyList(),
+    val error: String? = null,
+    val searchQuery: String = "",
+    val isSearchActive: Boolean = false,
+    val activityFilter: ActivityFilterType = ActivityFilterType.ALL,
+    val timePeriodFilter: TimePeriodFilter = TimePeriodFilter.ALL_TIME,
+    val sortOrder: SortOrder = SortOrder.NEWEST_FIRST,
+    val isFilterMenuExpanded: Boolean = false
 )
 
 class ActivityViewModel(
@@ -27,31 +58,152 @@ class ActivityViewModel(
 
     private val currentUserId: String? = userRepository.getCurrentUser()?.uid
 
+    // Internal state for filters
+    private val _searchQuery = MutableStateFlow("")
+    private val _activityFilter = MutableStateFlow(ActivityFilterType.ALL)
+    private val _timePeriodFilter = MutableStateFlow(TimePeriodFilter.ALL_TIME)
+    private val _sortOrder = MutableStateFlow(SortOrder.NEWEST_FIRST)
+    private val _isSearchActive = MutableStateFlow(false)
+    private val _isFilterMenuExpanded = MutableStateFlow(false)
+
     // This StateFlow will hold the UI state and automatically update
     val uiState: StateFlow<ActivityUiState> =
-        activityRepository.getActivityFeedFlow(currentUserId ?: "")
-            .map { activities ->
-                val sortedActivities = activities.sortedByDescending { it.timestamp }
-                // Data has loaded, map it to the success state
+        combine(
+            activityRepository.getActivityFeedFlow(currentUserId ?: ""),
+            _searchQuery,
+            _activityFilter,
+            _timePeriodFilter,
+            _sortOrder,
+            _isSearchActive,
+            _isFilterMenuExpanded
+        ) { activities, searchQuery, activityFilter, timePeriodFilter, sortOrder, isSearchActive, isFilterMenuExpanded ->
+
+            // Apply filters and search
+            val filtered = activities
+                .let { applyActivityTypeFilter(it, activityFilter) }
+                .let { applyTimePeriodFilter(it, timePeriodFilter) }
+                .let { applySearchFilter(it, searchQuery) }
+                .let { applySorting(it, sortOrder) }
+
+            ActivityUiState(
+                isLoading = false,
+                allActivities = activities,
+                filteredActivities = filtered,
+                error = null,
+                searchQuery = searchQuery,
+                isSearchActive = isSearchActive,
+                activityFilter = activityFilter,
+                timePeriodFilter = timePeriodFilter,
+                sortOrder = sortOrder,
+                isFilterMenuExpanded = isFilterMenuExpanded
+            )
+        }
+        .catch { e ->
+            logE("Error collecting activity feed: ${e.message}")
+            emit(
                 ActivityUiState(
                     isLoading = false,
-                    activities = sortedActivities,
-                    error = null
+                    error = "Failed to load activity feed."
                 )
-            }
-            .catch { e ->
-                // An error occurred in the flow
-                logE("Error collecting activity feed: ${e.message}")
-                emit(
-                    ActivityUiState(
-                        isLoading = false,
-                        error = "Failed to load activity feed."
-                    )
-                )
-            }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5000),
-                initialValue = ActivityUiState(isLoading = true) // Initial state is loading
             )
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ActivityUiState(isLoading = true)
+        )
+
+    // Search functions
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun onSearchIconClick() {
+        _isSearchActive.value = !_isSearchActive.value
+        if (!_isSearchActive.value) {
+            _searchQuery.value = ""
+        }
+    }
+
+    fun onSearchDismiss() {
+        _isSearchActive.value = false
+        _searchQuery.value = ""
+    }
+
+    // Filter functions
+    fun onFilterIconClick() {
+        _isFilterMenuExpanded.value = !_isFilterMenuExpanded.value
+    }
+
+    fun onDismissFilterMenu() {
+        _isFilterMenuExpanded.value = false
+    }
+
+    fun onActivityFilterChange(filter: ActivityFilterType) {
+        _activityFilter.value = filter
+    }
+
+    fun onTimePeriodFilterChange(filter: TimePeriodFilter) {
+        _timePeriodFilter.value = filter
+    }
+
+    fun onSortOrderChange(order: SortOrder) {
+        _sortOrder.value = order
+    }
+
+    // Helper functions for filtering
+    private fun applyActivityTypeFilter(activities: List<Activity>, filter: ActivityFilterType): List<Activity> {
+        return when (filter) {
+            ActivityFilterType.ALL -> activities
+            ActivityFilterType.EXPENSES -> activities.filter {
+                val type = try { ActivityType.valueOf(it.activityType) } catch (e: Exception) { null }
+                type == ActivityType.EXPENSE_ADDED || type == ActivityType.EXPENSE_UPDATED || type == ActivityType.EXPENSE_DELETED
+            }
+            ActivityFilterType.PAYMENTS -> activities.filter {
+                val type = try { ActivityType.valueOf(it.activityType) } catch (e: Exception) { null }
+                type == ActivityType.PAYMENT_MADE || type == ActivityType.PAYMENT_UPDATED || type == ActivityType.PAYMENT_DELETED
+            }
+            ActivityFilterType.GROUP_ACTIVITIES -> activities.filter {
+                val type = try { ActivityType.valueOf(it.activityType) } catch (e: Exception) { null }
+                type == ActivityType.GROUP_CREATED || type == ActivityType.GROUP_DELETED ||
+                type == ActivityType.MEMBER_ADDED || type == ActivityType.MEMBER_REMOVED
+            }
+        }
+    }
+
+    private fun applyTimePeriodFilter(activities: List<Activity>, filter: TimePeriodFilter): List<Activity> {
+        val now = System.currentTimeMillis()
+        return when (filter) {
+            TimePeriodFilter.ALL_TIME -> activities
+            TimePeriodFilter.TODAY -> {
+                val startOfDay = now - (now % 86400000) // Milliseconds in a day
+                activities.filter { it.timestamp >= startOfDay }
+            }
+            TimePeriodFilter.THIS_WEEK -> {
+                val weekAgo = now - (7 * 86400000)
+                activities.filter { it.timestamp >= weekAgo }
+            }
+            TimePeriodFilter.THIS_MONTH -> {
+                val monthAgo = now - (30L * 86400000)
+                activities.filter { it.timestamp >= monthAgo }
+            }
+        }
+    }
+
+    private fun applySearchFilter(activities: List<Activity>, query: String): List<Activity> {
+        if (query.isBlank()) return activities
+        val lowerQuery = query.lowercase()
+        return activities.filter { activity ->
+            activity.displayText?.lowercase()?.contains(lowerQuery) == true ||
+            activity.actorName.lowercase().contains(lowerQuery) ||
+            activity.groupName?.lowercase()?.contains(lowerQuery) == true
+        }
+    }
+
+    private fun applySorting(activities: List<Activity>, order: SortOrder): List<Activity> {
+        return when (order) {
+            SortOrder.NEWEST_FIRST -> activities.sortedByDescending { it.timestamp }
+            SortOrder.OLDEST_FIRST -> activities.sortedBy { it.timestamp }
+        }
+    }
 }

@@ -7,6 +7,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Group
@@ -14,9 +18,7 @@ import androidx.compose.material.icons.filled.Payment
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,11 +41,14 @@ import com.example.splitpay.data.model.ActivityType
 import androidx.navigation.NavHostController
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.theme.DarkBackground
+import com.example.splitpay.ui.theme.DialogBackground
 import com.example.splitpay.ui.theme.NegativeRed
 import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
 import com.example.splitpay.ui.theme.TextWhite
 import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -53,6 +58,7 @@ import kotlin.math.absoluteValue
  * The main composable for the Activity screen.
  * This is what will be called by the NavHost in HomeScreen.
  */
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun ActivityScreen(
     innerPadding: PaddingValues,
@@ -62,12 +68,28 @@ fun ActivityScreen(
     val uiState by viewModel.uiState.collectAsState()
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
+    // Pull-to-refresh state
+    var isRefreshing by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = {
+            coroutineScope.launch {
+                isRefreshing = true
+                // Simulate refresh - the Flow will automatically update
+                delay(1000)
+                isRefreshing = false
+            }
+        }
+    )
+
     when {
-        uiState.isLoading -> {
+        uiState.isLoading && !isRefreshing -> {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(innerPadding) // This is fine for centered content
+                    .padding(innerPadding)
                     .background(DarkBackground),
                 contentAlignment = Alignment.Center
             ) {
@@ -78,84 +100,181 @@ fun ActivityScreen(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(innerPadding) // This is fine for centered content
+                    .padding(innerPadding)
                     .background(DarkBackground),
                 contentAlignment = Alignment.Center
             ) {
                 Text("Error: ${uiState.error}", color = NegativeRed)
             }
         }
-        uiState.activities.isEmpty() -> {
+        uiState.filteredActivities.isEmpty() -> {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(innerPadding) // This is fine for centered content
-                    .background(DarkBackground),
+                    .padding(innerPadding)
+                    .background(DarkBackground)
+                    .pullRefresh(pullRefreshState),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No recent activity found.", color = Color.Gray)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = if (uiState.searchQuery.isNotBlank() ||
+                                   uiState.activityFilter != ActivityFilterType.ALL ||
+                                   uiState.timePeriodFilter != TimePeriodFilter.ALL_TIME) {
+                            "No activities match your filters"
+                        } else {
+                            "No recent activity found."
+                        },
+                        color = Color.Gray,
+                        fontSize = 16.sp
+                    )
+                }
+                PullRefreshIndicator(
+                    refreshing = isRefreshing,
+                    state = pullRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    backgroundColor = DialogBackground,
+                    contentColor = PrimaryBlue
+                )
             }
         }
         else -> {
-            // --- START OF FIX ---
-            LazyColumn(
+            Box(
                 modifier = Modifier
-                    .fillMaxSize() // Fill the whole space
-                    .background(DarkBackground),
-                // Apply padding to the *content* inside the list, not the list itself
-//                contentPadding = PaddingValues(
-//                    start = innerPadding.calculateStartPadding(LayoutDirection.Ltr),
-//                    end = innerPadding.calculateEndPadding(LayoutDirection.Ltr),
-//                    top = innerPadding.calculateTopPadding(),
-//                    bottom = innerPadding.calculateBottomPadding()
-//                )
+                    .fillMaxSize()
+                    .background(DarkBackground)
+                    .pullRefresh(pullRefreshState)
             ) {
-                // --- END OF FIX ---
-                items(uiState.activities, key = { it.id }) { activity ->
-                    ActivityCard(
-                        activity = activity,
-                        currentUserId = currentUserId ?: "",
-                        onClick = {
-                            // Navigate to ExpenseDetail for expense-related activities
-                            val activityType = try {
-                                ActivityType.valueOf(activity.activityType)
-                            } catch (e: Exception) {
-                                null
-                            }
-
-                            when (activityType) {
-                                ActivityType.EXPENSE_ADDED -> {
-                                    // Navigate to Expense Detail using entityId
-                                    if (activity.entityId != null) {
-                                        navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
-                                    }
-                                }
-                                ActivityType.EXPENSE_UPDATED,
-                                ActivityType.EXPENSE_DELETED -> {
-                                    // Edit and delete activities do nothing when clicked
-                                    // User requested: "for editing and deleting expense activities, clicking on the activity in the activity page won't do anything"
-                                }
-                                ActivityType.PAYMENT_MADE,
-                                ActivityType.PAYMENT_UPDATED -> {
-                                    // Navigate to Payment Detail using entityId
-                                    if (activity.entityId != null) {
-                                        navController.navigate("${Screen.PaymentDetail}/${activity.entityId}")
-                                    }
-                                }
-                                ActivityType.PAYMENT_DELETED -> {
-                                    // Deleted payment activities do nothing when clicked
-                                }
-                                else -> {
-                                    // For other activity types, navigate to generic activity detail
-                                    navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
-                                }
-                            }
-                        }
-                    )
+                // Group activities by date
+                val groupedActivities = remember(uiState.filteredActivities) {
+                    groupActivitiesByDate(uiState.filteredActivities)
                 }
+
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        top = innerPadding.calculateTopPadding(),
+                        bottom = innerPadding.calculateBottomPadding() + 16.dp
+                    )
+                ) {
+                    groupedActivities.forEach { (dateHeader, activities) ->
+                        // Date header
+                        item(key = "header_$dateHeader") {
+                            DateHeader(dateHeader = dateHeader)
+                        }
+
+                        // Activities for this date
+                        items(activities, key = { it.id }) { activity ->
+                            ActivityCard(
+                                activity = activity,
+                                currentUserId = currentUserId ?: "",
+                                onClick = {
+                                    val activityType = try {
+                                        ActivityType.valueOf(activity.activityType)
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+
+                                    when (activityType) {
+                                        ActivityType.EXPENSE_ADDED -> {
+                                            if (activity.entityId != null) {
+                                                navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
+                                            }
+                                        }
+                                        ActivityType.EXPENSE_UPDATED,
+                                        ActivityType.EXPENSE_DELETED -> {
+                                            // Do nothing
+                                        }
+                                        ActivityType.PAYMENT_MADE,
+                                        ActivityType.PAYMENT_UPDATED -> {
+                                            if (activity.entityId != null) {
+                                                navController.navigate("${Screen.PaymentDetail}/${activity.entityId}")
+                                            }
+                                        }
+                                        ActivityType.PAYMENT_DELETED -> {
+                                            // Do nothing
+                                        }
+                                        else -> {
+                                            navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Pull-to-refresh indicator
+                PullRefreshIndicator(
+                    refreshing = isRefreshing,
+                    state = pullRefreshState,
+                    modifier = Modifier.align(Alignment.TopCenter),
+                    backgroundColor = DialogBackground,
+                    contentColor = PrimaryBlue
+                )
             }
         }
     }
+}
+
+/**
+ * Groups activities by date (Today, Yesterday, or formatted date)
+ */
+private fun groupActivitiesByDate(activities: List<Activity>): List<Pair<String, List<Activity>>> {
+    val groups = mutableMapOf<String, MutableList<Activity>>()
+
+    activities.forEach { activity ->
+        val dateHeader = getDateHeader(activity.timestamp)
+        groups.getOrPut(dateHeader) { mutableListOf() }.add(activity)
+    }
+
+    // Return in chronological order (most recent first)
+    return groups.entries
+        .sortedByDescending { it.value.firstOrNull()?.timestamp ?: 0L }
+        .map { it.key to it.value }
+}
+
+/**
+ * Returns date header string (Today, Yesterday, or formatted date)
+ */
+private fun getDateHeader(timestamp: Long): String {
+    val now = Calendar.getInstance()
+    val time = Calendar.getInstance()
+    time.timeInMillis = timestamp
+
+    val dateSdf = SimpleDateFormat("d MMMM yyyy", java.util.Locale.getDefault())
+
+    // Check if it's today
+    if (now.get(Calendar.YEAR) == time.get(Calendar.YEAR) &&
+        now.get(Calendar.DAY_OF_YEAR) == time.get(Calendar.DAY_OF_YEAR)) {
+        return "Today"
+    }
+
+    // Check if it was yesterday
+    now.add(Calendar.DAY_OF_YEAR, -1)
+    if (now.get(Calendar.YEAR) == time.get(Calendar.YEAR) &&
+        now.get(Calendar.DAY_OF_YEAR) == time.get(Calendar.DAY_OF_YEAR)) {
+        return "Yesterday"
+    }
+
+    // Older than yesterday
+    return dateSdf.format(Date(timestamp))
+}
+
+/**
+ * Date header composable
+ */
+@Composable
+fun DateHeader(dateHeader: String) {
+    Text(
+        text = dateHeader,
+        color = Color.Gray,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    )
 }
 
 /**
@@ -167,57 +286,74 @@ fun ActivityCard(
     currentUserId: String,
     onClick: () -> Unit = {}
 ) {
-    Row(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            // Add horizontal padding to the card's content
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.Top
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = DialogBackground
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        )
     ) {
-        // 1. Icon
-        Box(
+        Row(
             modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(Color(0xFF3C3C3C)), // Icon background
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.Top
         ) {
-            Icon(
-                imageVector = getActivityIcon(activity.activityType),
-                contentDescription = "Activity Icon",
-                tint = TextWhite,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        Spacer(Modifier.width(12.dp))
+            // 1. Icon
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(PrimaryBlue.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = getActivityIcon(activity.activityType),
+                    contentDescription = "Activity Icon",
+                    tint = PrimaryBlue,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(Modifier.width(16.dp))
 
-        // 2. Text Content
-        Column {
-            // Main Text (e.g., "You added 'twst'")
-            Text(
-                text = formatDisplayText(activity, currentUserId),
-                color = TextWhite,
-                fontSize = 15.sp,
-                lineHeight = 20.sp
-            )
+            // 2. Text Content
+            Column(modifier = Modifier.weight(1f)) {
+                // Main Text (e.g., "You added 'twst'")
+                Text(
+                    text = formatDisplayText(activity, currentUserId),
+                    color = TextWhite,
+                    fontSize = 15.sp,
+                    lineHeight = 20.sp
+                )
 
-            // Financial Summary (e.g., "You owe MYR333.33")
-            Text(
-                text = formatFinancialSummary(activity, currentUserId),
-                color = getFinancialSummaryColor(activity, currentUserId),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold
-            )
+                Spacer(Modifier.height(4.dp))
 
-            // Timestamp (e.g., "Today, 12:20")
-            Text(
-                text = formatTimestamp(activity.timestamp),
-                color = Color.Gray,
-                fontSize = 12.sp,
-                modifier = Modifier.padding(top = 4.dp)
-            )
+                // Financial Summary (e.g., "You owe MYR333.33")
+                val financialSummary = formatFinancialSummary(activity, currentUserId)
+                if (financialSummary.text.isNotEmpty()) {
+                    Text(
+                        text = financialSummary,
+                        color = getFinancialSummaryColor(activity, currentUserId),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+                // Timestamp (e.g., "12:20")
+                Text(
+                    text = formatTimestampShort(activity.timestamp),
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
         }
     }
 }
@@ -501,4 +637,12 @@ private fun formatTimestamp(timestamp: Long): String {
 
     // Older than yesterday
     return otherSdf.format(Date(timestamp))
+}
+
+/**
+ * Formats timestamp to show just the time (used with date headers)
+ */
+private fun formatTimestampShort(timestamp: Long): String {
+    val timeSdf = SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+    return timeSdf.format(Date(timestamp))
 }

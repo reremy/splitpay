@@ -38,7 +38,8 @@ import com.example.splitpay.ui.activity.ActivityScreen
 import com.example.splitpay.ui.friends.FriendsScreenContent
 import com.example.splitpay.ui.friends.FriendsTopBarActions
 import com.example.splitpay.ui.friends.FriendsViewModel
-import com.example.splitpay.ui.groups.ActivityTopBarActions
+import com.example.splitpay.ui.activity.ActivityTopBarActions
+import com.example.splitpay.ui.activity.ActivityViewModel
 import com.example.splitpay.ui.groups.GroupsContent
 import com.example.splitpay.ui.groups.GroupsTopBarActions
 import com.example.splitpay.ui.groups.GroupsUiEvent
@@ -70,13 +71,16 @@ fun HomeScreen3(
     val groupsViewModel: GroupsViewModel = viewModel()
     val groupsUiState by groupsViewModel.uiState.collectAsState()
 
+    val activityViewModel: ActivityViewModel = viewModel()
+    val activityUiState by activityViewModel.uiState.collectAsState()
+
     // --- Focus Requester for Search Field ---
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Request focus and show keyboard when search becomes active (for friends or groups)
-    LaunchedEffect(friendsUiState.isSearchActive, groupsUiState.isSearchActive) {
-        if (friendsUiState.isSearchActive || groupsUiState.isSearchActive) {
+    // Request focus and show keyboard when search becomes active (for friends, groups, or activity)
+    LaunchedEffect(friendsUiState.isSearchActive, groupsUiState.isSearchActive, activityUiState.isSearchActive) {
+        if (friendsUiState.isSearchActive || groupsUiState.isSearchActive || activityUiState.isSearchActive) {
             // Slight delay might be needed for UI to recompose before requesting focus
             delay(100)
             try {
@@ -98,31 +102,37 @@ fun HomeScreen3(
             // --- Use SINGLE AppTopBar, pass search state conditionally ---
             val isFriendsScreen = currentHomeRoute == "friends_screen"
             val isGroupsScreen = currentHomeRoute == "groups_screen"
+            val isActivityScreen = currentHomeRoute == "activity_screen"
 
             AppTopBar(
                 title = title, // Standard title (hidden during search by AppTopBar)
                 scrollBehavior = scrollBehavior,
-                // Pass search state for both friends and groups screens
+                // Pass search state for friends, groups, and activity screens
                 isSearchActive = (isFriendsScreen && friendsUiState.isSearchActive) ||
-                                (isGroupsScreen && groupsUiState.isSearchActive),
+                                (isGroupsScreen && groupsUiState.isSearchActive) ||
+                                (isActivityScreen && activityUiState.isSearchActive),
                 searchQuery = when {
                     isFriendsScreen -> friendsUiState.searchQuery
                     isGroupsScreen -> groupsUiState.searchQuery
+                    isActivityScreen -> activityUiState.searchQuery
                     else -> ""
                 },
                 searchPlaceholder = when {
                     isFriendsScreen -> "Search friends..."
                     isGroupsScreen -> "Search groups..."
+                    isActivityScreen -> "Search activities..."
                     else -> "Search..."
                 },
                 onSearchQueryChange = when {
                     isFriendsScreen -> friendsViewModel::onSearchQueryChange
                     isGroupsScreen -> groupsViewModel::onSearchQueryChange
+                    isActivityScreen -> activityViewModel::onSearchQueryChange
                     else -> { {} }
                 },
                 onSearchClose = when {
                     isFriendsScreen -> friendsViewModel::onSearchCloseClick
                     isGroupsScreen -> groupsViewModel::onSearchCloseClick
+                    isActivityScreen -> activityViewModel::onSearchDismiss
                     else -> { {} }
                 },
                 focusRequester = focusRequester, // Pass focus requester
@@ -147,7 +157,22 @@ fun HomeScreen3(
                             onDismissFilterMenu = friendsViewModel::onDismissFilterMenu,
                             onApplyFilter = friendsViewModel::applyFilter
                         )
-                        "activity_screen" -> ActivityTopBarActions()
+                        "activity_screen" -> ActivityTopBarActions(
+                            isSearchActive = activityUiState.isSearchActive,
+                            searchQuery = activityUiState.searchQuery,
+                            onSearchClick = activityViewModel::onSearchIconClick,
+                            onSearchQueryChange = activityViewModel::onSearchQueryChange,
+                            onSearchDismiss = activityViewModel::onSearchDismiss,
+                            onFilterClick = activityViewModel::onFilterIconClick,
+                            isFilterMenuExpanded = activityUiState.isFilterMenuExpanded,
+                            onDismissFilterMenu = activityViewModel::onDismissFilterMenu,
+                            activityFilter = activityUiState.activityFilter,
+                            timePeriodFilter = activityUiState.timePeriodFilter,
+                            sortOrder = activityUiState.sortOrder,
+                            onActivityFilterChange = activityViewModel::onActivityFilterChange,
+                            onTimePeriodFilterChange = activityViewModel::onTimePeriodFilterChange,
+                            onSortOrderChange = activityViewModel::onSortOrderChange
+                        )
                         "profile_screen" -> ProfileTopBarActions(
                             onEditProfile = { mainNavController.navigate(Screen.EditProfile) }
                         )
@@ -211,7 +236,8 @@ fun HomeScreen3(
             composable("activity_screen") {
                 ActivityScreen(
                     innerPadding = innerPadding,
-                    navController = mainNavController
+                    navController = mainNavController,
+                    viewModel = activityViewModel
                 )
             }
             composable("profile_screen") {
