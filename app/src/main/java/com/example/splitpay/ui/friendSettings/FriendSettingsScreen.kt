@@ -73,6 +73,14 @@ fun FriendSettingsScreen(
     val viewModel: FriendSettingsViewModel = viewModel(factory = factory)
     val uiState by viewModel.uiState.collectAsState()
 
+    // Handle navigation after successful removal/block
+    LaunchedEffect(uiState.shouldNavigateBack) {
+        if (uiState.shouldNavigateBack) {
+            viewModel.resetNavigationFlag()
+            onNavigateBack()
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -172,19 +180,11 @@ fun FriendSettingsScreen(
         // Success Message Dialog
         uiState.showSuccessMessage?.let { successMessage ->
             AlertDialog(
-                onDismissRequest = {
-                    viewModel.dismissSuccessMessage()
-                    onNavigateBack()
-                },
+                onDismissRequest = viewModel::dismissSuccessMessage,
                 title = { Text("Success", color = TextWhite) },
                 text = { Text(successMessage, color = TextWhite) },
                 confirmButton = {
-                    TextButton(
-                        onClick = {
-                            viewModel.dismissSuccessMessage()
-                            onNavigateBack()
-                        }
-                    ) {
+                    TextButton(onClick = viewModel::dismissSuccessMessage) {
                         Text("OK", color = PrimaryBlue)
                     }
                 },

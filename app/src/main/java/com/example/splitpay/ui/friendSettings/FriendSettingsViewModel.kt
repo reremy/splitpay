@@ -186,8 +186,7 @@ class FriendSettingsViewModel(
                         it.copy(
                             isLoading = false,
                             showRemoveFriendDialog = false,
-                            showSuccessMessage = "Successfully removed ${uiState.value.friend?.username} from your friends.",
-                            shouldNavigateBack = true
+                            showSuccessMessage = "Successfully removed ${uiState.value.friend?.username} from your friends."
                         )
                     }
                 }.onFailure { e ->
@@ -227,8 +226,7 @@ class FriendSettingsViewModel(
                         it.copy(
                             isLoading = false,
                             showBlockUserDialog = false,
-                            showSuccessMessage = "Successfully blocked ${uiState.value.friend?.username}. They can no longer interact with you.",
-                            shouldNavigateBack = true
+                            showSuccessMessage = "Successfully blocked ${uiState.value.friend?.username}. They can no longer interact with you."
                         )
                     }
                 }.onFailure { e ->
@@ -260,7 +258,7 @@ class FriendSettingsViewModel(
     }
 
     fun dismissSuccessMessage() {
-        _uiState.update { it.copy(showSuccessMessage = null) }
+        _uiState.update { it.copy(showSuccessMessage = null, shouldNavigateBack = true) }
     }
 
     fun resetNavigationFlag() {
