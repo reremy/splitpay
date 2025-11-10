@@ -24,6 +24,10 @@ object Screen {
 
     const val SettleUpFriend = "settle_up_friend"
     const val SettleUpFriendRoute = "$SettleUpFriend/{friendId}"
+    const val SelectBalanceToSettle = "select_balance_to_settle"
+    const val SelectBalanceToSettleRoute = "$SelectBalanceToSettle/{friendId}"
+    const val SelectPayerFriend = "select_payer_friend"
+    const val SelectPayerFriendRoute = "$SelectPayerFriend/{friendId}"
 
     // --- NEW: Settle Up Flow Routes ---
     const val SettleUp = "settle_up"

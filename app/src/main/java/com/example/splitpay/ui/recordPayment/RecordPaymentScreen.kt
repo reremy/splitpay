@@ -283,6 +283,35 @@ fun RecordPaymentScreen(
         )
     }
 
+    // --- Balance Warning Dialog ---
+    if (uiState.showBalanceWarning) {
+        AlertDialog(
+            onDismissRequest = viewModel::onDismissBalanceWarning,
+            title = { Text("Amount Exceeds Balance", color = TextWhite) },
+            text = {
+                Text(
+                    text = "The payment amount (MYR%.2f) exceeds the outstanding balance (MYR%.2f). Do you want to proceed anyway?".format(
+                        uiState.amount.toDoubleOrNull() ?: 0.0,
+                        uiState.outstandingBalance
+                    ),
+                    color = TextWhite
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = viewModel::onConfirmExceedBalance,
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                ) { Text("Proceed") }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::onDismissBalanceWarning) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF2D2D2D)
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(

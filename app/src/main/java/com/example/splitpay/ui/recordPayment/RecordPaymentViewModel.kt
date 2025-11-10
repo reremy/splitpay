@@ -53,7 +53,10 @@ data class RecordPaymentUiState(
     val isUploadingImage: Boolean = false,
     // --- Edit Mode ---
     val isEditMode: Boolean = false,
-    val editingPaymentId: String? = null
+    val editingPaymentId: String? = null,
+    // --- Balance Warning ---
+    val showBalanceWarning: Boolean = false,
+    val outstandingBalance: Double = 0.0
 )
 
 sealed interface RecordPaymentUiEvent {
@@ -132,7 +135,8 @@ class RecordPaymentViewModel(
                         payer = payer,
                         receiver = receiver,
                         isPayerUser = isPayerUser,
-                        group = group // <-- STORE GROUP
+                        group = group, // <-- STORE GROUP
+                        outstandingBalance = balance.absoluteValue
                     )
                 }
 
@@ -205,6 +209,12 @@ class RecordPaymentViewModel(
 
         if (totalAmount <= 0) {
             viewModelScope.launch { _uiEvent.emit(RecordPaymentUiEvent.ShowError("Amount must be greater than zero.")) }
+            return
+        }
+
+        // Check if amount exceeds outstanding balance (only if not in edit mode)
+        if (!state.isEditMode && state.outstandingBalance > 0 && totalAmount > state.outstandingBalance) {
+            _uiState.update { it.copy(showBalanceWarning = true) }
             return
         }
 
@@ -442,5 +452,20 @@ class RecordPaymentViewModel(
 
     fun onMemoSaved(finalMemo: String) {
         _uiState.update { it.copy(memo = finalMemo.trim(), isMemoDialogVisible = false) }
+    }
+
+    // --- Balance Warning Dialog ---
+    fun onDismissBalanceWarning() {
+        _uiState.update { it.copy(showBalanceWarning = false) }
+    }
+
+    fun onConfirmExceedBalance() {
+        _uiState.update { it.copy(showBalanceWarning = false) }
+        // Proceed with saving by temporarily setting outstandingBalance to 0
+        val currentBalance = _uiState.value.outstandingBalance
+        _uiState.update { it.copy(outstandingBalance = 0.0) }
+        onSavePayment()
+        // Restore the balance after
+        _uiState.update { it.copy(outstandingBalance = currentBalance) }
     }
 }

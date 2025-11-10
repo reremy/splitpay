@@ -393,7 +393,7 @@ fun ActionButtonsRow(
         horizontalArrangement = Arrangement.SpaceAround
     ) {
         ActionButton("Settle Up") {
-            navController.navigate("${Screen.SettleUpFriend}/$friendId")
+            navController.navigate("${Screen.SelectBalanceToSettle}/$friendId")
         }
         ActionButton("Charts") {}
         ActionButton("Balances") {}
