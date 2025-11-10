@@ -52,6 +52,14 @@ data class GroupTotals(
     val totalPendingSettlements: Double = 0.0 // Sum of all unsettled balances
 )
 
+// Helper data class to hold all calculated data
+private data class CalculatedData(
+    val overallBalance: Double,
+    val breakdown: List<MemberBalanceDetail>,
+    val membersMap: Map<String, User>,
+    val totals: GroupTotals
+)
+
 class GroupDetailViewModel(
     private val groupsRepository: GroupsRepository,
     private val expenseRepository: ExpenseRepository, // <-- Inject ExpenseRepository
@@ -197,20 +205,28 @@ class GroupDetailViewModel(
                 // 5. Calculate Totals
                 val totals = calculateTotals(expenses, balances, memberUidsToFetch.size)
 
-                // Update UI State with everything
-                Triple(group, expenses, Triple(overallBalance, breakdown.sortedByDescending { it.amount.absoluteValue }, membersMap), totals)
-            }.collectLatest { (groupFromFlow, expenses, balanceData, totals) ->
-                val (overallBalance, breakdown, membersMap) = balanceData
+                // Wrap calculated data
+                val calculatedData = CalculatedData(
+                    overallBalance = overallBalance,
+                    breakdown = breakdown.sortedByDescending { it.amount.absoluteValue },
+                    membersMap = membersMap,
+                    totals = totals
+                )
+
+                // Return pair of (group, expenses, calculatedData)
+                Pair(group, Pair(expenses, calculatedData))
+            }.collectLatest { (groupFromFlow, expensesAndData) ->
+                val (expenses, calculatedData) = expensesAndData
                 _uiState.update {
                     it.copy(
                         isLoadingGroup = false,
                         isLoadingExpenses = false,
                         group = if (groupId == "non_group") it.group else groupFromFlow,
                         expenses = expenses,
-                        currentUserOverallBalance = overallBalance,
-                        balanceBreakdown = breakdown,
-                        membersMap = membersMap,
-                        totals = totals,
+                        currentUserOverallBalance = calculatedData.overallBalance,
+                        balanceBreakdown = calculatedData.breakdown,
+                        membersMap = calculatedData.membersMap,
+                        totals = calculatedData.totals,
                         error = null
                     )
                 }
