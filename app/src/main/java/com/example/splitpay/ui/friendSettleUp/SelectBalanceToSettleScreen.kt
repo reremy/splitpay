@@ -25,6 +25,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.data.model.Group
+import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
@@ -107,15 +108,37 @@ class SelectBalanceToSettleViewModel(
                     var groupBalance = 0.0
 
                     for (expense in expenses) {
+                        // Only consider expenses where both users are involved
+                        val currentUserInvolved = expense.participants.any { it.uid == currentUserId } ||
+                                                 expense.paidBy.any { it.uid == currentUserId }
+                        val friendInvolved = expense.participants.any { it.uid == friendId } ||
+                                           expense.paidBy.any { it.uid == friendId }
+
+                        if (!currentUserInvolved || !friendInvolved) continue
+
                         val paidByCurrentUser = expense.paidBy.find { it.uid == currentUserId }?.paidAmount ?: 0.0
                         val paidByFriend = expense.paidBy.find { it.uid == friendId }?.paidAmount ?: 0.0
                         val shareOwedByCurrentUser = expense.participants.find { it.uid == currentUserId }?.owesAmount ?: 0.0
                         val shareOwedByFriend = expense.participants.find { it.uid == friendId }?.owesAmount ?: 0.0
 
-                        // Calculate net balance for this expense
-                        val netContributionCurrentUser = paidByCurrentUser - shareOwedByCurrentUser
-                        val netContributionFriend = paidByFriend - shareOwedByFriend
-                        groupBalance += netContributionCurrentUser - netContributionFriend
+                        // Calculate balance change for this expense between the two users
+                        val balanceChange = if (expense.expenseType == ExpenseType.PAYMENT) {
+                            // Direct payment between users
+                            when {
+                                paidByCurrentUser > 0 -> paidByCurrentUser  // I paid the friend
+                                paidByFriend > 0 -> -paidByFriend            // The friend paid me
+                                else -> 0.0
+                            }
+                        } else {
+                            // Shared expense - calculate based on net contributions
+                            val netContributionCurrentUser = paidByCurrentUser - shareOwedByCurrentUser
+                            val netContributionFriend = paidByFriend - shareOwedByFriend
+                            val numParticipants = expense.participants.size.toDouble().coerceAtLeast(1.0)
+
+                            (netContributionCurrentUser - netContributionFriend) / numParticipants
+                        }
+
+                        groupBalance += balanceChange
                     }
 
                     // Only add if balance is non-zero
