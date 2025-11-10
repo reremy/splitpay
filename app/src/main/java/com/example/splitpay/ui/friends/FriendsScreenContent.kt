@@ -28,9 +28,6 @@ import com.example.splitpay.ui.common.OverallBalanceHeader
 import com.example.splitpay.ui.theme.* // Import your theme colors
 import kotlin.math.absoluteValue
 
-// Define DialogBackground if it doesn't exist in Color.kt
-val DialogBackground = Color(0xFF2D2D2D) // Example
-
 @Composable
 fun FriendsScreenContent(
     innerPadding: PaddingValues,
