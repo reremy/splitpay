@@ -116,7 +116,7 @@ fun ActivityScreen(
                     .fillMaxSize()
                     .background(DarkBackground),
                 contentPadding = PaddingValues(
-                    top = innerPadding.calculateTopPadding(),
+                    top = 8.dp,
                     bottom = innerPadding.calculateBottomPadding() + 16.dp
                 )
             ) {
