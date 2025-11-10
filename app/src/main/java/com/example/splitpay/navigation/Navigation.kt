@@ -333,7 +333,7 @@ fun Navigation(
                 friendId = friendId,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToGroupDetail = { groupId ->
-                    navController.navigate("${Screen.GroupDetail}/$groupId")
+                    navController.navigate("group_detail/$groupId")
                 }
             )
         }
