@@ -36,7 +36,8 @@ data class GroupDetailUiState(
     val currentUserOverallBalance: Double = 0.0,
     val balanceBreakdown: List<MemberBalanceDetail> = emptyList(),
     val membersMap: Map<String, User> = emptyMap(), // To store member details for names
-    val totals: GroupTotals = GroupTotals() // Totals data
+    val totals: GroupTotals = GroupTotals(), // Totals data
+    val chartData: ChartData = ChartData() // Chart data
     // Add other states later (isCurrentUserAdmin, friendsList, membersList, etc.)
 )
 
@@ -52,12 +53,36 @@ data class GroupTotals(
     val totalPendingSettlements: Double = 0.0 // Sum of all unsettled balances
 )
 
+data class ChartData(
+    val categoryBreakdown: List<CategorySpending> = emptyList(), // Spending by category
+    val memberContributions: List<MemberContribution> = emptyList(), // Contributions by member
+    val dailySpending: List<DailySpending> = emptyList() // Spending over time
+)
+
+data class CategorySpending(
+    val category: String,
+    val amount: Double,
+    val percentage: Float // Percentage of total spending
+)
+
+data class MemberContribution(
+    val memberName: String,
+    val amount: Double,
+    val percentage: Float // Percentage of total contributions
+)
+
+data class DailySpending(
+    val date: Long,
+    val amount: Double
+)
+
 // Helper data class to hold all calculated data
 private data class CalculatedData(
     val overallBalance: Double,
     val breakdown: List<MemberBalanceDetail>,
     val membersMap: Map<String, User>,
-    val totals: GroupTotals
+    val totals: GroupTotals,
+    val chartData: ChartData
 )
 
 class GroupDetailViewModel(
@@ -205,12 +230,16 @@ class GroupDetailViewModel(
                 // 5. Calculate Totals
                 val totals = calculateTotals(expenses, balances, memberUidsToFetch.size)
 
+                // 6. Calculate Chart Data
+                val chartData = calculateChartData(expenses, membersMap)
+
                 // Wrap calculated data
                 val calculatedData = CalculatedData(
                     overallBalance = overallBalance,
                     breakdown = breakdown.sortedByDescending { it.amount.absoluteValue },
                     membersMap = membersMap,
-                    totals = totals
+                    totals = totals,
+                    chartData = chartData
                 )
 
                 // Return pair of (group, expenses, calculatedData)
@@ -227,6 +256,7 @@ class GroupDetailViewModel(
                         balanceBreakdown = calculatedData.breakdown,
                         membersMap = calculatedData.membersMap,
                         totals = calculatedData.totals,
+                        chartData = calculatedData.chartData,
                         error = null
                     )
                 }
@@ -275,6 +305,81 @@ class GroupDetailViewModel(
             totalPaidByMembers = totalPaidByMembers.mapValues { roundToCents(it.value) },
             averagePerPerson = averagePerPerson,
             totalPendingSettlements = roundToCents(totalPendingSettlements)
+        )
+    }
+
+    // Helper function to calculate chart data
+    private fun calculateChartData(
+        expenses: List<Expense>,
+        membersMap: Map<String, User>
+    ): ChartData {
+        // Filter out payment transactions
+        val actualExpenses = expenses.filter { it.expenseType != ExpenseType.PAYMENT }
+
+        if (actualExpenses.isEmpty()) {
+            return ChartData()
+        }
+
+        // 1. Category Breakdown
+        val categoryTotals = mutableMapOf<String, Double>()
+        actualExpenses.forEach { expense ->
+            categoryTotals[expense.category] = (categoryTotals[expense.category] ?: 0.0) + expense.totalAmount
+        }
+
+        val totalSpent = categoryTotals.values.sum()
+        val categoryBreakdown = categoryTotals.entries
+            .sortedByDescending { it.value }
+            .map { (category, amount) ->
+                CategorySpending(
+                    category = category,
+                    amount = roundToCents(amount),
+                    percentage = if (totalSpent > 0) (amount / totalSpent * 100).toFloat() else 0f
+                )
+            }
+
+        // 2. Member Contributions
+        val memberTotals = mutableMapOf<String, Double>()
+        actualExpenses.forEach { expense ->
+            expense.paidBy.forEach { payer ->
+                memberTotals[payer.uid] = (memberTotals[payer.uid] ?: 0.0) + payer.paidAmount
+            }
+        }
+
+        val totalContributions = memberTotals.values.sum()
+        val memberContributions = memberTotals.entries
+            .sortedByDescending { it.value }
+            .map { (uid, amount) ->
+                val memberName = membersMap[uid]?.username
+                    ?: membersMap[uid]?.fullName
+                    ?: "Unknown"
+                MemberContribution(
+                    memberName = memberName,
+                    amount = roundToCents(amount),
+                    percentage = if (totalContributions > 0) (amount / totalContributions * 100).toFloat() else 0f
+                )
+            }
+
+        // 3. Daily Spending (group by day)
+        val dailyTotals = mutableMapOf<Long, Double>()
+        actualExpenses.forEach { expense ->
+            // Normalize to start of day (midnight)
+            val dayStart = expense.date - (expense.date % (24 * 60 * 60 * 1000))
+            dailyTotals[dayStart] = (dailyTotals[dayStart] ?: 0.0) + expense.totalAmount
+        }
+
+        val dailySpending = dailyTotals.entries
+            .sortedBy { it.key }
+            .map { (date, amount) ->
+                DailySpending(
+                    date = date,
+                    amount = roundToCents(amount)
+                )
+            }
+
+        return ChartData(
+            categoryBreakdown = categoryBreakdown,
+            memberContributions = memberContributions,
+            dailySpending = dailySpending
         )
     }
 

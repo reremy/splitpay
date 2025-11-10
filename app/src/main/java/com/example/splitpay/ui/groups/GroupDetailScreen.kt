@@ -164,6 +164,10 @@ fun GroupDetailScreen(
     val showBalancesSheet = remember { mutableStateOf(false) }
     val balancesSheetState = rememberModalBottomSheetState()
 
+    // --- State for Charts Bottom Sheet ---
+    val showChartsSheet = remember { mutableStateOf(false) }
+    val chartsSheetState = rememberModalBottomSheetState()
+
     // Call the loading function when groupId changes
     LaunchedEffect(groupId) {
         viewModel.loadGroupAndExpenses(groupId)
@@ -213,6 +217,20 @@ fun GroupDetailScreen(
             BalancesSheetContent(
                 balanceBreakdown = uiState.balanceBreakdown,
                 membersMap = uiState.membersMap,
+                groupName = group?.name ?: "Group"
+            )
+        }
+    }
+
+    // --- Charts Bottom Sheet ---
+    if (showChartsSheet.value) {
+        ModalBottomSheet(
+            onDismissRequest = { showChartsSheet.value = false },
+            sheetState = chartsSheetState,
+            containerColor = Color(0xFF2D2D2D)
+        ) {
+            ChartsSheetContent(
+                chartData = uiState.chartData,
                 groupName = group?.name ?: "Group"
             )
         }
@@ -298,7 +316,8 @@ fun GroupDetailScreen(
                         viewModel = viewModel,
                         navController = navController, // <-- PASS NAVCONTROLLER
                         showTotalsSheet = showTotalsSheet,
-                        showBalancesSheet = showBalancesSheet
+                        showBalancesSheet = showBalancesSheet,
+                        showChartsSheet = showChartsSheet
                     )
                 }
                 else -> { // Error state or group is null after loading
@@ -434,7 +453,8 @@ fun GroupDetailContent(
     viewModel: GroupDetailViewModel,
     navController: NavHostController, // <-- Added NavController
     showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>,
-    showBalancesSheet: androidx.compose.runtime.MutableState<Boolean>
+    showBalancesSheet: androidx.compose.runtime.MutableState<Boolean>,
+    showChartsSheet: androidx.compose.runtime.MutableState<Boolean>
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
@@ -465,6 +485,7 @@ fun GroupDetailContent(
                     groupId = groupId,
                     showTotalsSheet = showTotalsSheet,
                     showBalancesSheet = showBalancesSheet,
+                    showChartsSheet = showChartsSheet,
                     viewModel = viewModel
                 )
                 Spacer(Modifier.height(16.dp))
@@ -670,6 +691,7 @@ fun ActionButtonsRow(
     groupId: String, // <-- Add groupId
     showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>,
     showBalancesSheet: androidx.compose.runtime.MutableState<Boolean>,
+    showChartsSheet: androidx.compose.runtime.MutableState<Boolean>,
     viewModel: GroupDetailViewModel
 ) {
     val context = LocalContext.current
@@ -685,7 +707,7 @@ fun ActionButtonsRow(
             "Settle Up",
             { navController.navigate("${Screen.SettleUp}/$groupId") }
         )
-        ActionButton("Charts", {})
+        ActionButton("Charts", { showChartsSheet.value = true })
         ActionButton("Balances", { showBalancesSheet.value = true })
         ActionButton("Total", { showTotalsSheet.value = true })
         ActionButton("Export", {
@@ -1167,5 +1189,240 @@ fun BalancesSheetContent(
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+// --- Charts Bottom Sheet Content ---
+@Composable
+fun ChartsSheetContent(
+    chartData: ChartData,
+    groupName: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Title
+        Text(
+            text = "Charts for $groupName",
+            color = TextWhite,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        if (chartData.categoryBreakdown.isEmpty()) {
+            // No data message
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No Data Available",
+                        color = Color.Gray,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Add some expenses to see charts",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            // Category Breakdown Chart
+            Text(
+                text = "Spending by Category",
+                color = TextWhite,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    chartData.categoryBreakdown.forEach { category ->
+                        HorizontalBarChart(
+                            label = category.category.replaceFirstChar { it.uppercase() },
+                            value = category.amount,
+                            percentage = category.percentage,
+                            color = PrimaryBlue
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // Member Contributions Chart
+            if (chartData.memberContributions.isNotEmpty()) {
+                Text(
+                    text = "Contributions by Member",
+                    color = TextWhite,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        chartData.memberContributions.forEach { member ->
+                            HorizontalBarChart(
+                                label = member.memberName,
+                                value = member.amount,
+                                percentage = member.percentage,
+                                color = PositiveGreen
+                            )
+                            Spacer(Modifier.height(12.dp))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // Daily Spending Chart
+            if (chartData.dailySpending.isNotEmpty()) {
+                Text(
+                    text = "Spending Over Time",
+                    color = TextWhite,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    DailySpendingChart(
+                        dailySpending = chartData.dailySpending,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// --- Horizontal Bar Chart Component ---
+@Composable
+fun HorizontalBarChart(
+    label: String,
+    value: Double,
+    percentage: Float,
+    color: Color
+) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = TextWhite,
+                fontSize = 14.sp,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "MYR %.2f (%.1f%%)".format(value, percentage),
+                color = Color.Gray,
+                fontSize = 13.sp
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        // Progress bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(8.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFF4D4D4D))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(percentage / 100f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(color)
+            )
+        }
+    }
+}
+
+// --- Daily Spending Chart Component ---
+@Composable
+fun DailySpendingChart(
+    dailySpending: List<DailySpending>,
+    modifier: Modifier = Modifier
+) {
+    val maxAmount = dailySpending.maxOfOrNull { it.amount } ?: 1.0
+
+    Column(modifier = modifier) {
+        // Simple bar chart
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            dailySpending.takeLast(7).forEach { day -> // Show last 7 days
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Bar
+                    val heightFraction = (day.amount / maxAmount).toFloat().coerceIn(0.1f, 1f)
+                    Box(
+                        modifier = Modifier
+                            .width(24.dp)
+                            .fillMaxHeight(heightFraction)
+                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(PrimaryBlue)
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    // Date label
+                    Text(
+                        text = SimpleDateFormat("dd", Locale.getDefault()).format(Date(day.date)),
+                        color = Color.Gray,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Legend
+        Text(
+            text = "Last ${dailySpending.takeLast(7).size} days",
+            color = Color.Gray,
+            fontSize = 12.sp,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = TextAlign.Center
+        )
     }
 }
