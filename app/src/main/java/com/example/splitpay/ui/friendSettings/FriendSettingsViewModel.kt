@@ -25,7 +25,9 @@ data class FriendSettingsUiState(
     val showRemoveFriendDialog: Boolean = false,
     val showBlockUserDialog: Boolean = false,
     val showReportUserDialog: Boolean = false,
-    val removalError: String? = null // Error message when removal is not allowed
+    val removalError: String? = null, // Error message when removal is not allowed
+    val showSuccessMessage: String? = null, // Success message after removal/block
+    val shouldNavigateBack: Boolean = false // Flag to trigger navigation back
 )
 
 class FriendSettingsViewModel(
@@ -183,11 +185,11 @@ class FriendSettingsViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            showRemoveFriendDialog = false
+                            showRemoveFriendDialog = false,
+                            showSuccessMessage = "Successfully removed ${uiState.value.friend?.username} from your friends.",
+                            shouldNavigateBack = true
                         )
                     }
-                    // Navigate back or show success message
-                    // You may want to emit a navigation event here
                 }.onFailure { e ->
                     logE("Failed to remove friend: ${e.message}")
                     _uiState.update {
@@ -224,11 +226,11 @@ class FriendSettingsViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            showBlockUserDialog = false
+                            showBlockUserDialog = false,
+                            showSuccessMessage = "Successfully blocked ${uiState.value.friend?.username}. They can no longer interact with you.",
+                            shouldNavigateBack = true
                         )
                     }
-                    // Navigate back or show success message
-                    // You may want to emit a navigation event here
                 }.onFailure { e ->
                     logE("Failed to block user: ${e.message}")
                     _uiState.update {
@@ -255,5 +257,13 @@ class FriendSettingsViewModel(
 
     fun clearRemovalError() {
         _uiState.update { it.copy(removalError = null) }
+    }
+
+    fun dismissSuccessMessage() {
+        _uiState.update { it.copy(showSuccessMessage = null) }
+    }
+
+    fun resetNavigationFlag() {
+        _uiState.update { it.copy(shouldNavigateBack = false) }
     }
 }

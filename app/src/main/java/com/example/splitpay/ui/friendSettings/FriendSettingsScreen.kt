@@ -168,6 +168,29 @@ fun FriendSettingsScreen(
                 containerColor = Color(0xFF2D2D2D)
             )
         }
+
+        // Success Message Dialog
+        uiState.showSuccessMessage?.let { successMessage ->
+            AlertDialog(
+                onDismissRequest = {
+                    viewModel.dismissSuccessMessage()
+                    onNavigateBack()
+                },
+                title = { Text("Success", color = TextWhite) },
+                text = { Text(successMessage, color = TextWhite) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.dismissSuccessMessage()
+                            onNavigateBack()
+                        }
+                    ) {
+                        Text("OK", color = PrimaryBlue)
+                    }
+                },
+                containerColor = Color(0xFF2D2D2D)
+            )
+        }
     }
 }
 
