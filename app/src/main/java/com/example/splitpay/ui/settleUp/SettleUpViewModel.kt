@@ -75,6 +75,12 @@ class SettleUpViewModel(
 
             // Combine group details and expenses
             try {
+                // Handle non-group expenses as a special case
+                if (groupId == "non_group") {
+                    loadNonGroupBalances()
+                    return@launch
+                }
+
                 groupsRepository.getGroupFlow(groupId).collectLatest { group ->
                     if (group == null) {
                         _uiState.update { it.copy(isLoading = false, error = "Group not found.") }
@@ -147,6 +153,109 @@ class SettleUpViewModel(
             } catch (e: Exception) {
                 logE("Error loading balances for SettleUp: ${e.message}")
                 _uiState.update { it.copy(isLoading = false, error = "Failed to load balances.") }
+            }
+        }
+    }
+
+    private fun loadNonGroupBalances() {
+        viewModelScope.launch {
+            try {
+                // Get all non-group expenses
+                expenseRepository.getExpensesFlowForGroup("non_group").collectLatest { expenses ->
+                    _uiState.update { it.copy(isLoading = true) }
+
+                    // Find all friends involved in non-group expenses
+                    val involvedUids = expenses.flatMap { expense ->
+                        (expense.paidBy.map { it.uid } + expense.participants.map { it.uid })
+                    }.distinct().filter { it != currentUserId }
+
+                    if (involvedUids.isEmpty()) {
+                        // Create placeholder group for non-group expenses
+                        val placeholderGroup = Group(
+                            id = "non_group",
+                            name = "Non-group expenses",
+                            members = listOf(currentUserId ?: ""),
+                            iconIdentifier = "info"
+                        )
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                group = placeholderGroup,
+                                balanceBreakdown = emptyList(),
+                                error = null
+                            )
+                        }
+                        return@collectLatest
+                    }
+
+                    // Get user profiles for all involved friends
+                    val friends = userRepository.getProfilesForFriends(involvedUids)
+                    val friendsMap = friends.associateBy { it.uid }
+
+                    val breakdown = mutableListOf<MemberBalanceDetail>()
+
+                    // Calculate balance with each friend
+                    involvedUids.forEach { friendUid ->
+                        var balanceWithFriend = 0.0
+
+                        // Filter expenses where both current user and this friend are involved
+                        expenses.filter { expense ->
+                            val uids = (expense.paidBy.map { it.uid } + expense.participants.map { it.uid }).toSet()
+                            uids.contains(currentUserId) && uids.contains(friendUid)
+                        }.forEach { expense ->
+                            val currentUserPaid = expense.paidBy.find { it.uid == currentUserId }?.paidAmount ?: 0.0
+                            val currentUserOwes = expense.participants.find { it.uid == currentUserId }?.owesAmount ?: 0.0
+                            val friendPaid = expense.paidBy.find { it.uid == friendUid }?.paidAmount ?: 0.0
+                            val friendOwes = expense.participants.find { it.uid == friendUid }?.owesAmount ?: 0.0
+
+                            if (expense.expenseType == ExpenseType.PAYMENT) {
+                                if (currentUserPaid > 0) {
+                                    balanceWithFriend += currentUserPaid
+                                } else if (friendPaid > 0) {
+                                    balanceWithFriend -= friendPaid
+                                }
+                            } else {
+                                val currentUserNet = currentUserPaid - currentUserOwes
+                                val friendNet = friendPaid - friendOwes
+                                val numParticipants = expense.participants.size.toDouble().coerceAtLeast(1.0)
+                                balanceWithFriend += (currentUserNet - friendNet) / numParticipants
+                            }
+                        }
+
+                        val roundedBalance = roundToCents(balanceWithFriend)
+                        if (roundedBalance.absoluteValue > 0.01) {
+                            breakdown.add(
+                                MemberBalanceDetail(
+                                    memberUid = friendUid,
+                                    memberName = friendsMap[friendUid]?.username
+                                        ?: friendsMap[friendUid]?.fullName
+                                        ?: "User $friendUid",
+                                    amount = roundedBalance
+                                )
+                            )
+                        }
+                    }
+
+                    // Create placeholder group for non-group expenses
+                    val placeholderGroup = Group(
+                        id = "non_group",
+                        name = "Non-group expenses",
+                        members = listOf(currentUserId ?: "") + involvedUids,
+                        iconIdentifier = "info"
+                    )
+
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            group = placeholderGroup,
+                            balanceBreakdown = breakdown.sortedByDescending { it.amount.absoluteValue },
+                            error = null
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                logE("Error loading non-group balances: ${e.message}")
+                _uiState.update { it.copy(isLoading = false, error = "Failed to load non-group balances.") }
             }
         }
     }
