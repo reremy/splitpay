@@ -48,6 +48,7 @@ import com.example.splitpay.ui.recordPayment.RecordPaymentScreen
 import com.example.splitpay.ui.settleUp.SettleUpScreen
 import com.example.splitpay.ui.activityDetail.ActivityDetailScreen
 import com.example.splitpay.ui.profile.edit.EditProfileScreen
+import com.example.splitpay.ui.blockedUsers.BlockedUsersScreen
 import com.example.splitpay.ui.moreOptions.MoreOptionsScreen
 import kotlin.math.absoluteValue
 
@@ -564,6 +565,19 @@ fun Navigation(
         ) {
             EditProfileScreen(
                 navController = navController
+            )
+        }
+
+        // --- Blocked Users Screen ---
+        composable(
+            route = Screen.BlockedUsers,
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) {
+            BlockedUsersScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

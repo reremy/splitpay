@@ -52,4 +52,7 @@ object Screen {
     // --- Edit Profile ---
     const val EditProfile = "edit_profile"
 
+    // --- Blocked Users ---
+    const val BlockedUsers = "blocked_users"
+
 }
