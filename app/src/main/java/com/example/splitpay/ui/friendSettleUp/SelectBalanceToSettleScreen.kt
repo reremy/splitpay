@@ -83,7 +83,7 @@ class SelectBalanceToSettleViewModel(
         viewModelScope.launch {
             try {
                 // Get friend info
-                val friend = userRepository.getUserById(friendId)
+                val friend = userRepository.getUserProfile(friendId)
                 if (friend == null) {
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
@@ -93,8 +93,8 @@ class SelectBalanceToSettleViewModel(
                 }
 
                 // Get all groups both users are in
-                val allGroups = groupsRepository.getGroupsOnce()
-                val sharedGroups = allGroups.filter { group ->
+                val allGroups = groupsRepository.getGroupsSuspend()
+                val sharedGroups = allGroups.filter { group: Group ->
                     group.members.contains(currentUserId) && group.members.contains(friendId)
                 }
 
@@ -103,7 +103,7 @@ class SelectBalanceToSettleViewModel(
                 var totalBalance = 0.0
 
                 for (group in sharedGroups) {
-                    val expenses = expenseRepository.getExpensesForGroupOnce(group.id)
+                    val expenses = expenseRepository.getExpensesForGroups(listOf(group.id))
                     var groupBalance = 0.0
 
                     for (expense in expenses) {

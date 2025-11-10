@@ -57,8 +57,17 @@ class SelectPayerFriendViewModel(
     private fun loadUsers() {
         viewModelScope.launch {
             try {
-                val currentUser = userRepository.getCurrentUser()
-                val friend = userRepository.getUserById(friendId)
+                val currentUserId = userRepository.getCurrentUser()?.uid
+                if (currentUserId == null) {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        error = "User not logged in"
+                    )
+                    return@launch
+                }
+
+                val currentUser = userRepository.getUserProfile(currentUserId)
+                val friend = userRepository.getUserProfile(friendId)
 
                 if (currentUser == null || friend == null) {
                     _uiState.value = _uiState.value.copy(
