@@ -338,6 +338,132 @@ class GroupDetailViewModel(
         return "MYR%.2f".format(amount.absoluteValue)
     }
 
+    // --- Export group data as formatted text ---
+    fun exportGroupData(): String {
+        val state = _uiState.value
+        val group = state.group ?: return "No group data available"
+        val expenses = state.expenses
+        val totals = state.totals
+        val balanceBreakdown = state.balanceBreakdown
+        val membersMap = state.membersMap
+
+        val sb = StringBuilder()
+
+        // Header
+        sb.appendLine("=".repeat(50))
+        sb.appendLine("GROUP EXPENSE REPORT")
+        sb.appendLine("=".repeat(50))
+        sb.appendLine()
+
+        // Group Info
+        sb.appendLine("Group: ${group.name}")
+        if (group.id != "non_group") {
+            sb.appendLine("Members: ${group.members.size}")
+            sb.appendLine()
+            group.members.forEach { uid ->
+                val member = membersMap[uid]
+                val name = member?.username ?: member?.fullName ?: "Unknown"
+                sb.appendLine("  • $name")
+            }
+        }
+        sb.appendLine()
+
+        // Summary Stats
+        sb.appendLine("-".repeat(50))
+        sb.appendLine("SUMMARY")
+        sb.appendLine("-".repeat(50))
+        sb.appendLine("Total Spent: MYR %.2f".format(totals.totalSpent))
+        sb.appendLine("Average Per Person: MYR %.2f".format(totals.averagePerPerson))
+        sb.appendLine("Pending Settlements: MYR %.2f".format(totals.totalPendingSettlements))
+        sb.appendLine()
+
+        // Your Balance
+        sb.appendLine("-".repeat(50))
+        sb.appendLine("YOUR BALANCE")
+        sb.appendLine("-".repeat(50))
+        val overallBalance = state.currentUserOverallBalance
+        when {
+            overallBalance > 0.01 -> sb.appendLine("Overall, you are owed MYR %.2f".format(overallBalance))
+            overallBalance < -0.01 -> sb.appendLine("Overall, you owe MYR %.2f".format(overallBalance.absoluteValue))
+            else -> sb.appendLine("You are settled up!")
+        }
+        sb.appendLine()
+
+        // Balance Breakdown
+        if (balanceBreakdown.isNotEmpty()) {
+            sb.appendLine("Balance Breakdown:")
+            balanceBreakdown.forEach { detail ->
+                when {
+                    detail.amount > 0.01 -> sb.appendLine("  • ${detail.memberName} owes you MYR %.2f".format(detail.amount))
+                    detail.amount < -0.01 -> sb.appendLine("  • You owe ${detail.memberName} MYR %.2f".format(detail.amount.absoluteValue))
+                }
+            }
+            sb.appendLine()
+        }
+
+        // Member Contributions
+        if (totals.totalPaidByMembers.isNotEmpty()) {
+            sb.appendLine("-".repeat(50))
+            sb.appendLine("CONTRIBUTIONS")
+            sb.appendLine("-".repeat(50))
+            totals.totalPaidByMembers.entries
+                .sortedByDescending { it.value }
+                .forEach { (uid, amount) ->
+                    val memberName = membersMap[uid]?.username
+                        ?: membersMap[uid]?.fullName
+                        ?: "Unknown"
+                    sb.appendLine("  $memberName: MYR %.2f".format(amount))
+                }
+            sb.appendLine()
+        }
+
+        // Expenses List
+        sb.appendLine("-".repeat(50))
+        sb.appendLine("EXPENSES (${expenses.size})")
+        sb.appendLine("-".repeat(50))
+        expenses.forEach { expense ->
+            sb.appendLine()
+            sb.appendLine(expense.description)
+            sb.appendLine("  Amount: MYR %.2f".format(expense.totalAmount))
+            sb.appendLine("  Date: ${java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(expense.date))}")
+            sb.appendLine("  Category: ${expense.category}")
+
+            // Paid by
+            if (expense.paidBy.isNotEmpty()) {
+                sb.append("  Paid by: ")
+                expense.paidBy.forEach { payer ->
+                    val payerName = membersMap[payer.uid]?.username
+                        ?: membersMap[payer.uid]?.fullName
+                        ?: "Unknown"
+                    sb.append("$payerName (MYR %.2f) ".format(payer.paidAmount))
+                }
+                sb.appendLine()
+            }
+
+            // Split between
+            if (expense.participants.isNotEmpty()) {
+                sb.appendLine("  Split between:")
+                expense.participants.forEach { participant ->
+                    val participantName = membersMap[participant.uid]?.username
+                        ?: membersMap[participant.uid]?.fullName
+                        ?: "Unknown"
+                    sb.appendLine("    - $participantName: MYR %.2f".format(participant.owesAmount))
+                }
+            }
+
+            if (expense.memo.isNotEmpty()) {
+                sb.appendLine("  Memo: ${expense.memo}")
+            }
+        }
+
+        sb.appendLine()
+        sb.appendLine("=".repeat(50))
+        sb.appendLine("End of Report")
+        sb.appendLine("=".repeat(50))
+
+        return sb.toString()
+    }
+
     // --- Placeholder functions for menu actions (to be implemented later) ---
     fun onEditNameClicked() { /* TODO */ }
     fun onChangeIconClicked() { /* TODO */ }

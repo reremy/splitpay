@@ -78,11 +78,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -462,7 +464,8 @@ fun GroupDetailContent(
                     navController = navController,
                     groupId = groupId,
                     showTotalsSheet = showTotalsSheet,
-                    showBalancesSheet = showBalancesSheet
+                    showBalancesSheet = showBalancesSheet,
+                    viewModel = viewModel
                 )
                 Spacer(Modifier.height(16.dp))
             }
@@ -666,8 +669,11 @@ fun ActionButtonsRow(
     navController: NavHostController, // <-- Add NavController
     groupId: String, // <-- Add groupId
     showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>,
-    showBalancesSheet: androidx.compose.runtime.MutableState<Boolean>
+    showBalancesSheet: androidx.compose.runtime.MutableState<Boolean>,
+    viewModel: GroupDetailViewModel
 ) {
+    val context = LocalContext.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -682,7 +688,16 @@ fun ActionButtonsRow(
         ActionButton("Charts", {})
         ActionButton("Balances", { showBalancesSheet.value = true })
         ActionButton("Total", { showTotalsSheet.value = true })
-        ActionButton("Export", {})
+        ActionButton("Export", {
+            val exportData = viewModel.exportGroupData()
+            val sendIntent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, exportData)
+                type = "text/plain"
+            }
+            val shareIntent = Intent.createChooser(sendIntent, "Export Group Data")
+            context.startActivity(shareIntent)
+        })
     }
 }
 
