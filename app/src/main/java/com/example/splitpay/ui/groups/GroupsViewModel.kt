@@ -53,7 +53,9 @@ data class GroupsUiState(
     val searchQuery: String = "",
     val isSearchActive: Boolean = false,
     val selectedFilter: GroupFilter = GroupFilter.ALL_GROUPS,
-    val showFilterDropdown: Boolean = false
+    val showFilterDropdown: Boolean = false,
+    val showSettledGroups: Boolean = false, // Toggle to show/hide settled groups
+    val settledGroupsCount: Int = 0 // Count of hidden settled groups
 )
 
 class GroupsViewModel(
@@ -277,6 +279,11 @@ class GroupsViewModel(
         _uiState.update { it.copy(showFilterDropdown = !it.showFilterDropdown) }
     }
 
+    fun toggleShowSettledGroups() {
+        _uiState.update { it.copy(showSettledGroups = !it.showSettledGroups) }
+        applySearchAndFilter()
+    }
+
     private fun applySearchAndFilter() {
         val currentState = _uiState.value
         var filteredGroups = currentState.groupsWithBalances
@@ -302,6 +309,34 @@ class GroupsViewModel(
             }
         }
 
-        _uiState.update { it.copy(filteredGroupsWithBalances = filteredGroups) }
+        // Filter settled groups (if toggle is off)
+        val thirtyDaysInMillis = 30L * 24 * 60 * 60 * 1000 // 30 days in milliseconds
+        val currentTime = System.currentTimeMillis()
+
+        val (settledGroups, activeGroups) = filteredGroups.partition { groupWithBalance ->
+            val settledDate = groupWithBalance.group.settledDate
+            val isBalanceSettled = groupWithBalance.userNetBalance.absoluteValue < 0.01
+
+            // Group is considered "settled and old" if:
+            // 1. It has a settledDate
+            // 2. The settledDate is more than 30 days ago
+            // 3. The balance is currently settled (near zero)
+            settledDate != null &&
+            (currentTime - settledDate) > thirtyDaysInMillis &&
+            isBalanceSettled
+        }
+
+        val finalFilteredGroups = if (currentState.showSettledGroups) {
+            filteredGroups // Show all groups
+        } else {
+            activeGroups // Hide settled groups
+        }
+
+        _uiState.update {
+            it.copy(
+                filteredGroupsWithBalances = finalFilteredGroups,
+                settledGroupsCount = settledGroups.size
+            )
+        }
     }
 }

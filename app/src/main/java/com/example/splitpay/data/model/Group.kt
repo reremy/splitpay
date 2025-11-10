@@ -12,5 +12,6 @@ data class Group(
     val iconIdentifier: String = "friends",
     val photoUrl: String = "", // Group photo URL from Firebase Storage
     @get:PropertyName("isArchived")
-    val isArchived: Boolean = false
+    val isArchived: Boolean = false,
+    val settledDate: Long? = null // Timestamp when group was last fully settled (all balances = 0)
 )
