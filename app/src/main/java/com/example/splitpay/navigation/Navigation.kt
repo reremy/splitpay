@@ -354,8 +354,8 @@ fun Navigation(
                 friendId = friendId,
                 onNavigateBack = { navController.popBackStack() },
                 onGroupBalanceClick = { groupId, balance ->
-                    // Navigate to Record Payment with pre-filled balance
-                    navController.navigate("record_payment/$groupId?balance=$balance")
+                    // Navigate to Record Payment with pre-filled balance and friend as memberUid
+                    navController.navigate("record_payment/$groupId?memberUid=$friendId&balance=$balance")
                 },
                 onMoreOptionsClick = {
                     // Navigate to Select Payer screen
