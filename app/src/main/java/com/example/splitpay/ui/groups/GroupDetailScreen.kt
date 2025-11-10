@@ -1364,7 +1364,7 @@ fun HorizontalBarChart(
             Box(
                 modifier = Modifier
                     .fillMaxWidth(percentage / 100f)
-                    .fillMaxHeight()
+                    .height(8.dp)
                     .clip(RoundedCornerShape(4.dp))
                     .background(color)
             )
@@ -1399,7 +1399,7 @@ fun DailySpendingChart(
                     Box(
                         modifier = Modifier
                             .width(24.dp)
-                            .fillMaxHeight(heightFraction)
+                            .height((150 * heightFraction).dp)
                             .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
                             .background(PrimaryBlue)
                     )
