@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.User
+import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logD
@@ -23,12 +24,14 @@ data class FriendSettingsUiState(
     val error: String? = null,
     val showRemoveFriendDialog: Boolean = false,
     val showBlockUserDialog: Boolean = false,
-    val showReportUserDialog: Boolean = false
+    val showReportUserDialog: Boolean = false,
+    val removalError: String? = null // Error message when removal is not allowed
 )
 
 class FriendSettingsViewModel(
     private val userRepository: UserRepository,
     private val groupsRepository: GroupsRepository,
+    private val expenseRepository: ExpenseRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -123,15 +126,138 @@ class FriendSettingsViewModel(
         _uiState.update { it.copy(showReportUserDialog = false) }
     }
 
-    // TODO: Implement actual removal logic
     fun confirmRemoveFriend() {
-        logD("Remove friend confirmed (not implemented yet)")
-        onDismissRemoveFriendDialog()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, removalError = null) }
+
+            try {
+                // 1. Check if there are shared groups
+                if (uiState.value.sharedGroups.isNotEmpty()) {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            removalError = "You cannot remove ${uiState.value.friend?.username} because you share ${uiState.value.sharedGroups.size} group(s) together. Please leave or remove them from those groups first.",
+                            showRemoveFriendDialog = false
+                        )
+                    }
+                    return@launch
+                }
+
+                // 2. Check if there are any non-group expenses with balance
+                val nonGroupExpenses = expenseRepository.getNonGroupExpenses(currentUserId!!).getOrNull() ?: emptyList()
+
+                // Calculate balance between current user and friend in non-group expenses
+                var balance = 0.0
+                for (expense in nonGroupExpenses) {
+                    // Check if both users are involved in this expense
+                    val currentUserPaidAmount = expense.paidBy.find { it.uid == currentUserId }?.paidAmount ?: 0.0
+                    val friendPaidAmount = expense.paidBy.find { it.uid == friendId }?.paidAmount ?: 0.0
+                    val currentUserOwes = expense.participants.find { it.uid == currentUserId }?.owesAmount ?: 0.0
+                    val friendOwes = expense.participants.find { it.uid == friendId }?.owesAmount ?: 0.0
+
+                    // Only consider expenses where both users are involved (either as payer or participant)
+                    if ((currentUserPaidAmount > 0 || currentUserOwes > 0) && (friendPaidAmount > 0 || friendOwes > 0)) {
+                        // Calculate net balance for this expense
+                        balance += (currentUserPaidAmount - currentUserOwes) - (friendPaidAmount - friendOwes)
+                    }
+                }
+
+                if (kotlin.math.abs(balance) > 0.01) {
+                    val formattedBalance = "MYR%.2f".format(kotlin.math.abs(balance))
+                    val message = if (balance > 0) {
+                        "You cannot remove ${uiState.value.friend?.username} because they owe you $formattedBalance in non-group expenses. Please settle up first."
+                    } else {
+                        "You cannot remove ${uiState.value.friend?.username} because you owe them $formattedBalance in non-group expenses. Please settle up first."
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            removalError = message,
+                            showRemoveFriendDialog = false
+                        )
+                    }
+                    return@launch
+                }
+
+                // 3. All checks passed, proceed with removal
+                val result = userRepository.removeFriend(friendId)
+
+                result.onSuccess {
+                    logD("Successfully removed friend: $friendId")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            showRemoveFriendDialog = false
+                        )
+                    }
+                    // Navigate back or show success message
+                    // You may want to emit a navigation event here
+                }.onFailure { e ->
+                    logE("Failed to remove friend: ${e.message}")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            removalError = "Failed to remove friend: ${e.message}",
+                            showRemoveFriendDialog = false
+                        )
+                    }
+                }
+
+            } catch (e: Exception) {
+                logE("Error during friend removal: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        removalError = "An error occurred: ${e.message}",
+                        showRemoveFriendDialog = false
+                    )
+                }
+            }
+        }
     }
 
-    // TODO: Implement actual blocking logic
     fun confirmBlockUser() {
-        logD("Block user confirmed (not implemented yet)")
-        onDismissBlockUserDialog()
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+
+            try {
+                val result = userRepository.blockUser(friendId)
+
+                result.onSuccess {
+                    logD("Successfully blocked user: $friendId")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            showBlockUserDialog = false
+                        )
+                    }
+                    // Navigate back or show success message
+                    // You may want to emit a navigation event here
+                }.onFailure { e ->
+                    logE("Failed to block user: ${e.message}")
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            error = "Failed to block user: ${e.message}",
+                            showBlockUserDialog = false
+                        )
+                    }
+                }
+
+            } catch (e: Exception) {
+                logE("Error during user blocking: ${e.message}")
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "An error occurred: ${e.message}",
+                        showBlockUserDialog = false
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearRemovalError() {
+        _uiState.update { it.copy(removalError = null) }
     }
 }

@@ -26,6 +26,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.splitpay.data.model.Group
+import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.ui.groups.availableTagsMap
@@ -35,6 +36,7 @@ import com.example.splitpay.ui.theme.*
 class FriendSettingsViewModelFactory(
     private val userRepository: UserRepository,
     private val groupsRepository: GroupsRepository,
+    private val expenseRepository: ExpenseRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -43,6 +45,7 @@ class FriendSettingsViewModelFactory(
             return FriendSettingsViewModel(
                 userRepository,
                 groupsRepository,
+                expenseRepository,
                 savedStateHandle
             ) as T
         }
@@ -57,12 +60,14 @@ fun FriendSettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToGroupDetail: (String) -> Unit,
     userRepository: UserRepository = UserRepository(),
-    groupsRepository: GroupsRepository = GroupsRepository()
+    groupsRepository: GroupsRepository = GroupsRepository(),
+    expenseRepository: ExpenseRepository = ExpenseRepository()
 ) {
     val savedStateHandle = SavedStateHandle(mapOf("friendId" to friendId))
     val factory = FriendSettingsViewModelFactory(
         userRepository,
         groupsRepository,
+        expenseRepository,
         savedStateHandle
     )
     val viewModel: FriendSettingsViewModel = viewModel(factory = factory)
@@ -146,6 +151,21 @@ fun FriendSettingsScreen(
         if (uiState.showReportUserDialog) {
             ReportUserDialog(
                 onDismiss = viewModel::onDismissReportUserDialog
+            )
+        }
+
+        // Removal Error Dialog
+        if (uiState.removalError != null) {
+            AlertDialog(
+                onDismissRequest = viewModel::clearRemovalError,
+                title = { Text("Cannot Remove Friend", color = TextWhite) },
+                text = { Text(uiState.removalError, color = Color.Gray) },
+                confirmButton = {
+                    TextButton(onClick = viewModel::clearRemovalError) {
+                        Text("OK", color = PrimaryBlue)
+                    }
+                },
+                containerColor = Color(0xFF2D2D2D)
             )
         }
     }

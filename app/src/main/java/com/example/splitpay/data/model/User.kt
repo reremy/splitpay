@@ -9,5 +9,6 @@ data class User(
     val profilePictureUrl: String = "",
     val qrCodeUrl: String = "",
     val createdAt: Long = System.currentTimeMillis(),
-    val friends: List<String> = emptyList()
+    val friends: List<String> = emptyList(),
+    val blockedUsers: List<String> = emptyList() // List of blocked user UIDs
 )
