@@ -288,8 +288,100 @@ class UserRepository(
     }
 
     /**
+     * Removes a friend relationship between the current user and another user.
+     * Both users' friends lists are updated atomically.
+     */
+    suspend fun removeFriend(friendUidToRemove: String): Result<Unit> {
+        val currentUser = getCurrentUser() ?: return Result.failure(Exception("User not logged in."))
+        val currentUserUid = currentUser.uid
+
+        // Prevent removing self
+        if (currentUserUid == friendUidToRemove) {
+            return Result.failure(IllegalArgumentException("You cannot remove yourself."))
+        }
+
+        return try {
+            // Use a WriteBatch for atomicity
+            val batch = firestore.batch()
+
+            // 1. Remove friendUidToRemove from the current user's friends list
+            val currentUserDocRef = usersCollection.document(currentUserUid)
+            batch.update(currentUserDocRef, "friends", FieldValue.arrayRemove(friendUidToRemove))
+
+            // 2. Remove currentUserUid from the friend's friends list
+            val friendUserDocRef = usersCollection.document(friendUidToRemove)
+            batch.update(friendUserDocRef, "friends", FieldValue.arrayRemove(currentUserUid))
+
+            // Commit the batch
+            batch.commit().await()
+
+            logD("Successfully removed friend: $currentUserUid <-> $friendUidToRemove")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error removing friend $friendUidToRemove: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Blocks a user. The current user will add the target user to their blockedUsers list.
+     * Also removes the friend relationship if it exists.
+     */
+    suspend fun blockUser(userUidToBlock: String): Result<Unit> {
+        val currentUser = getCurrentUser() ?: return Result.failure(Exception("User not logged in."))
+        val currentUserUid = currentUser.uid
+
+        // Prevent blocking self
+        if (currentUserUid == userUidToBlock) {
+            return Result.failure(IllegalArgumentException("You cannot block yourself."))
+        }
+
+        return try {
+            val batch = firestore.batch()
+
+            // 1. Add userUidToBlock to current user's blockedUsers list
+            val currentUserDocRef = usersCollection.document(currentUserUid)
+            batch.update(currentUserDocRef, "blockedUsers", FieldValue.arrayUnion(userUidToBlock))
+
+            // 2. Remove friend relationship if exists (both ways)
+            batch.update(currentUserDocRef, "friends", FieldValue.arrayRemove(userUidToBlock))
+
+            val blockedUserDocRef = usersCollection.document(userUidToBlock)
+            batch.update(blockedUserDocRef, "friends", FieldValue.arrayRemove(currentUserUid))
+
+            // Commit the batch
+            batch.commit().await()
+
+            logD("Successfully blocked user: $userUidToBlock")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error blocking user $userUidToBlock: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Unblocks a user by removing them from the current user's blockedUsers list.
+     */
+    suspend fun unblockUser(userUidToUnblock: String): Result<Unit> {
+        val currentUser = getCurrentUser() ?: return Result.failure(Exception("User not logged in."))
+        val currentUserUid = currentUser.uid
+
+        return try {
+            val currentUserDocRef = usersCollection.document(currentUserUid)
+            currentUserDocRef.update("blockedUsers", FieldValue.arrayRemove(userUidToUnblock)).await()
+
+            logD("Successfully unblocked user: $userUidToUnblock")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error unblocking user $userUidToUnblock: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Searches for users by username prefix (case-sensitive).
-     * Excludes the current user from the results.
+     * Excludes the current user and blocked users from the results.
      */
     suspend fun searchUsersByUsername(query: String, limit: Long = 5): List<User> {
         if (query.isBlank()) {
@@ -298,19 +390,32 @@ class UserRepository(
         val currentUserUid = getCurrentUser()?.uid // Get current user ID to exclude them
 
         return try {
+            // Get current user's blocked list
+            val currentUserProfile = if (currentUserUid != null) getUserProfile(currentUserUid) else null
+            val blockedByMe = currentUserProfile?.blockedUsers ?: emptyList()
+
             // Firestore query for username starting with the query string (case-sensitive)
             val endQuery = query + "\uf8ff" // High-codepoint character for prefix matching
             val querySnapshot = usersCollection
                 .whereGreaterThanOrEqualTo("username", query)
                 .whereLessThanOrEqualTo("username", endQuery)
-                .limit(limit + 1) // Fetch one extra to potentially exclude self later
+                .limit(limit + 10) // Fetch extra to account for filtering
                 .get()
                 .await()
 
             val users = querySnapshot.toObjects(User::class.java)
-            // Filter out the current user and take the desired limit
-            val filteredUsers = users.filterNot { it.uid == currentUserUid }.take(limit.toInt())
-            logD("Username search for '$query' found ${filteredUsers.size} potential friends.")
+
+            // Filter out:
+            // 1. The current user
+            // 2. Users I have blocked
+            // 3. Users who have blocked me
+            val filteredUsers = users.filterNot { user ->
+                user.uid == currentUserUid ||
+                blockedByMe.contains(user.uid) ||
+                (currentUserUid != null && user.blockedUsers.contains(currentUserUid))
+            }.take(limit.toInt())
+
+            logD("Username search for '$query' found ${filteredUsers.size} potential friends (after blocking filter).")
             filteredUsers
 
         } catch (e: Exception) {
@@ -346,6 +451,7 @@ class UserRepository(
             if (snapshot != null && snapshot.exists()) {
                 val user = snapshot.toObject(User::class.java)
                 val friendUids = user?.friends ?: emptyList()
+                val blockedByMe = user?.blockedUsers ?: emptyList()
 
                 // --- FIX ---
                 // Launch a coroutine from the callbackFlow's scope
@@ -353,7 +459,11 @@ class UserRepository(
                 launch {
                     try {
                         val profiles = getProfilesForFriends(friendUids)
-                        trySend(profiles) // Send the result
+                        // Filter out blocked users (both blocked by me and who blocked me)
+                        val filteredProfiles = profiles.filterNot { profile ->
+                            blockedByMe.contains(profile.uid) || profile.blockedUsers.contains(userUid)
+                        }
+                        trySend(filteredProfiles) // Send the filtered result
                     } catch (e: Exception) {
                         logE("Error fetching profiles in getFriendsFlow: ${e.message}")
                         trySend(emptyList()) // Send empty on fetching error

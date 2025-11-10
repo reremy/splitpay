@@ -35,13 +35,54 @@ data class GroupDetailUiState(
     val error: String? = null,
     val currentUserOverallBalance: Double = 0.0,
     val balanceBreakdown: List<MemberBalanceDetail> = emptyList(),
-    val membersMap: Map<String, User> = emptyMap() // To store member details for names
+    val membersMap: Map<String, User> = emptyMap(), // To store member details for names
+    val totals: GroupTotals = GroupTotals(), // Totals data
+    val chartData: ChartData = ChartData() // Chart data
     // Add other states later (isCurrentUserAdmin, friendsList, membersList, etc.)
 )
 
 data class MemberBalanceDetail(
     val memberName: String,
     val amount: Double // Positive: They owe you, Negative: You owe them
+)
+
+data class GroupTotals(
+    val totalSpent: Double = 0.0, // Sum of all expenses
+    val totalPaidByMembers: Map<String, Double> = emptyMap(), // Amount each member contributed
+    val averagePerPerson: Double = 0.0, // Average spending per person
+    val totalPendingSettlements: Double = 0.0 // Sum of all unsettled balances
+)
+
+data class ChartData(
+    val categoryBreakdown: List<CategorySpending> = emptyList(), // Spending by category
+    val memberContributions: List<MemberContribution> = emptyList(), // Contributions by member
+    val dailySpending: List<DailySpending> = emptyList() // Spending over time
+)
+
+data class CategorySpending(
+    val category: String,
+    val amount: Double,
+    val percentage: Float // Percentage of total spending
+)
+
+data class MemberContribution(
+    val memberName: String,
+    val amount: Double,
+    val percentage: Float // Percentage of total contributions
+)
+
+data class DailySpending(
+    val date: Long,
+    val amount: Double
+)
+
+// Helper data class to hold all calculated data
+private data class CalculatedData(
+    val overallBalance: Double,
+    val breakdown: List<MemberBalanceDetail>,
+    val membersMap: Map<String, User>,
+    val totals: GroupTotals,
+    val chartData: ChartData
 )
 
 class GroupDetailViewModel(
@@ -186,19 +227,36 @@ class GroupDetailViewModel(
                     }
                 }
 
-                // Update UI State with everything
-                Triple(group, expenses, Triple(overallBalance, breakdown.sortedByDescending { it.amount.absoluteValue }, membersMap))
-            }.collectLatest { (groupFromFlow, expenses, balanceData) ->
-                val (overallBalance, breakdown, membersMap) = balanceData
+                // 5. Calculate Totals
+                val totals = calculateTotals(expenses, balances, memberUidsToFetch.size)
+
+                // 6. Calculate Chart Data
+                val chartData = calculateChartData(expenses, membersMap)
+
+                // Wrap calculated data
+                val calculatedData = CalculatedData(
+                    overallBalance = overallBalance,
+                    breakdown = breakdown.sortedByDescending { it.amount.absoluteValue },
+                    membersMap = membersMap,
+                    totals = totals,
+                    chartData = chartData
+                )
+
+                // Return pair of (group, expenses, calculatedData)
+                Pair(group, Pair(expenses, calculatedData))
+            }.collectLatest { (groupFromFlow, expensesAndData) ->
+                val (expenses, calculatedData) = expensesAndData
                 _uiState.update {
                     it.copy(
                         isLoadingGroup = false,
                         isLoadingExpenses = false,
                         group = if (groupId == "non_group") it.group else groupFromFlow,
                         expenses = expenses,
-                        currentUserOverallBalance = overallBalance,
-                        balanceBreakdown = breakdown,
-                        membersMap = membersMap,
+                        currentUserOverallBalance = calculatedData.overallBalance,
+                        balanceBreakdown = calculatedData.breakdown,
+                        membersMap = calculatedData.membersMap,
+                        totals = calculatedData.totals,
+                        chartData = calculatedData.chartData,
                         error = null
                     )
                 }
@@ -209,6 +267,120 @@ class GroupDetailViewModel(
     // Helper function for rounding
     private fun roundToCents(value: Double): Double {
         return (value * 100.0).roundToInt() / 100.0
+    }
+
+    // Helper function to calculate totals
+    private fun calculateTotals(
+        expenses: List<Expense>,
+        balances: Map<String, Double>,
+        memberCount: Int
+    ): GroupTotals {
+        // Calculate total spent (sum of all expense amounts, excluding payments)
+        val totalSpent = expenses
+            .filter { it.expenseType != ExpenseType.PAYMENT }
+            .sumOf { it.totalAmount }
+
+        // Calculate total paid by each member
+        val totalPaidByMembers = mutableMapOf<String, Double>()
+        expenses.forEach { expense ->
+            expense.paidBy.forEach { payer ->
+                totalPaidByMembers[payer.uid] = (totalPaidByMembers[payer.uid] ?: 0.0) + payer.paidAmount
+            }
+        }
+
+        // Calculate average per person
+        val averagePerPerson = if (memberCount > 0) {
+            roundToCents(totalSpent / memberCount)
+        } else {
+            0.0
+        }
+
+        // Calculate total pending settlements (sum of absolute values of unsettled balances)
+        val totalPendingSettlements = balances.values
+            .filter { it.absoluteValue > 0.01 }
+            .sumOf { it.absoluteValue } / 2.0 // Divide by 2 because each debt is counted twice
+
+        return GroupTotals(
+            totalSpent = roundToCents(totalSpent),
+            totalPaidByMembers = totalPaidByMembers.mapValues { roundToCents(it.value) },
+            averagePerPerson = averagePerPerson,
+            totalPendingSettlements = roundToCents(totalPendingSettlements)
+        )
+    }
+
+    // Helper function to calculate chart data
+    private fun calculateChartData(
+        expenses: List<Expense>,
+        membersMap: Map<String, User>
+    ): ChartData {
+        // Filter out payment transactions
+        val actualExpenses = expenses.filter { it.expenseType != ExpenseType.PAYMENT }
+
+        if (actualExpenses.isEmpty()) {
+            return ChartData()
+        }
+
+        // 1. Category Breakdown
+        val categoryTotals = mutableMapOf<String, Double>()
+        actualExpenses.forEach { expense ->
+            categoryTotals[expense.category] = (categoryTotals[expense.category] ?: 0.0) + expense.totalAmount
+        }
+
+        val totalSpent = categoryTotals.values.sum()
+        val categoryBreakdown = categoryTotals.entries
+            .sortedByDescending { it.value }
+            .map { (category, amount) ->
+                CategorySpending(
+                    category = category,
+                    amount = roundToCents(amount),
+                    percentage = if (totalSpent > 0) (amount / totalSpent * 100).toFloat() else 0f
+                )
+            }
+
+        // 2. Member Contributions
+        val memberTotals = mutableMapOf<String, Double>()
+        actualExpenses.forEach { expense ->
+            expense.paidBy.forEach { payer ->
+                memberTotals[payer.uid] = (memberTotals[payer.uid] ?: 0.0) + payer.paidAmount
+            }
+        }
+
+        val totalContributions = memberTotals.values.sum()
+        val memberContributions = memberTotals.entries
+            .sortedByDescending { it.value }
+            .map { (uid, amount) ->
+                val memberName = membersMap[uid]?.username
+                    ?: membersMap[uid]?.fullName
+                    ?: "Unknown"
+                MemberContribution(
+                    memberName = memberName,
+                    amount = roundToCents(amount),
+                    percentage = if (totalContributions > 0) (amount / totalContributions * 100).toFloat() else 0f
+                )
+            }
+
+        // 3. Daily Spending (group by day)
+        val dailyTotals = mutableMapOf<Long, Double>()
+        actualExpenses.forEach { expense ->
+            // Normalize to start of day (midnight)
+            val dayStart = expense.date - (expense.date % (24 * 60 * 60 * 1000))
+            dailyTotals[dayStart] = (dailyTotals[dayStart] ?: 0.0) + expense.totalAmount
+        }
+
+        val dailySpending = dailyTotals.entries
+            .sortedBy { it.key }
+            .map { (date, amount) ->
+                DailySpending(
+                    date = date,
+                    amount = roundToCents(amount)
+                )
+            }
+
+        return ChartData(
+            categoryBreakdown = categoryBreakdown,
+            memberContributions = memberContributions,
+            dailySpending = dailySpending
+        )
     }
 
     // --- Helper to calculate user's net amount for a single expense ---
@@ -269,6 +441,132 @@ class GroupDetailViewModel(
 
     private fun formatCurrency(amount: Double): String {
         return "MYR%.2f".format(amount.absoluteValue)
+    }
+
+    // --- Export group data as formatted text ---
+    fun exportGroupData(): String {
+        val state = _uiState.value
+        val group = state.group ?: return "No group data available"
+        val expenses = state.expenses
+        val totals = state.totals
+        val balanceBreakdown = state.balanceBreakdown
+        val membersMap = state.membersMap
+
+        val sb = StringBuilder()
+
+        // Header
+        sb.appendLine("=".repeat(50))
+        sb.appendLine("GROUP EXPENSE REPORT")
+        sb.appendLine("=".repeat(50))
+        sb.appendLine()
+
+        // Group Info
+        sb.appendLine("Group: ${group.name}")
+        if (group.id != "non_group") {
+            sb.appendLine("Members: ${group.members.size}")
+            sb.appendLine()
+            group.members.forEach { uid ->
+                val member = membersMap[uid]
+                val name = member?.username ?: member?.fullName ?: "Unknown"
+                sb.appendLine("  • $name")
+            }
+        }
+        sb.appendLine()
+
+        // Summary Stats
+        sb.appendLine("-".repeat(50))
+        sb.appendLine("SUMMARY")
+        sb.appendLine("-".repeat(50))
+        sb.appendLine("Total Spent: MYR %.2f".format(totals.totalSpent))
+        sb.appendLine("Average Per Person: MYR %.2f".format(totals.averagePerPerson))
+        sb.appendLine("Pending Settlements: MYR %.2f".format(totals.totalPendingSettlements))
+        sb.appendLine()
+
+        // Your Balance
+        sb.appendLine("-".repeat(50))
+        sb.appendLine("YOUR BALANCE")
+        sb.appendLine("-".repeat(50))
+        val overallBalance = state.currentUserOverallBalance
+        when {
+            overallBalance > 0.01 -> sb.appendLine("Overall, you are owed MYR %.2f".format(overallBalance))
+            overallBalance < -0.01 -> sb.appendLine("Overall, you owe MYR %.2f".format(overallBalance.absoluteValue))
+            else -> sb.appendLine("You are settled up!")
+        }
+        sb.appendLine()
+
+        // Balance Breakdown
+        if (balanceBreakdown.isNotEmpty()) {
+            sb.appendLine("Balance Breakdown:")
+            balanceBreakdown.forEach { detail ->
+                when {
+                    detail.amount > 0.01 -> sb.appendLine("  • ${detail.memberName} owes you MYR %.2f".format(detail.amount))
+                    detail.amount < -0.01 -> sb.appendLine("  • You owe ${detail.memberName} MYR %.2f".format(detail.amount.absoluteValue))
+                }
+            }
+            sb.appendLine()
+        }
+
+        // Member Contributions
+        if (totals.totalPaidByMembers.isNotEmpty()) {
+            sb.appendLine("-".repeat(50))
+            sb.appendLine("CONTRIBUTIONS")
+            sb.appendLine("-".repeat(50))
+            totals.totalPaidByMembers.entries
+                .sortedByDescending { it.value }
+                .forEach { (uid, amount) ->
+                    val memberName = membersMap[uid]?.username
+                        ?: membersMap[uid]?.fullName
+                        ?: "Unknown"
+                    sb.appendLine("  $memberName: MYR %.2f".format(amount))
+                }
+            sb.appendLine()
+        }
+
+        // Expenses List
+        sb.appendLine("-".repeat(50))
+        sb.appendLine("EXPENSES (${expenses.size})")
+        sb.appendLine("-".repeat(50))
+        expenses.forEach { expense ->
+            sb.appendLine()
+            sb.appendLine(expense.description)
+            sb.appendLine("  Amount: MYR %.2f".format(expense.totalAmount))
+            sb.appendLine("  Date: ${java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(expense.date))}")
+            sb.appendLine("  Category: ${expense.category}")
+
+            // Paid by
+            if (expense.paidBy.isNotEmpty()) {
+                sb.append("  Paid by: ")
+                expense.paidBy.forEach { payer ->
+                    val payerName = membersMap[payer.uid]?.username
+                        ?: membersMap[payer.uid]?.fullName
+                        ?: "Unknown"
+                    sb.append("$payerName (MYR %.2f) ".format(payer.paidAmount))
+                }
+                sb.appendLine()
+            }
+
+            // Split between
+            if (expense.participants.isNotEmpty()) {
+                sb.appendLine("  Split between:")
+                expense.participants.forEach { participant ->
+                    val participantName = membersMap[participant.uid]?.username
+                        ?: membersMap[participant.uid]?.fullName
+                        ?: "Unknown"
+                    sb.appendLine("    - $participantName: MYR %.2f".format(participant.owesAmount))
+                }
+            }
+
+            if (expense.memo.isNotEmpty()) {
+                sb.appendLine("  Memo: ${expense.memo}")
+            }
+        }
+
+        sb.appendLine()
+        sb.appendLine("=".repeat(50))
+        sb.appendLine("End of Report")
+        sb.appendLine("=".repeat(50))
+
+        return sb.toString()
     }
 
     // --- Placeholder functions for menu actions (to be implemented later) ---

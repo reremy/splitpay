@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -28,6 +29,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.splitpay.ui.common.UiEventHandler
+import com.example.splitpay.ui.groups.expenseCategoriesMap
 import com.example.splitpay.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -35,7 +37,7 @@ import java.util.Locale
 
 /**
  * Screen that displays detailed information about an expense.
- * Order: Description, Amount, Date, Group, Split, Image, Memo
+ * Order: Description, Amount, Date, Category, Group, Split, Image, Memo
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -187,7 +189,46 @@ fun ExpenseDetailContent(
 
         Spacer(Modifier.height(24.dp))
 
-        // 4. GROUP (if it's a group expense)
+        // 4. CATEGORY
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Category:",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Category icon and name
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = expenseCategoriesMap[expense.category] ?: Icons.Default.Category,
+                        contentDescription = expense.category,
+                        tint = PrimaryBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = expense.category.replaceFirstChar { it.uppercase() },
+                        color = TextWhite,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+
+        // 5. GROUP (if it's a group expense)
         if (expense.groupId != null && expense.groupId != "non_group") {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -215,7 +256,7 @@ fun ExpenseDetailContent(
             Spacer(Modifier.height(16.dp))
         }
 
-        // 5. SPLIT (Paid by + Participants with profile photos)
+        // 6. SPLIT (Paid by + Participants with profile photos)
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
@@ -333,7 +374,7 @@ fun ExpenseDetailContent(
             }
         }
 
-        // 6. EXPENSE IMAGE (if exists)
+        // 7. EXPENSE IMAGE (if exists)
         if (expense.imageUrl.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             Card(
@@ -362,7 +403,7 @@ fun ExpenseDetailContent(
             }
         }
 
-        // 7. MEMO (if exists)
+        // 8. MEMO (if exists)
         if (expense.memo.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
             Card(

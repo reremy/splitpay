@@ -19,7 +19,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Logout
@@ -194,6 +196,59 @@ fun UserProfileScreen(
                         AccountDetailItem(Icons.Default.Email, "Email", uiState.email)
                         Divider(color = Color(0xFF454545), thickness = 1.dp, modifier = Modifier.padding(start = 56.dp))
                         AccountDetailItem(Icons.Default.Phone, "Phone", uiState.phoneNumber)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Privacy & Settings Section
+                Text(
+                    text = "Privacy & Settings",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { mainNavController.navigate(Screen.BlockedUsers) }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Block,
+                            contentDescription = "Blocked Users",
+                            tint = Color.Gray,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Blocked Users",
+                                color = TextWhite,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Manage blocked users",
+                                color = Color.Gray,
+                                fontSize = 12.sp
+                            )
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = "Go",
+                            tint = Color.Gray,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
 

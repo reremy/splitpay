@@ -143,10 +143,15 @@ fun GroupsContent(
                     )
                 }
 
-                // Placeholder for Settled Up Groups
-                item {
-                    Spacer(Modifier.height(16.dp))
-                    SettledUpGroupButton()
+                // Settled Up Groups Toggle Button
+                if (uiState.settledGroupsCount > 0 && !uiState.showSettledGroups) {
+                    item {
+                        Spacer(Modifier.height(16.dp))
+                        SettledUpGroupButton(
+                            count = uiState.settledGroupsCount,
+                            onClick = viewModel::toggleShowSettledGroups
+                        )
+                    }
                 }
             }
         }
@@ -333,7 +338,10 @@ fun NonGroupExpensesCard(
 }
 
 @Composable
-fun SettledUpGroupButton() {
+fun SettledUpGroupButton(
+    count: Int,
+    onClick: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -345,14 +353,19 @@ fun SettledUpGroupButton() {
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Button(
-            onClick = { /*TODO: Show settled groups*/ },
+            onClick = onClick,
             shape = RoundedCornerShape(20.dp),
             colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF2D2D2D),
                 contentColor = Color.White
             )
         ) {
-            Text("Show 1 settled-up group")
+            val text = if (count == 1) {
+                "Show 1 settled-up group"
+            } else {
+                "Show $count settled-up groups"
+            }
+            Text(text)
         }
     }
 }

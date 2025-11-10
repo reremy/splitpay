@@ -41,12 +41,37 @@ data class FriendDetailUiState(
     val balanceBreakdown: List<BalanceDetail> = emptyList(),
     val usersMap: Map<String, User> = emptyMap(),
     // NEW: Aggregated activity cards
-    val activityCards: List<ActivityCard> = emptyList()
+    val activityCards: List<ActivityCard> = emptyList(),
+    val chartData: ChartData = ChartData(),
+    val showReminderDialog: Boolean = false
 )
 
 data class BalanceDetail(
     val groupName: String,
     val amount: Double
+)
+
+data class ChartData(
+    val categoryBreakdown: List<CategorySpending> = emptyList(),
+    val dailySpending: List<DailySpending> = emptyList(),
+    val groupBreakdown: List<GroupSpending> = emptyList()
+)
+
+data class CategorySpending(
+    val category: String,
+    val amount: Double,
+    val percentage: Float
+)
+
+data class DailySpending(
+    val date: Long,
+    val amount: Double
+)
+
+data class GroupSpending(
+    val groupName: String,
+    val amount: Double,
+    val percentage: Float
 )
 
 // NEW: Sealed class for different activity card types
@@ -241,6 +266,9 @@ class FriendsDetailViewModel(
                 // NEW: Build activity cards
                 val activityCards = buildActivityCards(allExpenses, sharedGroups)
 
+                // Calculate chart data
+                val chartData = calculateChartData(allExpenses, sharedGroups)
+
                 _uiState.update {
                     it.copy(
                         isLoadingExpenses = false,
@@ -251,6 +279,7 @@ class FriendsDetailViewModel(
                         balanceBreakdown = balanceBreakdown,
                         usersMap = usersMap,
                         activityCards = activityCards,
+                        chartData = chartData,
                         error = null
                     )
                 }
@@ -429,5 +458,183 @@ class FriendsDetailViewModel(
 
         // Sort by date descending (most recent first)
         return activityCards.sortedByDescending { it.date }
+    }
+
+    /**
+     * Calculate chart data for visualization
+     */
+    private fun calculateChartData(
+        expenses: List<Expense>,
+        sharedGroups: List<Group>
+    ): ChartData {
+        val actualExpenses = expenses.filter { it.expenseType != ExpenseType.PAYMENT }
+
+        if (actualExpenses.isEmpty()) {
+            return ChartData()
+        }
+
+        // 1. Category Breakdown
+        val categoryTotals = mutableMapOf<String, Double>()
+        actualExpenses.forEach { expense ->
+            categoryTotals[expense.category] = (categoryTotals[expense.category] ?: 0.0) + expense.totalAmount
+        }
+
+        val totalSpent = categoryTotals.values.sum()
+        val categoryBreakdown = categoryTotals.entries
+            .sortedByDescending { it.value }
+            .map { (category, amount) ->
+                CategorySpending(
+                    category = category,
+                    amount = roundToCents(amount),
+                    percentage = if (totalSpent > 0) (amount / totalSpent * 100).toFloat() else 0f
+                )
+            }
+
+        // 2. Daily Spending
+        val dailyTotals = mutableMapOf<Long, Double>()
+        actualExpenses.forEach { expense ->
+            val dayStart = expense.date - (expense.date % (24 * 60 * 60 * 1000))
+            dailyTotals[dayStart] = (dailyTotals[dayStart] ?: 0.0) + expense.totalAmount
+        }
+
+        val dailySpending = dailyTotals.entries
+            .sortedBy { it.key }
+            .map { (date, amount) ->
+                DailySpending(
+                    date = date,
+                    amount = roundToCents(amount)
+                )
+            }
+
+        // 3. Group Breakdown
+        val groupTotals = mutableMapOf<String, Double>()
+        actualExpenses.forEach { expense ->
+            val groupName = when {
+                expense.groupId == "non_group" || expense.groupId == null -> "Non-group expenses"
+                else -> sharedGroups.find { it.id == expense.groupId }?.name ?: "Unknown Group"
+            }
+            groupTotals[groupName] = (groupTotals[groupName] ?: 0.0) + expense.totalAmount
+        }
+
+        val groupBreakdown = groupTotals.entries
+            .sortedByDescending { it.value }
+            .map { (groupName, amount) ->
+                GroupSpending(
+                    groupName = groupName,
+                    amount = roundToCents(amount),
+                    percentage = if (totalSpent > 0) (amount / totalSpent * 100).toFloat() else 0f
+                )
+            }
+
+        return ChartData(
+            categoryBreakdown = categoryBreakdown,
+            dailySpending = dailySpending,
+            groupBreakdown = groupBreakdown
+        )
+    }
+
+    /**
+     * Export friend data as formatted text
+     */
+    fun exportFriendData(): String {
+        val state = _uiState.value
+        val friend = state.friend ?: return "No friend data available"
+        val expenses = state.expenses
+        val netBalance = state.netBalance
+        val balanceBreakdown = state.balanceBreakdown
+
+        val sb = StringBuilder()
+
+        // Header
+        sb.appendLine("=".repeat(50))
+        sb.appendLine("FRIEND EXPENSE REPORT")
+        sb.appendLine("=".repeat(50))
+        sb.appendLine()
+
+        // Friend Info
+        sb.appendLine("Friend: ${friend.username}")
+        if (friend.fullName.isNotEmpty()) {
+            sb.appendLine("Full Name: ${friend.fullName}")
+        }
+        sb.appendLine()
+
+        // Summary Stats
+        sb.appendLine("=".repeat(50))
+        sb.appendLine("SUMMARY")
+        sb.appendLine("=".repeat(50))
+        val totalExpenses = expenses.filter { it.expenseType != ExpenseType.PAYMENT }
+        val totalPayments = expenses.filter { it.expenseType == ExpenseType.PAYMENT }
+        sb.appendLine("Total Expenses: ${totalExpenses.size}")
+        sb.appendLine("Total Payments: ${totalPayments.size}")
+        sb.appendLine("Total Amount: MYR%.2f".format(totalExpenses.sumOf { it.totalAmount }))
+        sb.appendLine()
+
+        // Overall Balance
+        sb.appendLine("=".repeat(50))
+        sb.appendLine("OVERALL BALANCE")
+        sb.appendLine("=".repeat(50))
+        val balanceText = when {
+            netBalance > 0.01 -> "You are owed MYR%.2f".format(netBalance)
+            netBalance < -0.01 -> "You owe MYR%.2f".format(netBalance.absoluteValue)
+            else -> "Settled up"
+        }
+        sb.appendLine(balanceText)
+        sb.appendLine()
+
+        // Balance Breakdown
+        if (balanceBreakdown.isNotEmpty()) {
+            sb.appendLine("Balance Breakdown:")
+            balanceBreakdown.forEach { detail ->
+                val breakdownText = when {
+                    detail.amount > 0.01 -> "  • ${friend.username} owes you MYR%.2f in ${detail.groupName}".format(detail.amount)
+                    detail.amount < -0.01 -> "  • You owe ${friend.username} MYR%.2f in ${detail.groupName}".format(detail.amount.absoluteValue)
+                    else -> "  • Settled up in ${detail.groupName}"
+                }
+                sb.appendLine(breakdownText)
+            }
+            sb.appendLine()
+        }
+
+        // Expenses List
+        if (expenses.isNotEmpty()) {
+            sb.appendLine("=".repeat(50))
+            sb.appendLine("EXPENSES & PAYMENTS")
+            sb.appendLine("=".repeat(50))
+            expenses.forEach { expense ->
+                val dateStr = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date(expense.date))
+                val typeStr = if (expense.expenseType == ExpenseType.PAYMENT) "[PAYMENT]" else ""
+                sb.appendLine("${expense.description} $typeStr")
+                sb.appendLine("  Date: $dateStr")
+                sb.appendLine("  Amount: MYR%.2f".format(expense.totalAmount))
+                if (expense.category.isNotEmpty() && expense.expenseType != ExpenseType.PAYMENT) {
+                    sb.appendLine("  Category: ${expense.category}")
+                }
+                if (expense.groupId != "non_group" && expense.groupId != null) {
+                    val groupName = state.sharedGroups.find { it.id == expense.groupId }?.name ?: "Unknown Group"
+                    sb.appendLine("  Group: $groupName")
+                }
+                sb.appendLine()
+            }
+        }
+
+        sb.appendLine("=".repeat(50))
+        sb.appendLine("End of Report")
+        sb.appendLine("=".repeat(50))
+
+        return sb.toString()
+    }
+
+    /**
+     * Show reminder dialog
+     */
+    fun showReminderDialog() {
+        _uiState.update { it.copy(showReminderDialog = true) }
+    }
+
+    /**
+     * Dismiss reminder dialog
+     */
+    fun dismissReminderDialog() {
+        _uiState.update { it.copy(showReminderDialog = false) }
     }
 }

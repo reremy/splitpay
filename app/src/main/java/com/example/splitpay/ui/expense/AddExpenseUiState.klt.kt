@@ -22,6 +22,7 @@ data class AddExpenseUiState(
     val isSplitEditorVisible: Boolean = false,
     val date: Long = System.currentTimeMillis(),
     val memo: String = "",
+    val category: String = "misc", // Expense category (e.g., misc, food & drink, groceries, etc.)
     val selectedImageUri: Uri? = null, // Selected expense image before upload
     val uploadedImageUrl: String = "", // Uploaded image URL from Firebase
     val isUploadingImage: Boolean = false,
@@ -29,5 +30,6 @@ data class AddExpenseUiState(
     val currentGroupId: String? = null, // Currently selected group ID (can be null for non-group)
     val isDatePickerDialogVisible: Boolean = false,
     val isMemoDialogVisible: Boolean = false,
+    val isCategorySelectorVisible: Boolean = false, // Category selector dialog visibility
     val isEditMode: Boolean = false // True when editing an existing expense
 )
