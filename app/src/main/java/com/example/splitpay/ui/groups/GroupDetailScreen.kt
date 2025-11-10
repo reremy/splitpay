@@ -158,6 +158,10 @@ fun GroupDetailScreen(
     val showTotalsSheet = remember { mutableStateOf(false) }
     val totalsSheetState = rememberModalBottomSheetState()
 
+    // --- State for Balances Bottom Sheet ---
+    val showBalancesSheet = remember { mutableStateOf(false) }
+    val balancesSheetState = rememberModalBottomSheetState()
+
     // Call the loading function when groupId changes
     LaunchedEffect(groupId) {
         viewModel.loadGroupAndExpenses(groupId)
@@ -191,6 +195,21 @@ fun GroupDetailScreen(
         ) {
             TotalsSheetContent(
                 totals = uiState.totals,
+                membersMap = uiState.membersMap,
+                groupName = group?.name ?: "Group"
+            )
+        }
+    }
+
+    // --- Balances Bottom Sheet ---
+    if (showBalancesSheet.value) {
+        ModalBottomSheet(
+            onDismissRequest = { showBalancesSheet.value = false },
+            sheetState = balancesSheetState,
+            containerColor = Color(0xFF2D2D2D)
+        ) {
+            BalancesSheetContent(
+                balanceBreakdown = uiState.balanceBreakdown,
                 membersMap = uiState.membersMap,
                 groupName = group?.name ?: "Group"
             )
@@ -276,7 +295,8 @@ fun GroupDetailScreen(
                         expenses = uiState.expenses,
                         viewModel = viewModel,
                         navController = navController, // <-- PASS NAVCONTROLLER
-                        showTotalsSheet = showTotalsSheet
+                        showTotalsSheet = showTotalsSheet,
+                        showBalancesSheet = showBalancesSheet
                     )
                 }
                 else -> { // Error state or group is null after loading
@@ -411,7 +431,8 @@ fun GroupDetailContent(
     expenses: List<Expense>,
     viewModel: GroupDetailViewModel,
     navController: NavHostController, // <-- Added NavController
-    showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>
+    showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>,
+    showBalancesSheet: androidx.compose.runtime.MutableState<Boolean>
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
@@ -440,7 +461,8 @@ fun GroupDetailContent(
                 ActionButtonsRow(
                     navController = navController,
                     groupId = groupId,
-                    showTotalsSheet = showTotalsSheet
+                    showTotalsSheet = showTotalsSheet,
+                    showBalancesSheet = showBalancesSheet
                 )
                 Spacer(Modifier.height(16.dp))
             }
@@ -643,7 +665,8 @@ fun ExpenseActivityCard(
 fun ActionButtonsRow(
     navController: NavHostController, // <-- Add NavController
     groupId: String, // <-- Add groupId
-    showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>
+    showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>,
+    showBalancesSheet: androidx.compose.runtime.MutableState<Boolean>
 ) {
     Row(
         modifier = Modifier
@@ -657,7 +680,7 @@ fun ActionButtonsRow(
             { navController.navigate("${Screen.SettleUp}/$groupId") }
         )
         ActionButton("Charts", {})
-        ActionButton("Balances", {})
+        ActionButton("Balances", { showBalancesSheet.value = true })
         ActionButton("Total", { showTotalsSheet.value = true })
         ActionButton("Export", {})
     }
@@ -978,6 +1001,152 @@ fun TotalsSheetContent(
                                 )
                             }
                         }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+// --- Balances Bottom Sheet Content ---
+@Composable
+fun BalancesSheetContent(
+    balanceBreakdown: List<MemberBalanceDetail>,
+    membersMap: Map<String, User>,
+    groupName: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Title
+        Text(
+            text = "Balances for $groupName",
+            color = TextWhite,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        if (balanceBreakdown.isEmpty()) {
+            // All settled up message
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "All Settled Up!",
+                        color = PositiveGreen,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Everyone's balanced in this group",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            // Balance breakdown list
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    balanceBreakdown.forEachIndexed { index, detail ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Member profile and name
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                // Find the user object for this member
+                                val memberUid = membersMap.entries.find {
+                                    it.value.username == detail.memberName || it.value.fullName == detail.memberName
+                                }?.key
+                                val user = memberUid?.let { membersMap[it] }
+
+                                // Profile photo
+                                if (user?.profilePictureUrl?.isNotEmpty() == true) {
+                                    AsyncImage(
+                                        model = user.profilePictureUrl,
+                                        contentDescription = "${detail.memberName}'s profile",
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Default.AccountCircle,
+                                        contentDescription = detail.memberName,
+                                        tint = Color.Gray,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                }
+
+                                Spacer(Modifier.width(12.dp))
+
+                                Column {
+                                    Text(
+                                        text = detail.memberName,
+                                        color = TextWhite,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+
+                                    // Descriptive text
+                                    val descriptionText = when {
+                                        detail.amount > 0.01 -> "owes you"
+                                        detail.amount < -0.01 -> "you owe"
+                                        else -> "settled"
+                                    }
+
+                                    Text(
+                                        text = descriptionText,
+                                        color = Color.Gray,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+
+                            // Amount
+                            Text(
+                                text = "MYR %.2f".format(detail.amount.absoluteValue),
+                                color = if (detail.amount > 0) PositiveGreen else NegativeRed,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Divider between items (not after the last item)
+                        if (index < balanceBreakdown.size - 1) {
+                            HorizontalDivider(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                color = Color(0xFF4D4D4D)
+                            )
+                        }
+                    }
                 }
             }
         }
