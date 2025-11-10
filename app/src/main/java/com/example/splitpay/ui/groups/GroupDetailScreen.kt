@@ -154,6 +154,10 @@ fun GroupDetailScreen(
     // --- State for Info Dialog ---
     val showInfoDialog = remember { mutableStateOf(false) }
 
+    // --- State for Totals Bottom Sheet ---
+    val showTotalsSheet = remember { mutableStateOf(false) }
+    val totalsSheetState = rememberModalBottomSheetState()
+
     // Call the loading function when groupId changes
     LaunchedEffect(groupId) {
         viewModel.loadGroupAndExpenses(groupId)
@@ -176,6 +180,21 @@ fun GroupDetailScreen(
             },
             containerColor = Color(0xFF2D2D2D) // Match theme dark dialog background
         )
+    }
+
+    // --- Totals Bottom Sheet ---
+    if (showTotalsSheet.value) {
+        ModalBottomSheet(
+            onDismissRequest = { showTotalsSheet.value = false },
+            sheetState = totalsSheetState,
+            containerColor = Color(0xFF2D2D2D)
+        ) {
+            TotalsSheetContent(
+                totals = uiState.totals,
+                membersMap = uiState.membersMap,
+                groupName = group?.name ?: "Group"
+            )
+        }
     }
 
     Scaffold(
@@ -256,7 +275,8 @@ fun GroupDetailScreen(
                         group = group,
                         expenses = uiState.expenses,
                         viewModel = viewModel,
-                        navController = navController // <-- PASS NAVCONTROLLER
+                        navController = navController, // <-- PASS NAVCONTROLLER
+                        showTotalsSheet = showTotalsSheet
                     )
                 }
                 else -> { // Error state or group is null after loading
@@ -390,7 +410,8 @@ fun GroupDetailContent(
     group: Group,
     expenses: List<Expense>,
     viewModel: GroupDetailViewModel,
-    navController: NavHostController // <-- Added NavController
+    navController: NavHostController, // <-- Added NavController
+    showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>
 ) {
 
     val uiState by viewModel.uiState.collectAsState()
@@ -416,7 +437,11 @@ fun GroupDetailContent(
         item {
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 // --- PASS NAVCONTROLLER AND GROUPID ---
-                ActionButtonsRow(navController = navController, groupId = groupId)
+                ActionButtonsRow(
+                    navController = navController,
+                    groupId = groupId,
+                    showTotalsSheet = showTotalsSheet
+                )
                 Spacer(Modifier.height(16.dp))
             }
         }
@@ -617,7 +642,8 @@ fun ExpenseActivityCard(
 @Composable
 fun ActionButtonsRow(
     navController: NavHostController, // <-- Add NavController
-    groupId: String // <-- Add groupId
+    groupId: String, // <-- Add groupId
+    showTotalsSheet: androidx.compose.runtime.MutableState<Boolean>
 ) {
     Row(
         modifier = Modifier
@@ -632,7 +658,7 @@ fun ActionButtonsRow(
         )
         ActionButton("Charts", {})
         ActionButton("Balances", {})
-        ActionButton("Total", {})
+        ActionButton("Total", { showTotalsSheet.value = true })
         ActionButton("Export", {})
     }
 }
@@ -780,5 +806,182 @@ fun StackedMemberPhotos(
                 )
             }
         }
+    }
+}
+
+// --- Totals Bottom Sheet Content ---
+@Composable
+fun TotalsSheetContent(
+    totals: GroupTotals,
+    membersMap: Map<String, User>,
+    groupName: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
+    ) {
+        // Title
+        Text(
+            text = "Totals for $groupName",
+            color = TextWhite,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
+
+        // Total Spent Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Total Spent",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "MYR %.2f".format(totals.totalSpent),
+                    color = TextWhite,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Sum of all expenses in this group",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Average Per Person Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Average Per Person",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "MYR %.2f".format(totals.averagePerPerson),
+                    color = PrimaryBlue,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Total spent divided by ${if (totals.totalPaidByMembers.isNotEmpty()) totals.totalPaidByMembers.size else 0} ${if (totals.totalPaidByMembers.size == 1) "member" else "members"}",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Total Pending Settlements Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Pending Settlements",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "MYR %.2f".format(totals.totalPendingSettlements),
+                    color = if (totals.totalPendingSettlements > 0) NegativeRed else PositiveGreen,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = if (totals.totalPendingSettlements > 0) "Total amount yet to be settled" else "All settled up!",
+                    color = Color.Gray,
+                    fontSize = 12.sp
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Total Added by Members Card
+        if (totals.totalPaidByMembers.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Contributions by Member",
+                        color = Color.Gray,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    // Sort by amount (highest to lowest)
+                    totals.totalPaidByMembers.entries
+                        .sortedByDescending { it.value }
+                        .forEach { (uid, amount) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 6.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Member name
+                                val memberName = membersMap[uid]?.username
+                                    ?: membersMap[uid]?.fullName
+                                    ?: "Unknown"
+
+                                Text(
+                                    text = memberName,
+                                    color = TextWhite,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+
+                                // Amount contributed
+                                Text(
+                                    text = "MYR %.2f".format(amount),
+                                    color = PositiveGreen,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                            if (uid != totals.totalPaidByMembers.entries.sortedByDescending { it.value }.last().key) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = Color(0xFF4D4D4D)
+                                )
+                            }
+                        }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
     }
 }

@@ -35,13 +35,21 @@ data class GroupDetailUiState(
     val error: String? = null,
     val currentUserOverallBalance: Double = 0.0,
     val balanceBreakdown: List<MemberBalanceDetail> = emptyList(),
-    val membersMap: Map<String, User> = emptyMap() // To store member details for names
+    val membersMap: Map<String, User> = emptyMap(), // To store member details for names
+    val totals: GroupTotals = GroupTotals() // Totals data
     // Add other states later (isCurrentUserAdmin, friendsList, membersList, etc.)
 )
 
 data class MemberBalanceDetail(
     val memberName: String,
     val amount: Double // Positive: They owe you, Negative: You owe them
+)
+
+data class GroupTotals(
+    val totalSpent: Double = 0.0, // Sum of all expenses
+    val totalPaidByMembers: Map<String, Double> = emptyMap(), // Amount each member contributed
+    val averagePerPerson: Double = 0.0, // Average spending per person
+    val totalPendingSettlements: Double = 0.0 // Sum of all unsettled balances
 )
 
 class GroupDetailViewModel(
@@ -186,9 +194,12 @@ class GroupDetailViewModel(
                     }
                 }
 
+                // 5. Calculate Totals
+                val totals = calculateTotals(expenses, balances, memberUidsToFetch.size)
+
                 // Update UI State with everything
-                Triple(group, expenses, Triple(overallBalance, breakdown.sortedByDescending { it.amount.absoluteValue }, membersMap))
-            }.collectLatest { (groupFromFlow, expenses, balanceData) ->
+                Triple(group, expenses, Triple(overallBalance, breakdown.sortedByDescending { it.amount.absoluteValue }, membersMap), totals)
+            }.collectLatest { (groupFromFlow, expenses, balanceData, totals) ->
                 val (overallBalance, breakdown, membersMap) = balanceData
                 _uiState.update {
                     it.copy(
@@ -199,6 +210,7 @@ class GroupDetailViewModel(
                         currentUserOverallBalance = overallBalance,
                         balanceBreakdown = breakdown,
                         membersMap = membersMap,
+                        totals = totals,
                         error = null
                     )
                 }
@@ -209,6 +221,45 @@ class GroupDetailViewModel(
     // Helper function for rounding
     private fun roundToCents(value: Double): Double {
         return (value * 100.0).roundToInt() / 100.0
+    }
+
+    // Helper function to calculate totals
+    private fun calculateTotals(
+        expenses: List<Expense>,
+        balances: Map<String, Double>,
+        memberCount: Int
+    ): GroupTotals {
+        // Calculate total spent (sum of all expense amounts, excluding payments)
+        val totalSpent = expenses
+            .filter { it.expenseType != ExpenseType.PAYMENT }
+            .sumOf { it.totalAmount }
+
+        // Calculate total paid by each member
+        val totalPaidByMembers = mutableMapOf<String, Double>()
+        expenses.forEach { expense ->
+            expense.paidBy.forEach { payer ->
+                totalPaidByMembers[payer.uid] = (totalPaidByMembers[payer.uid] ?: 0.0) + payer.paidAmount
+            }
+        }
+
+        // Calculate average per person
+        val averagePerPerson = if (memberCount > 0) {
+            roundToCents(totalSpent / memberCount)
+        } else {
+            0.0
+        }
+
+        // Calculate total pending settlements (sum of absolute values of unsettled balances)
+        val totalPendingSettlements = balances.values
+            .filter { it.absoluteValue > 0.01 }
+            .sumOf { it.absoluteValue } / 2.0 // Divide by 2 because each debt is counted twice
+
+        return GroupTotals(
+            totalSpent = roundToCents(totalSpent),
+            totalPaidByMembers = totalPaidByMembers.mapValues { roundToCents(it.value) },
+            averagePerPerson = averagePerPerson,
+            totalPendingSettlements = roundToCents(totalPendingSettlements)
+        )
     }
 
     // --- Helper to calculate user's net amount for a single expense ---
