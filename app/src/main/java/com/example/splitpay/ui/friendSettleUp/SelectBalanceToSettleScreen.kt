@@ -156,6 +156,46 @@ class SelectBalanceToSettleViewModel(
                     }
                 }
 
+                // Calculate balance for non-group expenses
+                val nonGroupExpenses = expenseRepository.getNonGroupExpensesBetweenUsers(currentUserId, friendId)
+                var nonGroupBalance = 0.0
+
+                for (expense in nonGroupExpenses) {
+                    val paidByCurrentUser = expense.paidBy.find { it.uid == currentUserId }?.paidAmount ?: 0.0
+                    val paidByFriend = expense.paidBy.find { it.uid == friendId }?.paidAmount ?: 0.0
+                    val shareOwedByCurrentUser = expense.participants.find { it.uid == currentUserId }?.owesAmount ?: 0.0
+                    val shareOwedByFriend = expense.participants.find { it.uid == friendId }?.owesAmount ?: 0.0
+
+                    val balanceChange = if (expense.expenseType == ExpenseType.PAYMENT) {
+                        when {
+                            paidByCurrentUser > 0 -> paidByCurrentUser
+                            paidByFriend > 0 -> -paidByFriend
+                            else -> 0.0
+                        }
+                    } else {
+                        val netContributionCurrentUser = paidByCurrentUser - shareOwedByCurrentUser
+                        val netContributionFriend = paidByFriend - shareOwedByFriend
+                        val numParticipants = expense.participants.size.toDouble().coerceAtLeast(1.0)
+                        (netContributionCurrentUser - netContributionFriend) / numParticipants
+                    }
+
+                    nonGroupBalance += balanceChange
+                }
+
+                // Add non-group expenses if balance is non-zero
+                if (nonGroupBalance.absoluteValue > 0.01) {
+                    groupBalancesList.add(
+                        GroupBalance(
+                            groupId = "non_group",
+                            groupName = "Non-group expenses",
+                            groupIconIdentifier = "info",
+                            balance = nonGroupBalance,
+                            group = null
+                        )
+                    )
+                    totalBalance += nonGroupBalance
+                }
+
                 // Sort by balance magnitude (highest first)
                 groupBalancesList.sortByDescending { it.balance.absoluteValue }
 
