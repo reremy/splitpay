@@ -46,53 +46,40 @@ fun FriendsScreenContent(
             modifier = Modifier
                 .fillMaxSize()
                 .background(DarkBackground) // Use your theme background
-            // --- REMOVE innerPadding from the main Column ---
         ) {
-            // Overall Balance Header - Apply top padding here
+            // Overall Balance Header
             OverallBalanceHeader(
-                totalBalance = uiState.totalNetBalance,
-                // Pass only the top padding from the Scaffold's innerPadding
-                //topPadding = innerPadding.calculateTopPadding()
+                totalBalance = uiState.totalNetBalance
             )
 
-            // --- FilterChipRow REMOVED ---
-
-            // Friends List Container - Apply remaining padding here
-            Box(modifier = Modifier
-                .fillMaxSize()
-                // Apply horizontal and bottom padding here
-                .padding(
-                    start = innerPadding.calculateStartPadding(LayoutDirection.Ltr), // Adjust for RTL if needed
-                    end = innerPadding.calculateEndPadding(LayoutDirection.Ltr), // Adjust for RTL if needed
-                    bottom = innerPadding.calculateBottomPadding()
-                )
-            ) {
-                when {
-                    // ... (Loading, Empty states) ...
-                    else -> {
-                        LazyColumn( /* ... */ ) {
-                            items(uiState.filteredAndSearchedFriends, key = { it.uid }) { friend ->
-                                FriendListItem(
-                                    friend = friend,
-                                    // --- Pass the click lambda ---
-                                    onFriendClick = { onFriendClick(friend.uid) } // Pass ID back up
-                                )
-                            }
+            // Friends List - LazyColumn with contentPadding to prevent bottom nav from covering items
+            when {
+                // ... (Loading, Empty states) ...
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        // Add content padding to ensure last items are visible above bottom nav
+                        contentPadding = PaddingValues(bottom = 16.dp)
+                    ) {
+                        items(uiState.filteredAndSearchedFriends, key = { it.uid }) { friend ->
+                            FriendListItem(
+                                friend = friend,
+                                onFriendClick = { onFriendClick(friend.uid) }
+                            )
                         }
                     }
                 }
-            } // End of Friends List Container Box
+            }
         }
 
-        // --- DropdownMenu ---
+        // --- DropdownMenu positioned at top-right, below the app bar ---
         DropdownMenu(
             expanded = uiState.isFilterMenuExpanded,
             onDismissRequest = viewModel::onDismissFilterMenu,
             modifier = Modifier
                 .background(DialogBackground)
                 .align(Alignment.TopEnd)
-                // Adjust padding relative to the top bar height if needed
-                .padding(end = 4.dp, top = innerPadding.calculateTopPadding() + 4.dp)
+                .padding(top = 8.dp, end = 8.dp)
         ) {
             val filterOptions = mapOf(
                 FriendFilterType.ALL to "All friends",
