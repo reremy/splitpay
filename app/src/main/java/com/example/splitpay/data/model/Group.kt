@@ -9,7 +9,8 @@ data class Group(
     // List of UIDs of all users in the group (including the creator)
     val members: List<String> = emptyList(),
     val createdAt: Long = System.currentTimeMillis(),
-    val iconIdentifier: String = "group",
+    val iconIdentifier: String = "friends",
+    val photoUrl: String = "", // Group photo URL from Firebase Storage
     @get:PropertyName("isArchived")
     val isArchived: Boolean = false
 )

@@ -39,13 +39,30 @@ data class FriendDetailUiState(
     val error: String? = null,
     val netBalance: Double = 0.0,
     val balanceBreakdown: List<BalanceDetail> = emptyList(),
-    val usersMap: Map<String, User> = emptyMap()
+    val usersMap: Map<String, User> = emptyMap(),
+    // NEW: Aggregated activity cards
+    val activityCards: List<ActivityCard> = emptyList()
 )
 
 data class BalanceDetail(
     val groupName: String,
     val amount: Double
 )
+
+// NEW: Sealed class for different activity card types
+sealed class ActivityCard(val date: Long) {
+    data class SharedGroupCard(
+        val group: Group?,
+        val groupName: String,
+        val balance: Double,
+        val mostRecentDate: Long,
+        val groupId: String?
+    ) : ActivityCard(mostRecentDate)
+
+    data class PaymentCard(
+        val expense: Expense
+    ) : ActivityCard(expense.date)
+}
 
 class FriendsDetailViewModel(
     private val userRepository: UserRepository,
@@ -221,6 +238,9 @@ class FriendsDetailViewModel(
                 logD("Found ${sharedGroupActivities.size} shared group activities")
                 logD("Final state: ${allExpenses.size} expenses, balance: $totalNetBalance")
 
+                // NEW: Build activity cards
+                val activityCards = buildActivityCards(allExpenses, sharedGroups)
+
                 _uiState.update {
                     it.copy(
                         isLoadingExpenses = false,
@@ -230,6 +250,7 @@ class FriendsDetailViewModel(
                         netBalance = roundToCents(totalNetBalance),
                         balanceBreakdown = balanceBreakdown,
                         usersMap = usersMap,
+                        activityCards = activityCards,
                         error = null
                     )
                 }
@@ -334,5 +355,69 @@ class FriendsDetailViewModel(
 
     private fun roundToCents(value: Double): Double {
         return (value * 100.0).roundToInt() / 100.0
+    }
+
+    /**
+     * Builds a list of activity cards (shared group cards + payment cards)
+     * sorted chronologically by date
+     */
+    private fun buildActivityCards(allExpenses: List<Expense>, sharedGroups: List<Group>): List<ActivityCard> {
+        val activityCards = mutableListOf<ActivityCard>()
+
+        // Separate payments from regular expenses
+        val payments = allExpenses.filter { it.expenseType == ExpenseType.PAYMENT }
+        val regularExpenses = allExpenses.filter { it.expenseType != ExpenseType.PAYMENT }
+
+        // Group regular expenses by groupId
+        val expensesByGroup = regularExpenses.groupBy { it.groupId }
+
+        // Process each group
+        expensesByGroup.forEach { (groupId, expenses) ->
+            // Calculate net balance for this group (including payment effects)
+            var groupBalance = 0.0
+            var mostRecentDate = 0L
+
+            expenses.forEach { expense ->
+                val balanceChange = calculateBalanceChangeForExpense(expense, currentUserId!!, friendId)
+                groupBalance += balanceChange
+                if (expense.date > mostRecentDate) {
+                    mostRecentDate = expense.date
+                }
+            }
+
+            // Factor in payments for this group
+            val groupPayments = payments.filter { it.groupId == groupId }
+            groupPayments.forEach { payment ->
+                val balanceChange = calculateBalanceChangeForExpense(payment, currentUserId!!, friendId)
+                groupBalance += balanceChange
+                if (payment.date > mostRecentDate) {
+                    mostRecentDate = payment.date
+                }
+            }
+
+            // Only add card if balance is non-zero
+            if (groupBalance.absoluteValue > 0.01) {
+                val group = sharedGroups.find { it.id == groupId }
+                val groupName = group?.name ?: if (groupId == null) "Non-group expenses" else "Unknown Group"
+
+                activityCards.add(
+                    ActivityCard.SharedGroupCard(
+                        group = group,
+                        groupName = groupName,
+                        balance = roundToCents(groupBalance),
+                        mostRecentDate = mostRecentDate,
+                        groupId = groupId
+                    )
+                )
+            }
+        }
+
+        // Add payment cards
+        payments.forEach { payment ->
+            activityCards.add(ActivityCard.PaymentCard(expense = payment))
+        }
+
+        // Sort by date descending (most recent first)
+        return activityCards.sortedByDescending { it.date }
     }
 }

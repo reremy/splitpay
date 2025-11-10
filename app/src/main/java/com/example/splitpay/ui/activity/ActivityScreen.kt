@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.toLowerCase
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -115,7 +116,40 @@ fun ActivityScreen(
                         activity = activity,
                         currentUserId = currentUserId ?: "",
                         onClick = {
-                            navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                            // Navigate to ExpenseDetail for expense-related activities
+                            val activityType = try {
+                                ActivityType.valueOf(activity.activityType)
+                            } catch (e: Exception) {
+                                null
+                            }
+
+                            when (activityType) {
+                                ActivityType.EXPENSE_ADDED -> {
+                                    // Navigate to Expense Detail using entityId
+                                    if (activity.entityId != null) {
+                                        navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
+                                    }
+                                }
+                                ActivityType.EXPENSE_UPDATED,
+                                ActivityType.EXPENSE_DELETED -> {
+                                    // Edit and delete activities do nothing when clicked
+                                    // User requested: "for editing and deleting expense activities, clicking on the activity in the activity page won't do anything"
+                                }
+                                ActivityType.PAYMENT_MADE,
+                                ActivityType.PAYMENT_UPDATED -> {
+                                    // Navigate to Payment Detail using entityId
+                                    if (activity.entityId != null) {
+                                        navController.navigate("${Screen.PaymentDetail}/${activity.entityId}")
+                                    }
+                                }
+                                ActivityType.PAYMENT_DELETED -> {
+                                    // Deleted payment activities do nothing when clicked
+                                }
+                                else -> {
+                                    // For other activity types, navigate to generic activity detail
+                                    navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
+                                }
+                            }
                         }
                     )
                 }
@@ -204,7 +238,9 @@ private fun getActivityIcon(activityTypeStr: String): ImageVector {
             ActivityType.EXPENSE_ADDED,
             ActivityType.EXPENSE_UPDATED,
             ActivityType.EXPENSE_DELETED -> Icons.Default.Description
-            ActivityType.PAYMENT_MADE -> Icons.Default.Payment
+            ActivityType.PAYMENT_MADE,
+            ActivityType.PAYMENT_UPDATED,
+            ActivityType.PAYMENT_DELETED -> Icons.Default.Payment
         }
     } catch (e: IllegalArgumentException) {
         Icons.Default.Description // Fallback icon
@@ -254,11 +290,78 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
                     }
                 }
             }
+            ActivityType.EXPENSE_UPDATED -> {
+                append(" edited ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append("'${activity.displayText}'") // Expense description
+                }
+                if (activity.groupName != null) {
+                    append(" in ")
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append("'${activity.groupName}'")
+                    }
+                }
+            }
+            ActivityType.EXPENSE_DELETED -> {
+                append(" deleted ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append("'${activity.displayText}'") // Expense description
+                }
+                if (activity.groupName != null) {
+                    append(" in ")
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append("'${activity.groupName}'")
+                    }
+                }
+            }
             ActivityType.PAYMENT_MADE -> {
-                // displayText should be the *other* person's name
+                // For PAYMENT_MADE, displayText is just the receiver's name
+                // actor is the payer
                 append(" paid ")
                 withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
                     append("${activity.displayText}")
+                }
+                if (activity.groupName != null) {
+                    append(" in ")
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append("'${activity.groupName}'")
+                    }
+                }
+            }
+            ActivityType.PAYMENT_UPDATED -> {
+                // For PAYMENT_UPDATED, displayText is "payerName|receiverName"
+                val names = activity.displayText?.split("|") ?: listOf("Someone", "Someone")
+                val payerName = names.getOrNull(0) ?: "Someone"
+                val receiverName = names.getOrNull(1) ?: "Someone"
+
+                append(" updated a payment from ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(payerName)
+                }
+                append(" to ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(receiverName)
+                }
+                if (activity.groupName != null) {
+                    append(" in ")
+                    withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                        append("'${activity.groupName}'")
+                    }
+                }
+            }
+            ActivityType.PAYMENT_DELETED -> {
+                // For PAYMENT_DELETED, displayText is "payerName|receiverName"
+                val names = activity.displayText?.split("|") ?: listOf("Someone", "Someone")
+                val payerName = names.getOrNull(0) ?: "Someone"
+                val receiverName = names.getOrNull(1) ?: "Someone"
+
+                append(" deleted a payment from ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(payerName)
+                }
+                append(" to ")
+                withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(receiverName)
                 }
                 if (activity.groupName != null) {
                     append(" in ")
@@ -299,29 +402,40 @@ private fun formatDisplayText(activity: Activity, currentUserId: String): Annota
  * Creates the personalized financial summary.
  * e.g., "You owe MYR333.33"
  * e.g., "You get back $25.00"
+ * Returns AnnotatedString to support strikethrough for deleted/updated payments
  */
-private fun formatFinancialSummary(activity: Activity, currentUserId: String): String {
+private fun formatFinancialSummary(activity: Activity, currentUserId: String): AnnotatedString {
     // Find the financial impact for the *current* user
     val impact = activity.financialImpacts?.get(currentUserId) ?: 0.0
 
     val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
 
+    // Handle PAYMENT_UPDATED and PAYMENT_DELETED with strikethrough
+    if (type == ActivityType.PAYMENT_UPDATED || type == ActivityType.PAYMENT_DELETED) {
+        val amount = activity.totalAmount ?: 0.0
+        return buildAnnotatedString {
+            withStyle(style = SpanStyle(textDecoration = TextDecoration.LineThrough)) {
+                append("MYR%.2f".format(amount))
+            }
+        }
+    }
+
     if (type == ActivityType.PAYMENT_MADE) {
         val amount = impact.absoluteValue
-        return if (activity.actorUid == currentUserId) {
+        val text = if (activity.actorUid == currentUserId) {
             // I was the payer (actor)
             "You paid MYR%.2f".format(amount)
         } else {
             // I was the receiver
             "You were paid MYR%.2f".format(amount)
         }
+        return buildAnnotatedString { append(text) }
     }
 
-    return when {
+    val textContent = when {
         impact < -0.01 -> "You owe MYR%.2f".format(impact.unaryMinus()) // Show positive value
         impact > 0.01 -> "You get back MYR%.2f".format(impact)
         else -> {
-            // --- MODIFICATION START ---
             // Don't show "you do not owe" for non-financial events
             val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
             if (type == ActivityType.GROUP_CREATED ||
@@ -331,11 +445,11 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): S
             ) {
                 "" // Return empty string for these types
             }
-            // --- MODIFICATION END ---
             // For expenses where user is not involved financially
             else "You do not owe anything"
         }
     }
+    return buildAnnotatedString { append(textContent) }
 }
 
 /**

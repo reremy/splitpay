@@ -1,7 +1,12 @@
 package com.example.splitpay.ui.expense
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,6 +42,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDefaults
 import androidx.compose.material3.DatePickerDialog
@@ -78,11 +85,15 @@ import androidx.lifecycle.ViewModelProvider // Keep this
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner // Keep this
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavBackStackEntry // Keep this
+import coil.compose.AsyncImage
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import com.example.splitpay.data.model.Group
 import com.example.splitpay.data.model.Participant // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
 import com.example.splitpay.data.model.Payer // Keep this import for the UI version if needed elsewhere, otherwise use ViewModel's
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
+import com.example.splitpay.data.repository.FileStorageRepository
 import com.example.splitpay.data.repository.GroupsRepository // Keep this
 import com.example.splitpay.data.repository.UserRepository // Keep this
 import com.example.splitpay.ui.common.UiEventHandler
@@ -108,7 +119,8 @@ class AddExpenseViewModelFactory(
     private val groupsRepository: GroupsRepository,
     private val expenseRepository: ExpenseRepository,
     private val userRepository: UserRepository,
-    private val activityRepository: ActivityRepository, // <-- ADD THIS
+    private val fileStorageRepository: FileStorageRepository,
+    private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -118,7 +130,8 @@ class AddExpenseViewModelFactory(
                 groupsRepository,
                 userRepository,
                 expenseRepository,
-                activityRepository, // <-- PASS IT HERE
+                fileStorageRepository,
+                activityRepository,
                 savedStateHandle
             ) as T
         }
@@ -139,6 +152,7 @@ fun AddExpenseScreen(
     groupsRepository: GroupsRepository = GroupsRepository(),
     expenseRepository: ExpenseRepository = ExpenseRepository(),
     userRepository: UserRepository = UserRepository(),
+    fileStorageRepository: FileStorageRepository = FileStorageRepository(),
     activityRepository: ActivityRepository = ActivityRepository()
 ) {
 
@@ -150,7 +164,8 @@ fun AddExpenseScreen(
         groupsRepository,
         expenseRepository,
         userRepository,
-        activityRepository, // <-- PASS IT TO THE FACTORY
+        fileStorageRepository,
+        activityRepository,
         savedStateHandle
     )
     val viewModel: AddExpenseViewModel = viewModel(factory = factory)
@@ -186,6 +201,13 @@ fun AddExpenseScreen(
         if (uiState.isMemoDialogVisible) {
             memoTextState.value = uiState.memo // Update local state when dialog opens
         }
+    }
+
+    // --- Image Picker for Expense Image ---
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        viewModel.onExpenseImageSelected(uri)
     }
 
     UiEventHandler(viewModel.uiEvent) { event ->
@@ -320,6 +342,7 @@ fun AddExpenseScreen(
                 currency = uiState.currency,
                 onChooseGroupClick = { viewModel.showGroupSelector(true) },
                 onCalendarClick = { viewModel.showDatePickerDialog(true) },
+                onCameraClick = { imagePickerLauncher.launch("image/*") },
                 onMemoClick = { viewModel.showMemoDialog(true) },
                 isEditMode = uiState.isEditMode
             )
@@ -391,6 +414,18 @@ fun AddExpenseScreen(
                         )
                     }
                 }
+            }
+
+            // Display Expense Image Preview (if selected or already uploaded)
+            if (uiState.selectedImageUri != null || uiState.uploadedImageUrl.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                ExpenseImagePreview(
+                    imageUri = uiState.selectedImageUri,
+                    imageUrl = uiState.uploadedImageUrl,
+                    isUploading = uiState.isUploadingImage,
+                    onRemoveClick = { viewModel.onRemoveExpenseImage() },
+                    onReplaceClick = { imagePickerLauncher.launch("image/*") }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
@@ -674,32 +709,6 @@ fun ParticipantsList(
                     )
                 }
             }
-            // Add participants field placeholder
-            OutlinedTextField(
-                value = "",
-                onValueChange = { /* TODO: Handle adding more members */ },
-                placeholder = { Text("Add participants (e.g., search name)", color = TextPlaceholder) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF3C3C3C),
-                    unfocusedContainerColor = Color(0xFF3C3C3C),
-                    disabledContainerColor = Color(0xFF3C3C3C),
-                    cursorColor = PrimaryBlue,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                    focusedTextColor = TextWhite,
-                    unfocusedTextColor = TextWhite,
-                    disabledTextColor = Color.Gray,
-                    focusedPlaceholderColor = TextPlaceholder,
-                    unfocusedPlaceholderColor = TextPlaceholder
-                ),
-                shape = RoundedCornerShape(8.dp),
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search Participants", tint = TextPlaceholder)} // Use filled Search
-            )
         }
     }
 }
@@ -1126,6 +1135,105 @@ fun SplitSummary(
                     )
                 }
             }
+        }
+    }
+}
+
+// --- Expense Image Preview ---
+@Composable
+fun ExpenseImagePreview(
+    imageUri: Uri?,
+    imageUrl: String,
+    isUploading: Boolean,
+    onRemoveClick: () -> Unit,
+    onReplaceClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Expense Image",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                // X button to remove image
+                IconButton(
+                    onClick = onRemoveClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(ErrorRed),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remove image",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Image display - clickable to replace
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onReplaceClick)
+                    .background(Color(0xFF3C3C3C)),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    isUploading -> {
+                        // Show loading indicator while uploading
+                        CircularProgressIndicator(color = PrimaryBlue, modifier = Modifier.size(40.dp))
+                    }
+                    imageUri != null -> {
+                        // Show newly selected image (not yet uploaded)
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = "Selected expense image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    imageUrl.isNotEmpty() -> {
+                        // Show existing uploaded image
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "Expense image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+            }
+
+            // Hint text
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Tap image to replace",
+                color = Color.Gray,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

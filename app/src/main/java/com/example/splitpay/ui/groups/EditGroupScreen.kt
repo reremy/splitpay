@@ -7,48 +7,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.Flight
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,15 +37,20 @@ import com.example.splitpay.ui.theme.TextWhite
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CreateGroupScreen(
-    viewModel: CreateGroupViewModel = viewModel(),
-    onGroupCreated: (String) -> Unit, // Changed to pass group ID
+fun EditGroupScreen(
+    groupId: String,
+    viewModel: EditGroupViewModel = viewModel(),
     onNavigateBack: () -> Unit
 ) {
+    // Load group data on first composition
+    LaunchedEffect(groupId) {
+        viewModel.loadGroup(groupId)
+    }
+
     UiEventHandler(viewModel.uiEvent) { event ->
         when (event) {
-            is CreateGroupUiEvent.GroupCreated -> onGroupCreated(event.groupId) // Navigate to Detail
-            CreateGroupUiEvent.NavigateBack -> onNavigateBack()
+            EditGroupUiEvent.GroupUpdated -> onNavigateBack()
+            EditGroupUiEvent.NavigateBack -> onNavigateBack()
         }
     }
 
@@ -82,15 +60,18 @@ fun CreateGroupScreen(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { viewModel.onPhotoSelected(it) }
+        viewModel.onPhotoSelected(uri)
     }
+
+    // Delete photo confirmation dialog
+    var showDeletePhotoDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        text = "New Group",
+                        text = "Edit Group",
                         color = TextWhite,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold
@@ -123,38 +104,74 @@ fun CreateGroupScreen(
         ) {
             Spacer(Modifier.height(24.dp))
 
-            // --- Group Photo Preview (Clickable) - ONLY shows photos ---
+            // --- Group Photo Preview (Clickable) ---
             Box(
-                modifier = Modifier
-                    .size(96.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF3C3C3C))
-                    .clickable { imagePickerLauncher.launch("image/*") },
+                modifier = Modifier.size(96.dp),
                 contentAlignment = Alignment.Center
             ) {
-                if (uiState.selectedPhotoUri != null) {
-                    // Display selected image
-                    AsyncImage(
-                        model = uiState.selectedPhotoUri,
-                        contentDescription = "Group Photo",
+                Box(
+                    modifier = Modifier
+                        .size(96.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF3C3C3C))
+                        .clickable { imagePickerLauncher.launch("image/*") },
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Show selected new photo, or current photo, or camera icon
+                    when {
+                        uiState.selectedPhotoUri != null -> {
+                            AsyncImage(
+                                model = uiState.selectedPhotoUri,
+                                contentDescription = "New Group Photo",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        uiState.currentPhotoUrl.isNotEmpty() -> {
+                            AsyncImage(
+                                model = uiState.currentPhotoUrl,
+                                contentDescription = "Group Photo",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                        else -> {
+                            Icon(
+                                Icons.Default.CameraAlt,
+                                contentDescription = "Upload Photo",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(48.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Delete photo button (X) if photo exists
+                if (uiState.currentPhotoUrl.isNotEmpty() || uiState.selectedPhotoUri != null) {
+                    IconButton(
+                        onClick = { showDeletePhotoDialog = true },
                         modifier = Modifier
-                            .fillMaxSize()
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    // Show camera placeholder when no photo
-                    Icon(
-                        Icons.Default.CameraAlt,
-                        contentDescription = "Upload Photo",
-                        tint = Color.Gray,
-                        modifier = Modifier.size(48.dp)
-                    )
+                            .size(32.dp)
+                            .align(Alignment.TopEnd)
+                            .background(Color.Red, CircleShape)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Delete Photo",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
 
             Text(
-                text = "Tap to upload photo",
+                text = if (uiState.currentPhotoUrl.isNotEmpty() || uiState.selectedPhotoUri != null)
+                    "Tap to change photo" else "Tap to upload photo",
                 color = Color.Gray,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 8.dp)
@@ -189,22 +206,21 @@ fun CreateGroupScreen(
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Tag Options
                 availableTags.forEach { (identifier, icon) ->
                     TagOption(
                         icon = icon,
                         label = identifier.replaceFirstChar { it.uppercase() },
                         identifier = identifier,
-                        isSelected = uiState.selectedIcon == identifier,
-                        onSelect = viewModel::onIconSelected
+                        isSelected = uiState.selectedTag == identifier,
+                        onSelect = viewModel::onTagSelected
                     )
                 }
             }
             Spacer(Modifier.height(48.dp))
 
-            // --- Done Button ---
+            // --- Save Button ---
             Button(
-                onClick = viewModel::onCreateGroupClick,
+                onClick = viewModel::onSaveClick,
                 enabled = !uiState.isLoading,
                 shape = RoundedCornerShape(10.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
@@ -215,50 +231,50 @@ fun CreateGroupScreen(
                 if (uiState.isLoading) {
                     CircularProgressIndicator(color = TextWhite, modifier = Modifier.size(24.dp))
                 } else {
-                    Text(text = "Done", fontSize = 20.sp, color = TextWhite)
+                    Text(text = "Save Changes", fontSize = 20.sp, color = TextWhite)
                 }
             }
 
             if (uiState.error != null) {
-                Text(text = "Error: ${uiState.error}", color = Color.Red, modifier = Modifier.padding(top = 8.dp))
+                Text(
+                    text = "Error: ${uiState.error}",
+                    color = Color.Red,
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
 
             Spacer(Modifier.height(16.dp))
         }
     }
-}
 
-@Composable
-fun TagOption(
-    icon: ImageVector,
-    label: String,
-    identifier: String,
-    isSelected: Boolean,
-    onSelect: (String) -> Unit
-) {
-    val borderColor = if (isSelected) PrimaryBlue else BorderGray
-    val backgroundColor = if (isSelected) Color(0xFF3C3C3C) else Color(0xFF2D2D2D)
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onSelect(identifier) }
-    ) {
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .clip(CircleShape)
-                .background(backgroundColor)
-                .border(2.dp, borderColor, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(icon, contentDescription = identifier, tint = TextWhite, modifier = Modifier.size(32.dp))
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = label,
-            color = if (isSelected) TextWhite else Color.Gray,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+    // Delete Photo Confirmation Dialog
+    if (showDeletePhotoDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeletePhotoDialog = false },
+            title = { Text("Delete Group Photo?", color = TextWhite) },
+            text = {
+                Text(
+                    "This will permanently delete the group photo. You can upload a new one later.",
+                    color = Color.Gray
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.onDeletePhoto()
+                        showDeletePhotoDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Delete", color = TextWhite)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeletePhotoDialog = false }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            },
+            containerColor = Color(0xFF2D2D2D)
         )
     }
 }

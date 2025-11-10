@@ -141,13 +141,19 @@ class GroupSettingsViewModel(
                             GroupMemberViewData(user = user, balance = balance)
                         }
 
+                        // Sort members: current user first, then others alphabetically
+                        val sortedMembers = membersWithBalance.sortedWith(
+                            compareByDescending<GroupMemberViewData> { it.user.uid == currentUserUid }
+                                .thenBy { it.user.fullName.lowercase() }
+                        )
+
                         val friends = friendsDeferred.await() // Await friend profiles
 
                         // Update the state with calculated balances and friends
                         _uiState.update {
                             it.copy(
                                 isLoading = false, // Loading complete
-                                members = membersWithBalance,
+                                members = sortedMembers,
                                 currentUserFriends = friends, // For Add Dialog later
                                 currentUserBalanceInGroup = calculatedCurrentUserBalance, // Use calculated value
                                 error = null

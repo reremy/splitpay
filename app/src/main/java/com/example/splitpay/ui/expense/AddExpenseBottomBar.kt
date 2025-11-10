@@ -10,9 +10,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Notes
-import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +37,7 @@ fun AddExpenseBottomBar(
     currency: String,
     onChooseGroupClick: () -> Unit,
     onCalendarClick: () -> Unit,
+    onCameraClick: () -> Unit,
     onMemoClick: () -> Unit,
     isEditMode: Boolean = false
 ) {
@@ -86,15 +87,14 @@ fun AddExpenseBottomBar(
                 )
             }
 
-            // Action Icons (Calendar, Camera, Tags)
+            // Action Icons (Calendar, Camera, Memo)
             Row {
                 IconButton(onClick = onCalendarClick) {
                     Icon(Icons.Default.CalendarToday, contentDescription = "Calendar", tint = Color.Gray)
                 }
-                IconButton(onClick = { /* TODO: Receipt camera */ }) {
-                    Icon(Icons.Default.Receipt, contentDescription = "Receipt", tint = Color.Gray)
+                IconButton(onClick = onCameraClick) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = "Add expense image", tint = Color.Gray)
                 }
-                // --- UPDATED: Icon and ContentDescription ---
                 IconButton(onClick = onMemoClick) {
                     Icon(Icons.Default.Notes, contentDescription = "Memo", tint = Color.Gray)
                 }

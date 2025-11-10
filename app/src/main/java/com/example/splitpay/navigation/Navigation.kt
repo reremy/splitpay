@@ -24,9 +24,12 @@ import androidx.navigation.navArgument
 import com.example.splitpay.ui.addfriend.AddFriendScreen
 import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
 import com.example.splitpay.ui.expense.AddExpenseScreen
-import com.example.splitpay.ui.friendsDetail.FriendSettingsScreen
+import com.example.splitpay.ui.expense.ExpenseDetailScreen
+import com.example.splitpay.ui.paymentDetail.PaymentDetailScreen
+import com.example.splitpay.ui.friendSettings.FriendSettingsScreen
 import com.example.splitpay.ui.friendsDetail.FriendsDetailScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
+import com.example.splitpay.ui.groups.EditGroupScreen
 import com.example.splitpay.ui.groups.GroupDetailScreen
 import com.example.splitpay.ui.groups.GroupSettingsScreen
 import com.example.splitpay.ui.home.HomeScreen3
@@ -43,6 +46,7 @@ import com.example.splitpay.ui.recordPayment.RecordPaymentScreen
 import com.example.splitpay.ui.settleUp.SettleUpScreen
 import com.example.splitpay.ui.activityDetail.ActivityDetailScreen
 import com.example.splitpay.ui.profile.edit.EditProfileScreen
+import com.example.splitpay.ui.moreOptions.MoreOptionsScreen
 import kotlin.math.absoluteValue
 
 // Navigation.kt
@@ -130,6 +134,22 @@ fun Navigation(
             )
         }
 
+        // Route for editing a group
+        composable(
+            route = Screen.EditGroup,
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            EditGroupScreen(
+                groupId = groupId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
         // Route for viewing a specific group's details
         composable(
             route = Screen.GroupDetail,
@@ -207,6 +227,54 @@ fun Navigation(
             )
         }
 
+        // --- Expense Detail Route ---
+        composable(
+            route = Screen.ExpenseDetailRoute,
+            arguments = listOf(
+                navArgument("expenseId") {
+                    type = NavType.StringType
+                }
+            ),
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
+            ExpenseDetailScreen(
+                expenseId = expenseId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { expId, groupId ->
+                    // Navigate to AddExpenseScreen in edit mode
+                    navController.navigate("${Screen.AddExpense}?groupId=$groupId&expenseId=$expId")
+                }
+            )
+        }
+
+        // --- Payment Detail Route ---
+        composable(
+            route = Screen.PaymentDetailRoute,
+            arguments = listOf(
+                navArgument("paymentId") {
+                    type = NavType.StringType
+                }
+            ),
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val paymentId = backStackEntry.arguments?.getString("paymentId") ?: ""
+            PaymentDetailScreen(
+                paymentId = paymentId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToEdit = { payId, groupId ->
+                    // Navigate to RecordPaymentScreen in edit mode
+                    navController.navigate("${Screen.RecordPayment}/$groupId?paymentId=$payId")
+                }
+            )
+        }
+
         // --- Add Friend Flow Routes ---
         composable(
             route = Screen.AddFriend,
@@ -263,8 +331,10 @@ fun Navigation(
             val friendId = backStackEntry.arguments?.getString("friendId") ?: ""
             FriendSettingsScreen(
                 friendId = friendId,
-                navController = navController,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToGroupDetail = { groupId ->
+                    navController.navigate("${Screen.GroupDetail}/$groupId")
+                }
             )
         }
 
@@ -303,7 +373,9 @@ fun Navigation(
                 groupId = groupId,
                 onNavigateBack = { navController.popBackStack(Screen.Home, inclusive = false) },
                 // --- Pass navigation action for adding members ---
-                onNavigateToAddMembers = { navController.navigate("add_group_members/$groupId") }
+                onNavigateToAddMembers = { navController.navigate("add_group_members/$groupId") },
+                // --- Pass navigation action for editing group ---
+                onNavigateToEditGroup = { navController.navigate("edit_group/$groupId") }
             )
         }
 
@@ -347,19 +419,47 @@ fun Navigation(
             route = Screen.RecordPaymentRoute,
             arguments = listOf(
                 navArgument("groupId") { type = NavType.StringType },
-                navArgument("memberUid") { type = NavType.StringType },
-                navArgument("balance") { type = NavType.StringType } // Pass balance as string
+                navArgument("memberUid") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("balance") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("paymentId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("payerUid") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("recipientUid") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
             )
         ) { backStackEntry ->
-            // --- REPLACE PLACEHOLDER ---
             val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
-            val memberUid = backStackEntry.arguments?.getString("memberUid") ?: ""
-            val balance = backStackEntry.arguments?.getString("balance") ?: "0.0"
+            val memberUid = backStackEntry.arguments?.getString("memberUid")
+            val balance = backStackEntry.arguments?.getString("balance")
+            val paymentId = backStackEntry.arguments?.getString("paymentId")
+            val payerUid = backStackEntry.arguments?.getString("payerUid")
+            val recipientUid = backStackEntry.arguments?.getString("recipientUid")
 
             RecordPaymentScreen(
                 groupId = groupId,
-                memberUid = memberUid,
-                balance = balance,
+                memberUid = memberUid ?: "",
+                balance = balance ?: "0.0",
+                paymentId = paymentId,
+                payerUid = payerUid,
+                recipientUid = recipientUid,
                 onNavigateBack = { navController.popBackStack() },
                 onSaveSuccess = {
                     // Pop back to the GroupDetailScreen, removing SettleUp from the stack
@@ -372,19 +472,16 @@ fun Navigation(
             route = Screen.MoreOptionsRoute,
             arguments = listOf(navArgument("groupId") { type = NavType.StringType })
         ) {
-            // Placeholder Screen
-            Box(
-                modifier = Modifier.fillMaxSize().background(DarkBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("More Options (Placeholder)", color = TextWhite)
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { navController.popBackStack() }) {
-                        Text("Go Back (Placeholder)")
-                    }
+            val groupId = it.arguments?.getString("groupId") ?: ""
+            MoreOptionsScreen(
+                groupId = groupId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToRecordPayment = { gid, payerUid, recipientUid ->
+                    // Navigate to RecordPayment with custom payer and recipient
+                    // Balance is set to 0.0 for manual entry, payerUid and recipientUid are passed
+                    navController.navigate("${Screen.RecordPayment}/$gid?payerUid=$payerUid&recipientUid=$recipientUid&balance=0.0")
                 }
-            }
+            )
         }
 
         // --- Activity Detail Screen ---

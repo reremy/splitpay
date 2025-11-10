@@ -1,6 +1,11 @@
 package com.example.splitpay.ui.recordPayment
 
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,14 +17,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -48,7 +57,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -58,12 +69,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.SavedStateHandle
+import coil.compose.AsyncImage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
+import com.example.splitpay.data.repository.FileStorageRepository
 import com.example.splitpay.data.repository.GroupsRepository // <-- IMPORT
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.ui.common.UiEventHandler
@@ -83,6 +96,7 @@ class RecordPaymentViewModelFactory(
     private val expenseRepository: ExpenseRepository,
     private val groupsRepository: GroupsRepository,
     private val activityRepository: ActivityRepository,
+    private val fileStorageRepository: FileStorageRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -93,8 +107,9 @@ class RecordPaymentViewModelFactory(
                 expenseRepository,
                 groupsRepository,
                 activityRepository,
+                fileStorageRepository,
                 savedStateHandle
-            ) as T // <-- PASS
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
@@ -106,21 +121,40 @@ fun RecordPaymentScreen(
     groupId: String,
     memberUid: String,
     balance: String,
+    paymentId: String? = null,
+    payerUid: String? = null,
+    recipientUid: String? = null,
     onNavigateBack: () -> Unit,
     onSaveSuccess: () -> Unit,
     // Provide default repository instances
     userRepository: UserRepository = UserRepository(),
     expenseRepository: ExpenseRepository = ExpenseRepository(),
     groupsRepository: GroupsRepository = GroupsRepository(),
-    activityRepository: ActivityRepository = ActivityRepository()
+    activityRepository: ActivityRepository = ActivityRepository(),
+    fileStorageRepository: FileStorageRepository = FileStorageRepository()
 ) {
     // --- Use SavedStateHandle with factory ---
-    val savedStateHandle = SavedStateHandle(mapOf(
-        "groupId" to groupId,
-        "memberUid" to memberUid,
-        "balance" to balance
-    ))
-    val factory = RecordPaymentViewModelFactory(userRepository, expenseRepository, groupsRepository, activityRepository, savedStateHandle) // <-- PASS
+    val savedStateHandle = SavedStateHandle(
+        mapOf(
+            "groupId" to groupId,
+            "memberUid" to memberUid,
+            "balance" to balance
+        ).plus(
+            listOfNotNull(
+                paymentId?.let { "paymentId" to it },
+                payerUid?.let { "payerUid" to it },
+                recipientUid?.let { "recipientUid" to it }
+            ).toMap()
+        )
+    )
+    val factory = RecordPaymentViewModelFactory(
+        userRepository,
+        expenseRepository,
+        groupsRepository,
+        activityRepository,
+        fileStorageRepository,
+        savedStateHandle
+    )
     val viewModel: RecordPaymentViewModel = viewModel(factory = factory)
 
     val uiState by viewModel.uiState.collectAsState()
@@ -143,6 +177,13 @@ fun RecordPaymentScreen(
         if (uiState.isMemoDialogVisible) {
             memoTextState.value = uiState.memo
         }
+    }
+
+    // --- NEW: Image Picker Launcher ---
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        viewModel.onPaymentImageSelected(uri)
     }
 
     UiEventHandler(viewModel.uiEvent) { event ->
@@ -245,7 +286,7 @@ fun RecordPaymentScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Record Payment", color = TextWhite) },
+                title = { Text(if (uiState.isEditMode) "Edit Payment" else "Record Payment", color = TextWhite) },
                 navigationIcon = {
                     IconButton(onClick = { viewModel.onBackClick() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = TextWhite)
@@ -275,8 +316,8 @@ fun RecordPaymentScreen(
                 currency = "MYR", // Hardcoded for now
                 onChooseGroupClick = {}, // <-- DISABLES button click
                 onCalendarClick = { viewModel.showDatePickerDialog(true) },
+                onCameraClick = { imagePickerLauncher.launch("image/*") }, // Wire up image picker
                 onMemoClick = { viewModel.showMemoDialog(true) }
-                // TODO: Add camera click handler
             )
         },
         containerColor = DarkBackground
@@ -298,9 +339,9 @@ fun RecordPaymentScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(innerPadding) // <-- This now accounts for TopBar AND BottomBar
+                        .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Top
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
 
                     PaymentUserDisplay(
@@ -316,7 +357,19 @@ fun RecordPaymentScreen(
                         onAmountChange = viewModel::onAmountChange
                     )
 
-                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.height(24.dp))
+
+                    // Display Payment Image Preview (if selected or already uploaded)
+                    if (uiState.selectedImageUri != null || uiState.uploadedImageUrl.isNotEmpty()) {
+                        PaymentImagePreview(
+                            imageUri = uiState.selectedImageUri,
+                            imageUrl = uiState.uploadedImageUrl,
+                            isUploading = uiState.isUploadingImage,
+                            onRemoveClick = { viewModel.onRemovePaymentImage() },
+                            onReplaceClick = { imagePickerLauncher.launch("image/*") }
+                        )
+                        Spacer(Modifier.height(24.dp))
+                    }
 
                     Text(
                         text = "This feature does not move money.",
@@ -333,24 +386,35 @@ fun RecordPaymentScreen(
 fun PaymentUserDisplay(payer: User, receiver: User, isPayerUser: Boolean) {
     val payerName = if (isPayerUser) "You" else payer.username
     val receiverName = if (isPayerUser) receiver.username else "You"
-    val receiverEmail = if (isPayerUser) receiver.email else "" // Only show email if it's the other person
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(
-            verticalAlignment = Alignment.Top, // <-- CHANGED to Top
+            verticalAlignment = Alignment.CenterVertically, // <-- Centered for arrow alignment
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // --- Payer Column ---
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(80.dp) // Give some space
+                modifier = Modifier.width(80.dp)
             ) {
-                Icon(
-                    Icons.Default.AccountCircle,
-                    contentDescription = payerName,
-                    tint = PrimaryBlue, // Payer color
-                    modifier = Modifier.size(60.dp)
-                )
+                // Profile photo or fallback icon
+                if (payer.profilePictureUrl?.isNotEmpty() == true) {
+                    AsyncImage(
+                        model = payer.profilePictureUrl,
+                        contentDescription = "$payerName's profile",
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.AccountCircle,
+                        contentDescription = payerName,
+                        tint = PrimaryBlue,
+                        modifier = Modifier.size(60.dp)
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = payerName,
@@ -361,27 +425,37 @@ fun PaymentUserDisplay(payer: User, receiver: User, isPayerUser: Boolean) {
                 )
             }
 
-            // --- Arrow ---
+            // --- Arrow (Larger and Centered) ---
             Icon(
                 Icons.AutoMirrored.Filled.ArrowForward,
                 contentDescription = "pays",
                 tint = Color.Gray,
-                modifier = Modifier
-                    .size(24.dp)
-                    .padding(top = 18.dp) // Align arrow with icons
+                modifier = Modifier.size(40.dp) // Increased from 24dp to 40dp
             )
 
             // --- Receiver Column ---
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(80.dp) // Give some space
+                modifier = Modifier.width(80.dp)
             ) {
-                Icon(
-                    Icons.Default.AccountCircle,
-                    contentDescription = receiverName,
-                    tint = PositiveGreen, // Receiver color
-                    modifier = Modifier.size(60.dp)
-                )
+                // Profile photo or fallback icon
+                if (receiver.profilePictureUrl?.isNotEmpty() == true) {
+                    AsyncImage(
+                        model = receiver.profilePictureUrl,
+                        contentDescription = "$receiverName's profile",
+                        modifier = Modifier
+                            .size(60.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.AccountCircle,
+                        contentDescription = receiverName,
+                        tint = PositiveGreen,
+                        modifier = Modifier.size(60.dp)
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = receiverName,
@@ -441,5 +515,104 @@ fun AmountInput(amount: String, onAmountChange: (String) -> Unit) {
         }
         Spacer(Modifier.height(8.dp))
         HorizontalDivider(color = PositiveGreen, thickness = 2.dp)
+    }
+}
+
+// --- Payment Image Preview ---
+@Composable
+fun PaymentImagePreview(
+    imageUri: Uri?,
+    imageUrl: String,
+    isUploading: Boolean,
+    onRemoveClick: () -> Unit,
+    onReplaceClick: () -> Unit
+) {
+    androidx.compose.material3.Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Payment Image",
+                    color = Color.Gray,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                // X button to remove image
+                IconButton(
+                    onClick = onRemoveClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(NegativeRed),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Remove image",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Image display - clickable to replace
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onReplaceClick)
+                    .background(Color(0xFF3C3C3C)),
+                contentAlignment = Alignment.Center
+            ) {
+                when {
+                    isUploading -> {
+                        // Show loading indicator while uploading
+                        CircularProgressIndicator(color = PrimaryBlue, modifier = Modifier.size(40.dp))
+                    }
+                    imageUri != null -> {
+                        // Show newly selected image (not yet uploaded)
+                        AsyncImage(
+                            model = imageUri,
+                            contentDescription = "Selected payment image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    imageUrl.isNotEmpty() -> {
+                        // Show existing uploaded image
+                        AsyncImage(
+                            model = imageUrl,
+                            contentDescription = "Payment image",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                }
+            }
+
+            // Hint text
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Tap image to replace",
+                color = Color.Gray,
+                fontSize = 12.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }

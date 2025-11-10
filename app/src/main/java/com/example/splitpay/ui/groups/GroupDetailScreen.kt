@@ -2,6 +2,7 @@ package com.example.splitpay.ui.groups
 
 import android.R.attr.onClick
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable // Import clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add // Keep this import
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dining
@@ -73,6 +76,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,7 +88,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.splitpay.data.model.Expense // <-- Add import
+import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.model.Group
+import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ExpenseRepository // <-- Add import
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository // <-- Add import
@@ -98,21 +104,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import androidx.lifecycle.SavedStateHandle // <-- Add import
+import coil.compose.AsyncImage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.absoluteValue
 
 
-// Helper map needed for icon lookup
-val availableIconsMap = mapOf(
-    "travel" to Icons.Default.TravelExplore,
-    "family" to Icons.Default.FamilyRestroom,
-    "kitchen" to Icons.Default.Dining,
-    "other" to Icons.Default.Group,
-    "place" to Icons.Default.Place,
-    "info" to Icons.Default.Info // Add info icon mapping
-)
+// Note: availableTagsMap is now defined in CreateGroupScreen.kt and imported from there
 
 // --- ViewModel Factory ---
 class GroupDetailViewModelFactory(
@@ -276,7 +275,8 @@ fun GroupDetailHeaderDisplay(
     group: Group,
     iconIdentifier: String?,
     overallBalance: Double,
-    balanceBreakdown: List<MemberBalanceDetail>
+    balanceBreakdown: List<MemberBalanceDetail>,
+    membersMap: Map<String, User> // Add membersMap parameter
 ) { // Added parameter
     Column(
         modifier = Modifier
@@ -285,17 +285,29 @@ fun GroupDetailHeaderDisplay(
             .padding(bottom = 16.dp, top = 16.dp), // Add padding
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Group Icon
+        // Group Photo or Tag Icon
         Box(
             modifier = Modifier
                 .size(80.dp)
                 .clip(CircleShape)
-                .background(PrimaryBlue),
+                .background(if (group.photoUrl.isNotEmpty()) Color.Transparent else PrimaryBlue),
             contentAlignment = Alignment.Center
         ) {
-            // --- Use iconIdentifier from map, default to Group icon ---
-            val icon = availableIconsMap[iconIdentifier] ?: Icons.Default.Group // Use map
-            Icon(icon, contentDescription = "Group Icon", tint = TextWhite, modifier = Modifier.size(40.dp))
+            if (group.photoUrl.isNotEmpty()) {
+                // Display group photo
+                AsyncImage(
+                    model = group.photoUrl,
+                    contentDescription = "Group Photo",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Display tag icon
+                val icon = availableTagsMap[iconIdentifier] ?: Icons.Default.Group
+                Icon(icon, contentDescription = "Group Tag", tint = TextWhite, modifier = Modifier.size(40.dp))
+            }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -309,7 +321,18 @@ fun GroupDetailHeaderDisplay(
             textAlign = TextAlign.Center
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(8.dp))
+
+        // Stacked Member Photos
+        if (group.id != "non_group") {
+            StackedMemberPhotos(
+                memberIds = group.members,
+                membersMap = membersMap
+            )
+            Spacer(Modifier.height(16.dp))
+        } else {
+            Spacer(Modifier.height(16.dp))
+        }
 
         // --- Overall Balance ---
         val overallBalanceText = when {
@@ -382,7 +405,8 @@ fun GroupDetailContent(
                 group = group,
                 iconIdentifier = group.iconIdentifier,
                 overallBalance = uiState.currentUserOverallBalance, // <-- Pass overall balance
-                balanceBreakdown = uiState.balanceBreakdown       // <-- Pass breakdown list
+                balanceBreakdown = uiState.balanceBreakdown,      // <-- Pass breakdown list
+                membersMap = uiState.membersMap                    // <-- Pass membersMap
             )
             Spacer(Modifier.height(16.dp))
         }
@@ -395,18 +419,45 @@ fun GroupDetailContent(
             }
         }
 
-        // --- 2. Conditionally hide Action Buttons and Member Status for non-group ---
-        if (!isNonGroup) {
+        // --- 2. Single Member Message (if applicable) ---
+        if (groupId != "non_group" && group.members.size == 1) {
             item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    GroupMemberStatus(
-                        memberCount = group.members.size,
-                        groupName = group.name,
-                        onAddMemberClick = { navController.navigate("add_group_members/$groupId") },
-                        onShareLinkClick = { /*TODO*/ }
-                    )
-                    Spacer(Modifier.height(24.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "There is only one member in this group",
+                            color = Color.Gray,
+                            fontSize = 14.sp,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                // Navigate to add group members screen
+                                navController.navigate("add_group_members/$groupId")
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Add Members", modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add Members", color = TextWhite, fontSize = 14.sp)
+                        }
+                    }
                 }
+                Spacer(Modifier.height(16.dp))
             }
         }
 
@@ -449,7 +500,12 @@ fun GroupDetailContent(
                     userLentBorrowedColor = lentBorrowedColor,
                     modifier = Modifier.padding(horizontal = 16.dp),
                     onClick = {
-                        navController.navigate("${Screen.ActivityDetail}?expenseId=${expense.id}")
+                        // Navigate to the correct detail page based on expense type
+                        if (expense.expenseType == ExpenseType.PAYMENT) {
+                            navController.navigate("${Screen.PaymentDetail}/${expense.id}")
+                        } else {
+                            navController.navigate("${Screen.ExpenseDetail}/${expense.id}")
+                        }
                     }
                 )
                 Spacer(Modifier.height(8.dp))
@@ -637,26 +693,89 @@ fun GroupMemberStatus(
                         onClick = onAddMemberClick, // Use passed lambda
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
-                        modifier = Modifier.weight(1f).height(48.dp)
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Add Member", modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text("Add Members", color = TextWhite, fontSize = 14.sp)
                     }
-                    Spacer(Modifier.width(10.dp))
                 }
-                // Share Link Button (always shown?)
-                Button(
-                    onClick = onShareLinkClick,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF454545)),
-                    // --- Adjust weight if Add Members button is hidden ---
-                    modifier = Modifier.weight(if (showAddMemberButtonInStatus) 1f else 2f).height(48.dp) // Takes full width if alone
-                ) {
-                    Icon(Icons.Default.Share, contentDescription = "Share Link", modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Share Link", color = TextWhite, fontSize = 14.sp)
+            }
+        }
+    }
+}
+// --- Stacked Member Photos Component ---
+@Composable
+fun StackedMemberPhotos(
+    memberIds: List<String>,
+    membersMap: Map<String, User>,
+    maxVisible: Int = 5 // Show max 5 photos, then "+X" for remaining
+) {
+    val members = memberIds.mapNotNull { membersMap[it] }
+
+    if (members.isEmpty()) return
+
+    Row(
+        modifier = Modifier.height(32.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val visibleMembers = members.take(maxVisible)
+        val remainingCount = members.size - visibleMembers.size
+
+        visibleMembers.forEachIndexed { index, member ->
+            Box(
+                modifier = Modifier
+                    .offset(x = (index * -8).dp) // Overlap by 8dp
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, DarkBackground, CircleShape), // Border to separate overlapping photos
+                contentAlignment = Alignment.Center
+            ) {
+                if (member.profilePictureUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = member.profilePictureUrl,
+                        contentDescription = member.username,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF3C3C3C)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.AccountCircle,
+                            contentDescription = member.username,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
+            }
+        }
+
+        // Show "+X" indicator if there are more members
+        if (remainingCount > 0) {
+            Box(
+                modifier = Modifier
+                    .offset(x = (visibleMembers.size * -8).dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF3C3C3C))
+                    .border(2.dp, DarkBackground, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "+$remainingCount",
+                    color = TextWhite,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     }

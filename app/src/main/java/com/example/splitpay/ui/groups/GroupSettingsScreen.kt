@@ -18,10 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.SavedStateHandle
+import coil.compose.AsyncImage
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -65,6 +67,7 @@ fun GroupSettingsScreen(
     groupId: String, // Receive groupId from navigation
     onNavigateBack: () -> Unit,
     onNavigateToAddMembers: () -> Unit,
+    onNavigateToEditGroup: () -> Unit,
     // Provide default repository instances, consider Hilt later
     groupsRepository: GroupsRepository = GroupsRepository(),
     userRepository: UserRepository = UserRepository(),
@@ -127,8 +130,8 @@ fun GroupSettingsScreen(
                     GroupInfoSection(
                         groupName = group.name,
                         iconIdentifier = group.iconIdentifier,
-                        onEditNameClick = { viewModel.showEditNameDialog(true) },
-                        onEditIconClick = { viewModel.showChangeIconDialog(true) }
+                        photoUrl = group.photoUrl,
+                        onEditClick = onNavigateToEditGroup
                     )
                 }
 
@@ -244,28 +247,40 @@ fun GroupSettingsScreen(
 fun GroupInfoSection(
     groupName: String,
     iconIdentifier: String,
-    onEditNameClick: () -> Unit,
-    onEditIconClick: () -> Unit
+    photoUrl: String,
+    onEditClick: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon
+        // Group Photo or Tag Icon
         Box(
             modifier = Modifier
                 .size(60.dp)
                 .clip(CircleShape)
-                .background(PrimaryBlue) // Or determine color based on icon type
-            .clickable(onClick = onEditIconClick),
+                .background(if (photoUrl.isNotEmpty()) Color.Transparent else PrimaryBlue),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = availableIconsMap[iconIdentifier] ?: Icons.Default.Group,
-                contentDescription = "Group Icon - Click to change",
-                tint = TextWhite,
-                modifier = Modifier.size(32.dp)
-            )
+            if (photoUrl.isNotEmpty()) {
+                // Display group photo
+                AsyncImage(
+                    model = photoUrl,
+                    contentDescription = "Group Photo",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                // Display tag icon
+                Icon(
+                    imageVector = availableTagsMap[iconIdentifier] ?: Icons.Default.Group,
+                    contentDescription = "Group Tag",
+                    tint = TextWhite,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
         }
         Spacer(Modifier.width(16.dp))
         // Name and Type
@@ -278,7 +293,7 @@ fun GroupInfoSection(
             )
         }
         // Edit Button
-        IconButton(onClick = onEditNameClick) {
+        IconButton(onClick = onEditClick) {
             Icon(Icons.Default.Edit, contentDescription = "Edit Group Info", tint = Color.Gray)
         }
     }
@@ -340,12 +355,23 @@ fun MemberListItem(
         },
         supportingContent = { Text(memberData.user.email, color = Color.Gray, fontSize = 12.sp) },
         leadingContent = {
-            Icon(
-                Icons.Default.AccountCircle, // Placeholder icon
-                contentDescription = "Member",
-                tint = Color.Gray,
-                modifier = Modifier.size(40.dp)
-            )
+            if (memberData.user.profilePictureUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = memberData.user.profilePictureUrl,
+                    contentDescription = "${memberData.user.username}'s profile picture",
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = "Member",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -493,22 +519,23 @@ fun ChangeIconDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Change Group Icon", color = TextWhite) },
+        title = { Text("Change Group Tag", color = TextWhite) },
         text = {
-            // Re-use the IconOption composable from CreateGroupScreen logic
+            // Re-use the TagOption composable from CreateGroupScreen logic
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(availableIcons) { (identifier, icon) ->
-                    IconOption(
+                items(availableTags.size) { index ->
+                    val (identifier, icon) = availableTags[index]
+                    TagOption(
                         icon = icon,
+                        label = identifier.replaceFirstChar { it.uppercase() },
                         identifier = identifier,
                         isSelected = selectedIcon == identifier,
-                        onSelect = { selectedIcon = it } // Update local selection state
+                        onSelect = { selectedIcon = identifier } // Update local selection state
                     )
                 }
-                // Optionally add UploadImageOption here if desired
             }
         },
         confirmButton = {

@@ -34,7 +34,7 @@ data class Expense(
 
     // --- ADD THESE ---
     val memo: String = "",
-    val imageUrls: List<String> = emptyList(),
+    val imageUrl: String = "", // Single expense image
 
     val expenseType: String = ExpenseType.EXPENSE
 )

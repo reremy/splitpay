@@ -164,7 +164,8 @@ class FriendsViewModel(
                     uid = friend.uid,
                     username = friend.username.takeIf { it.isNotBlank() } ?: friend.fullName,
                     netBalance = netBalance,
-                    balanceBreakdown = breakdown
+                    balanceBreakdown = breakdown,
+                    profilePictureUrl = friend.profilePictureUrl
                 )
             }.sortedByDescending { it.netBalance.absoluteValue } // Sort by balance magnitude
 

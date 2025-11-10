@@ -5,7 +5,8 @@ data class FriendWithBalance(
     val uid: String,
     val username: String,
     val netBalance: Double, // Positive if they owe you, negative if you owe them
-    val balanceBreakdown: List<BalanceDetail> = emptyList() // Optional breakdown by group
+    val balanceBreakdown: List<BalanceDetail> = emptyList(), // Optional breakdown by group
+    val profilePictureUrl: String = "" // Profile picture URL for displaying in the UI
 )
 
 // Details for the balance breakdown

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -20,7 +21,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import coil.compose.AsyncImage
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -30,12 +33,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.splitpay.data.model.ActivityType
+import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.groups.ExpenseActivityCard
+import com.example.splitpay.ui.groups.availableTagsMap
 import com.example.splitpay.ui.theme.*
 import kotlin.math.absoluteValue
 
@@ -202,20 +208,7 @@ fun FriendDetailContent(
             Spacer(Modifier.height(8.dp))
         }
 
-        // Shared Group Activities
-        val sharedGroupActivities = viewModel.uiState.value.sharedGroupActivities
-        items(sharedGroupActivities, key = { "activity_${it.id}" }) { activity ->
-            SharedGroupActivityCard(
-                activity = activity,
-                modifier = Modifier.padding(horizontal = 16.dp),
-                onClick = {
-                    navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
-                }
-            )
-            Spacer(Modifier.height(8.dp))
-        }
-
-        // Activity List (Expenses)
+        // Activity List (Shared Groups + Payments)
         when {
             viewModel.uiState.value.isLoadingExpenses -> {
                 item {
@@ -225,12 +218,11 @@ fun FriendDetailContent(
                             .padding(vertical = 32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        // This is the loading spinner
                         CircularProgressIndicator(color = PrimaryBlue)
                     }
                 }
             }
-            expenses.isEmpty() && viewModel.uiState.value.sharedGroupActivities.isEmpty() -> {
+            viewModel.uiState.value.activityCards.isEmpty() -> {
                 item {
                     Text(
                         "No activities yet with this friend.",
@@ -243,20 +235,44 @@ fun FriendDetailContent(
                 }
             }
             else -> {
-                items(expenses, key = { "expense_${it.id}" }) { expense ->
-                    val (lentBorrowedText, lentBorrowedColor) = viewModel.calculateUserLentBorrowed(expense)
-                    val payerSummary = viewModel.formatPayerSummary(expense)
-
-                    ExpenseActivityCard(
-                        expense = expense,
-                        payerSummary = payerSummary,
-                        userLentBorrowed = lentBorrowedText,
-                        userLentBorrowedColor = lentBorrowedColor,
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        onClick = {
-                            navController.navigate("${Screen.ActivityDetail}?expenseId=${expense.id}")
+                items(
+                    viewModel.uiState.value.activityCards,
+                    key = { card ->
+                        when (card) {
+                            is com.example.splitpay.ui.friendsDetail.ActivityCard.SharedGroupCard -> "group_${card.groupId}_${card.mostRecentDate}"
+                            is com.example.splitpay.ui.friendsDetail.ActivityCard.PaymentCard -> "payment_${card.expense.id}"
                         }
-                    )
+                    }
+                ) { card ->
+                    when (card) {
+                        is com.example.splitpay.ui.friendsDetail.ActivityCard.SharedGroupCard -> {
+                            SharedGroupActivityCard(
+                                card = card,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                onClick = {
+                                    // Navigate to group detail page
+                                    if (card.groupId != null) {
+                                        navController.navigate("group_detail/${card.groupId}")
+                                    }
+                                }
+                            )
+                        }
+                        is com.example.splitpay.ui.friendsDetail.ActivityCard.PaymentCard -> {
+                            val (lentBorrowedText, lentBorrowedColor) = viewModel.calculateUserLentBorrowed(card.expense)
+                            val payerSummary = viewModel.formatPayerSummary(card.expense)
+
+                            ExpenseActivityCard(
+                                expense = card.expense,
+                                payerSummary = payerSummary,
+                                userLentBorrowed = lentBorrowedText,
+                                userLentBorrowedColor = lentBorrowedColor,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                onClick = {
+                                    navController.navigate("${Screen.PaymentDetail}/${card.expense.id}")
+                                }
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(8.dp))
                 }
             }
@@ -282,20 +298,31 @@ fun FriendDetailHeader(
             .padding(bottom = 16.dp, top = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Friend Icon
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(PrimaryBlue),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Default.AccountCircle,
-                contentDescription = "Friend Icon",
-                tint = TextWhite,
-                modifier = Modifier.size(40.dp)
+        // Friend Profile Picture
+        if (friend.profilePictureUrl.isNotEmpty()) {
+            AsyncImage(
+                model = friend.profilePictureUrl,
+                contentDescription = "${friend.username}'s profile",
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(PrimaryBlue),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = "Friend Icon",
+                    tint = TextWhite,
+                    modifier = Modifier.size(40.dp)
+                )
+            }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -389,50 +416,94 @@ fun ActionButton(label: String, onClick: () -> Unit) {
 
 @Composable
 fun SharedGroupActivityCard(
-    activity: com.example.splitpay.data.model.Activity,
+    card: com.example.splitpay.ui.friendsDetail.ActivityCard.SharedGroupCard,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
+    // Format date
+    val dateObject = java.util.Date(card.mostRecentDate)
+    val dayFormatter = java.text.SimpleDateFormat("dd", java.util.Locale.getDefault())
+    val monthFormatter = java.text.SimpleDateFormat("MMM", java.util.Locale.getDefault())
+    val day = dayFormatter.format(dateObject)
+    val month = monthFormatter.format(dateObject).uppercase()
+
+    // Format balance text
+    val balanceText = when {
+        card.balance > 0.01 -> "you lent MYR%.2f".format(card.balance)
+        card.balance < -0.01 -> "you owe MYR%.2f".format(card.balance.absoluteValue)
+        else -> "settled"
+    }
+    val balanceColor = when {
+        card.balance > 0.01 -> PositiveGreen
+        card.balance < -0.01 -> NegativeRed
+        else -> Color.Gray
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFF2A2A2A))
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon
+        // Date Column
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(40.dp)
+        ) {
+            Text(month, color = Color.Gray, fontSize = 12.sp)
+            Text(day, color = TextWhite, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        // Group Icon based on iconIdentifier
+        val groupIcon = card.group?.iconIdentifier?.let { availableTagsMap[it] } ?: Icons.Default.Group
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(40.dp)
                 .clip(CircleShape)
                 .background(PrimaryBlue.copy(alpha = 0.2f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.AccountCircle,
+                imageVector = groupIcon,
                 contentDescription = "Group",
                 tint = PrimaryBlue,
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
 
         Spacer(Modifier.width(12.dp))
 
-        // Content
+        // Content Column
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = activity.groupName ?: "Unknown Group",
+                text = card.groupName,
                 color = TextWhite,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "shared group",
                 color = Color.Gray,
                 fontSize = 14.sp
+            )
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        // Balance Column
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = balanceText,
+                color = balanceColor,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
             )
         }
     }

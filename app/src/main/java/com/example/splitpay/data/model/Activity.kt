@@ -16,7 +16,9 @@ enum class ActivityType {
     EXPENSE_ADDED,
     EXPENSE_UPDATED,
     EXPENSE_DELETED,
-    PAYMENT_MADE // For "Settle Up" actions
+    PAYMENT_MADE,    // For "Settle Up" actions
+    PAYMENT_UPDATED, // For editing a payment
+    PAYMENT_DELETED  // For deleting a payment
 }
 
 
