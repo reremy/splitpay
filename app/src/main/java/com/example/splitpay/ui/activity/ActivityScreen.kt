@@ -544,6 +544,7 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): A
 /**
  * Returns the correct color for the financial summary.
  */
+@Composable
 private fun getFinancialSummaryColor(activity: Activity, currentUserId: String): Color {
     val impact = activity.financialImpacts?.get(currentUserId) ?: 0.0
     val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
