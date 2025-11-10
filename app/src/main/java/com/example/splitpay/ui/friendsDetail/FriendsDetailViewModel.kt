@@ -358,7 +358,7 @@ class FriendsDetailViewModel(
     }
 
     /**
-     * Builds a list of activity cards (shared group cards + payment cards)
+     * Builds a list of activity cards (shared group cards + payment cards + individual non-group expense cards)
      * sorted chronologically by date
      */
     private fun buildActivityCards(allExpenses: List<Expense>, sharedGroups: List<Group>): List<ActivityCard> {
@@ -368,8 +368,12 @@ class FriendsDetailViewModel(
         val payments = allExpenses.filter { it.expenseType == ExpenseType.PAYMENT }
         val regularExpenses = allExpenses.filter { it.expenseType != ExpenseType.PAYMENT }
 
-        // Group regular expenses by groupId
-        val expensesByGroup = regularExpenses.groupBy { it.groupId }
+        // Separate non-group expenses from group expenses
+        val nonGroupExpenses = regularExpenses.filter { it.groupId == "non_group" || it.groupId == null }
+        val groupExpenses = regularExpenses.filter { it.groupId != "non_group" && it.groupId != null }
+
+        // Group regular group expenses by groupId (excluding non-group)
+        val expensesByGroup = groupExpenses.groupBy { it.groupId }
 
         // Process each group
         expensesByGroup.forEach { (groupId, expenses) ->
@@ -398,7 +402,7 @@ class FriendsDetailViewModel(
             // Only add card if balance is non-zero
             if (groupBalance.absoluteValue > 0.01) {
                 val group = sharedGroups.find { it.id == groupId }
-                val groupName = group?.name ?: if (groupId == null) "Non-group expenses" else "Unknown Group"
+                val groupName = group?.name ?: "Unknown Group"
 
                 activityCards.add(
                     ActivityCard.SharedGroupCard(
@@ -410,6 +414,12 @@ class FriendsDetailViewModel(
                     )
                 )
             }
+        }
+
+        // Add individual non-group expense cards as PaymentCards
+        // (so they show up as individual items instead of being grouped)
+        nonGroupExpenses.forEach { expense ->
+            activityCards.add(ActivityCard.PaymentCard(expense = expense))
         }
 
         // Add payment cards

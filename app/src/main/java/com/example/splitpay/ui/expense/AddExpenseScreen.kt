@@ -98,6 +98,7 @@ import com.example.splitpay.data.repository.GroupsRepository // Keep this
 import com.example.splitpay.data.repository.UserRepository // Keep this
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.expense.AddExpenseBottomBar // Import AddExpenseBottomBar
+import com.google.firebase.auth.FirebaseAuth
 import com.example.splitpay.ui.expense.AddExpenseTopBar // Import AddExpenseTopBar
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.ErrorRed
@@ -433,6 +434,8 @@ fun AddExpenseScreen(
             // 3. Participants / Group Members
             ParticipantsList(
                 participants = uiState.participants, // Use local Participant type from ViewModel's state
+                currentGroupId = uiState.currentGroupId,
+                currentUserId = FirebaseAuth.getInstance().currentUser?.uid,
                 // Pass the event handler from the ViewModel
                 onParticipantCheckedChange = viewModel::onParticipantCheckedChange
             )
@@ -667,8 +670,12 @@ fun AmountAndDescriptionFields(
 @Composable
 fun ParticipantsList(
     participants: List<Participant>, // Expects local Participant type
+    currentGroupId: String?,
+    currentUserId: String?,
     onParticipantCheckedChange: (uid: String, isChecked: Boolean) -> Unit
 ) {
+    val isNonGroup = currentGroupId == "non_group"
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
@@ -683,29 +690,41 @@ fun ParticipantsList(
             )
             // Use LazyColumn if the list can be very long
             participants.forEach { participant ->
+                val isCurrentUser = participant.uid == currentUserId
+                val isDisabled = isNonGroup && isCurrentUser
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
-                        .clickable { onParticipantCheckedChange(participant.uid, !participant.isChecked) },
+                        .clickable(enabled = !isDisabled) {
+                            onParticipantCheckedChange(participant.uid, !participant.isChecked)
+                        },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Checkbox(
                         checked = participant.isChecked,
-                        onCheckedChange = { isChecked -> onParticipantCheckedChange(participant.uid, isChecked) },
+                        onCheckedChange = if (isDisabled) null else { isChecked ->
+                            onParticipantCheckedChange(participant.uid, isChecked)
+                        },
+                        enabled = !isDisabled,
                         colors = CheckboxDefaults.colors(
                             checkedColor = PrimaryBlue,
-                            uncheckedColor = Color.Gray
+                            uncheckedColor = Color.Gray,
+                            disabledCheckedColor = Color.Gray,
+                            disabledUncheckedColor = Color.DarkGray
                         )
                     )
                     Text(
-                        participant.name,
-                        color = TextWhite,
+                        text = if (isCurrentUser) "${participant.name} (you)" else participant.name,
+                        color = if (isDisabled) Color.Gray else TextWhite,
                         modifier = Modifier.weight(1f).padding(start = 8.dp)
                     )
                     Text(
                         "RM %.2f".format(participant.owesAmount),
-                        color = if (participant.isChecked) Color.Gray else Color.DarkGray
+                        color = if (participant.isChecked) {
+                            if (isDisabled) Color.DarkGray else Color.Gray
+                        } else Color.DarkGray
                     )
                 }
             }
