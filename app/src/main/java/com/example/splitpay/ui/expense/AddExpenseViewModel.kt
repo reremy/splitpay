@@ -429,11 +429,17 @@ class AddExpenseViewModel(
         }
 
         _uiState.update { currentState ->
+            // For non-group expenses, participants start unchecked (except current user)
+            // For group expenses, all members start checked
+            val isNonGroup = group?.id == "non_group"
+
             val initialParticipants = relevantPayers.map { payer ->
                 Participant(
                     uid = payer.uid,
                     name = payer.name,
-                    isChecked = true,
+                    // For non-group: only current user is checked by default
+                    // For groups: all members are checked by default
+                    isChecked = if (isNonGroup) payer.uid == currentUserPayer.uid else true,
                     splitValue = if (currentState.splitType == SplitType.PERCENTAGES) {
                         "%.2f".format(100.0 / relevantPayers.size)
                     } else "1.0"

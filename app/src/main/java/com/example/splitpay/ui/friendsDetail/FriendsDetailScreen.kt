@@ -268,7 +268,13 @@ fun FriendDetailContent(
                                 userLentBorrowedColor = lentBorrowedColor,
                                 modifier = Modifier.padding(horizontal = 16.dp),
                                 onClick = {
-                                    navController.navigate("${Screen.PaymentDetail}/${card.expense.id}")
+                                    // Navigate to appropriate detail screen based on expense type
+                                    if (card.expense.expenseType == ExpenseType.PAYMENT) {
+                                        navController.navigate("${Screen.PaymentDetail}/${card.expense.id}")
+                                    } else {
+                                        // Non-group expense or regular expense
+                                        navController.navigate("${Screen.ExpenseDetail}/${card.expense.id}")
+                                    }
                                 }
                             )
                         }
@@ -393,7 +399,7 @@ fun ActionButtonsRow(
         horizontalArrangement = Arrangement.SpaceAround
     ) {
         ActionButton("Settle Up") {
-            navController.navigate("${Screen.SettleUpFriend}/$friendId")
+            navController.navigate("${Screen.SelectBalanceToSettle}/$friendId")
         }
         ActionButton("Charts") {}
         ActionButton("Balances") {}

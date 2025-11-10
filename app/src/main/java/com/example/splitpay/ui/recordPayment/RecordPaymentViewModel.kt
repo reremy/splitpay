@@ -53,7 +53,10 @@ data class RecordPaymentUiState(
     val isUploadingImage: Boolean = false,
     // --- Edit Mode ---
     val isEditMode: Boolean = false,
-    val editingPaymentId: String? = null
+    val editingPaymentId: String? = null,
+    // --- Balance Warning ---
+    val showBalanceWarning: Boolean = false,
+    val outstandingBalance: Double = 0.0
 )
 
 sealed interface RecordPaymentUiEvent {
@@ -115,11 +118,24 @@ class RecordPaymentViewModel(
                 // Fetch profiles and group details concurrently
                 val payerDeferred = async { userRepository.getUserProfile(payerUidActual) }
                 val receiverDeferred = async { userRepository.getUserProfile(receiverUidActual) }
-                val groupDeferred = async { groupsRepository.getGroupFlow(groupId).firstOrNull() } // <-- FETCH GROUP
+
+                // Handle non-group as special case
+                val groupDeferred = async {
+                    if (groupId == "non_group") {
+                        Group(
+                            id = "non_group",
+                            name = "Non-group expenses",
+                            members = listOf(currentUserId ?: "", memberUid ?: ""),
+                            iconIdentifier = "info"
+                        )
+                    } else {
+                        groupsRepository.getGroupFlow(groupId).firstOrNull()
+                    }
+                }
 
                 val payer = payerDeferred.await()
                 val receiver = receiverDeferred.await()
-                val group = groupDeferred.await() // <-- AWAIT GROUP
+                val group = groupDeferred.await()
 
                 if (payer == null || receiver == null || group == null) {
                     throw Exception("Could not load user or group profiles.")
@@ -132,7 +148,8 @@ class RecordPaymentViewModel(
                         payer = payer,
                         receiver = receiver,
                         isPayerUser = isPayerUser,
-                        group = group // <-- STORE GROUP
+                        group = group, // <-- STORE GROUP
+                        outstandingBalance = balance.absoluteValue
                     )
                 }
 
@@ -150,7 +167,20 @@ class RecordPaymentViewModel(
                 // Fetch profiles and group details concurrently
                 val payerDeferred = async { userRepository.getUserProfile(customPayerUid) }
                 val receiverDeferred = async { userRepository.getUserProfile(customRecipientUid) }
-                val groupDeferred = async { groupsRepository.getGroupFlow(groupId).firstOrNull() }
+
+                // Handle non-group as special case
+                val groupDeferred = async {
+                    if (groupId == "non_group") {
+                        Group(
+                            id = "non_group",
+                            name = "Non-group expenses",
+                            members = listOf(customPayerUid, customRecipientUid),
+                            iconIdentifier = "info"
+                        )
+                    } else {
+                        groupsRepository.getGroupFlow(groupId).firstOrNull()
+                    }
+                }
 
                 val payer = payerDeferred.await()
                 val receiver = receiverDeferred.await()
@@ -205,6 +235,12 @@ class RecordPaymentViewModel(
 
         if (totalAmount <= 0) {
             viewModelScope.launch { _uiEvent.emit(RecordPaymentUiEvent.ShowError("Amount must be greater than zero.")) }
+            return
+        }
+
+        // Check if amount exceeds outstanding balance (only if not in edit mode)
+        if (!state.isEditMode && state.outstandingBalance > 0 && totalAmount > state.outstandingBalance) {
+            _uiState.update { it.copy(showBalanceWarning = true) }
             return
         }
 
@@ -379,7 +415,20 @@ class RecordPaymentViewModel(
                 // Fetch profiles and group
                 val payerDeferred = async { userRepository.getUserProfile(payerUid) }
                 val receiverDeferred = async { userRepository.getUserProfile(recipientUid) }
-                val groupDeferred = async { payment.groupId?.let { groupsRepository.getGroupFlow(it).firstOrNull() } }
+                val groupDeferred = async {
+                    payment.groupId?.let { gId ->
+                        if (gId == "non_group") {
+                            Group(
+                                id = "non_group",
+                                name = "Non-group expenses",
+                                members = listOf(payerUid, recipientUid),
+                                iconIdentifier = "info"
+                            )
+                        } else {
+                            groupsRepository.getGroupFlow(gId).firstOrNull()
+                        }
+                    }
+                }
 
                 val payer = payerDeferred.await()
                 val receiver = receiverDeferred.await()
@@ -442,5 +491,20 @@ class RecordPaymentViewModel(
 
     fun onMemoSaved(finalMemo: String) {
         _uiState.update { it.copy(memo = finalMemo.trim(), isMemoDialogVisible = false) }
+    }
+
+    // --- Balance Warning Dialog ---
+    fun onDismissBalanceWarning() {
+        _uiState.update { it.copy(showBalanceWarning = false) }
+    }
+
+    fun onConfirmExceedBalance() {
+        _uiState.update { it.copy(showBalanceWarning = false) }
+        // Proceed with saving by temporarily setting outstandingBalance to 0
+        val currentBalance = _uiState.value.outstandingBalance
+        _uiState.update { it.copy(outstandingBalance = 0.0) }
+        onSavePayment()
+        // Restore the balance after
+        _uiState.update { it.copy(outstandingBalance = currentBalance) }
     }
 }

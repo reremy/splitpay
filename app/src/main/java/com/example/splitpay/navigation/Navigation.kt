@@ -27,6 +27,8 @@ import com.example.splitpay.ui.expense.AddExpenseScreen
 import com.example.splitpay.ui.expense.ExpenseDetailScreen
 import com.example.splitpay.ui.paymentDetail.PaymentDetailScreen
 import com.example.splitpay.ui.friendSettings.FriendSettingsScreen
+import com.example.splitpay.ui.friendSettleUp.SelectBalanceToSettleScreen
+import com.example.splitpay.ui.friendSettleUp.SelectPayerFriendScreen
 import com.example.splitpay.ui.friendsDetail.FriendsDetailScreen
 import com.example.splitpay.ui.groups.CreateGroupScreen
 import com.example.splitpay.ui.groups.EditGroupScreen
@@ -333,32 +335,54 @@ fun Navigation(
                 friendId = friendId,
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToGroupDetail = { groupId ->
-                    navController.navigate("${Screen.GroupDetail}/$groupId")
+                    navController.navigate("group_detail/$groupId")
                 }
             )
         }
 
-        //Friend Settle Up Screen (Placeholder) 
+        // Select Balance to Settle Screen (Friend Settle Up)
         composable(
-            route = Screen.SettleUpFriendRoute,
+            route = Screen.SelectBalanceToSettleRoute,
             arguments = listOf(navArgument("friendId") { type = NavType.StringType }),
-            // Add transitions
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
         ) { backStackEntry ->
             val friendId = backStackEntry.arguments?.getString("friendId") ?: ""
-            // --- Placeholder ---
-            Box(
-                modifier = Modifier.fillMaxSize().background(DarkBackground),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Settle Up with Friend: $friendId (Placeholder)", color = TextWhite)
-                    Spacer(Modifier.height(16.dp))
-                    Button(onClick = { navController.popBackStack() }) {
-                        Text("Go Back")
-                    }
+            SelectBalanceToSettleScreen(
+                friendId = friendId,
+                onNavigateBack = { navController.popBackStack() },
+                onGroupBalanceClick = { groupId, balance ->
+                    // Navigate to Record Payment with pre-filled balance and friend as memberUid
+                    navController.navigate("record_payment/$groupId?memberUid=$friendId&balance=$balance")
+                },
+                onMoreOptionsClick = {
+                    // Navigate to Select Payer screen
+                    navController.navigate("${Screen.SelectPayerFriend}/$friendId")
                 }
-            }
-            // --- End Placeholder ---
+            )
+        }
+
+        // Select Payer Friend Screen (More Options for Friend Settle Up)
+        composable(
+            route = Screen.SelectPayerFriendRoute,
+            arguments = listOf(navArgument("friendId") { type = NavType.StringType }),
+            enterTransition = { slideInFromRight() },
+            exitTransition = { slideOutToLeft() },
+            popEnterTransition = { slideInFromLeft() },
+            popExitTransition = { slideOutToRight() }
+        ) { backStackEntry ->
+            val friendId = backStackEntry.arguments?.getString("friendId") ?: ""
+            SelectPayerFriendScreen(
+                friendId = friendId,
+                onNavigateBack = { navController.popBackStack() },
+                onPayerSelected = { payerUid, recipientUid ->
+                    // Navigate to Record Payment with custom payer/recipient
+                    // Use "non_group" as groupId for friend-to-friend payments
+                    navController.navigate("record_payment/non_group?payerUid=$payerUid&recipientUid=$recipientUid")
+                }
+            )
         }
         composable(
             route = Screen.GroupSettings, // Use constant from Screen.kt
@@ -462,8 +486,20 @@ fun Navigation(
                 recipientUid = recipientUid,
                 onNavigateBack = { navController.popBackStack() },
                 onSaveSuccess = {
-                    // Pop back to the GroupDetailScreen, removing SettleUp from the stack
-                    navController.popBackStack(Screen.SettleUpRoute, inclusive = true)
+                    // Check if we came from friend settle up or group settle up
+                    val currentBackStack = navController.currentBackStack.value
+                    val hasFriendSettleUp = currentBackStack.any { entry ->
+                        entry.destination.route?.contains("select_balance_to_settle") == true ||
+                        entry.destination.route?.contains("select_payer_friend") == true
+                    }
+
+                    if (hasFriendSettleUp) {
+                        // Pop back to Friend Detail screen
+                        navController.popBackStack("friend_detail/{friendId}", inclusive = false)
+                    } else {
+                        // Pop back to Group Detail screen
+                        navController.popBackStack(Screen.SettleUpRoute, inclusive = true)
+                    }
                 }
             )
         }

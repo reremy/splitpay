@@ -28,9 +28,6 @@ import com.example.splitpay.ui.common.OverallBalanceHeader
 import com.example.splitpay.ui.theme.* // Import your theme colors
 import kotlin.math.absoluteValue
 
-// Define DialogBackground if it doesn't exist in Color.kt
-val DialogBackground = Color(0xFF2D2D2D) // Example
-
 @Composable
 fun FriendsScreenContent(
     innerPadding: PaddingValues,
@@ -40,86 +37,35 @@ fun FriendsScreenContent(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // --- Use a Box to allow anchoring the DropdownMenu ---
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(DarkBackground) // Use your theme background
-            // --- REMOVE innerPadding from the main Column ---
-        ) {
-            // Overall Balance Header - Apply top padding here
-            OverallBalanceHeader(
-                totalBalance = uiState.totalNetBalance,
-                // Pass only the top padding from the Scaffold's innerPadding
-                //topPadding = innerPadding.calculateTopPadding()
-            )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DarkBackground)
+    ) {
+        // Overall Balance Header
+        OverallBalanceHeader(
+            totalBalance = uiState.totalNetBalance
+        )
 
-            // --- FilterChipRow REMOVED ---
-
-            // Friends List Container - Apply remaining padding here
-            Box(modifier = Modifier
-                .fillMaxSize()
-                // Apply horizontal and bottom padding here
-                .padding(
-                    start = innerPadding.calculateStartPadding(LayoutDirection.Ltr), // Adjust for RTL if needed
-                    end = innerPadding.calculateEndPadding(LayoutDirection.Ltr), // Adjust for RTL if needed
-                    bottom = innerPadding.calculateBottomPadding()
-                )
-            ) {
-                when {
-                    // ... (Loading, Empty states) ...
-                    else -> {
-                        LazyColumn( /* ... */ ) {
-                            items(uiState.filteredAndSearchedFriends, key = { it.uid }) { friend ->
-                                FriendListItem(
-                                    friend = friend,
-                                    // --- Pass the click lambda ---
-                                    onFriendClick = { onFriendClick(friend.uid) } // Pass ID back up
-                                )
-                            }
-                        }
+        // Friends List - LazyColumn with contentPadding to prevent bottom nav from covering items
+        when {
+            // ... (Loading, Empty states) ...
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    // Add content padding to ensure last items are visible above bottom nav
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    items(uiState.filteredAndSearchedFriends, key = { it.uid }) { friend ->
+                        FriendListItem(
+                            friend = friend,
+                            onFriendClick = { onFriendClick(friend.uid) }
+                        )
                     }
                 }
-            } // End of Friends List Container Box
-        }
-
-        // --- DropdownMenu ---
-        DropdownMenu(
-            expanded = uiState.isFilterMenuExpanded,
-            onDismissRequest = viewModel::onDismissFilterMenu,
-            modifier = Modifier
-                .background(DialogBackground)
-                .align(Alignment.TopEnd)
-                // Adjust padding relative to the top bar height if needed
-                .padding(end = 4.dp, top = innerPadding.calculateTopPadding() + 4.dp)
-        ) {
-            val filterOptions = mapOf(
-                FriendFilterType.ALL to "All friends",
-                FriendFilterType.OUTSTANDING to "Outstanding balances",
-                FriendFilterType.OWES_YOU to "Friends who owe you",
-                FriendFilterType.YOU_OWE to "Friends you owe"
-            )
-
-            filterOptions.forEach { (type, text) ->
-                DropdownMenuItem(
-                    text = { Text(text, color = TextWhite) },
-                    onClick = { viewModel.applyFilter(type) },
-                    leadingIcon = {
-                        RadioButton(
-                            selected = (type == uiState.currentFilter),
-                            onClick = { viewModel.applyFilter(type) },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = PrimaryBlue,
-                                unselectedColor = Color.Gray
-                            )
-                        )
-                    },
-                    contentPadding = PaddingValues(horizontal = 12.dp)
-                )
             }
-        } // End DropdownMenu
-    } // End of outer Box
+        }
+    }
 }
 
 
