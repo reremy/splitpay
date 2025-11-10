@@ -76,7 +76,14 @@ class ActivityViewModel(
             _sortOrder,
             _isSearchActive,
             _isFilterMenuExpanded
-        ) { activities, searchQuery, activityFilter, timePeriodFilter, sortOrder, isSearchActive, isFilterMenuExpanded ->
+        ) { flows: Array<Any> ->
+            val activities = flows[0] as List<Activity>
+            val searchQuery = flows[1] as String
+            val activityFilter = flows[2] as ActivityFilterType
+            val timePeriodFilter = flows[3] as TimePeriodFilter
+            val sortOrder = flows[4] as SortOrder
+            val isSearchActive = flows[5] as Boolean
+            val isFilterMenuExpanded = flows[6] as Boolean
 
             // Apply filters and search
             val filtered = activities

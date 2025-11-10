@@ -7,10 +7,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Group
@@ -47,8 +43,6 @@ import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
 import com.example.splitpay.ui.theme.TextWhite
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -58,7 +52,6 @@ import kotlin.math.absoluteValue
  * The main composable for the Activity screen.
  * This is what will be called by the NavHost in HomeScreen.
  */
-@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun ActivityScreen(
     innerPadding: PaddingValues,
@@ -68,24 +61,8 @@ fun ActivityScreen(
     val uiState by viewModel.uiState.collectAsState()
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
-    // Pull-to-refresh state
-    var isRefreshing by remember { mutableStateOf(false) }
-    val coroutineScope = rememberCoroutineScope()
-
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isRefreshing,
-        onRefresh = {
-            coroutineScope.launch {
-                isRefreshing = true
-                // Simulate refresh - the Flow will automatically update
-                delay(1000)
-                isRefreshing = false
-            }
-        }
-    )
-
     when {
-        uiState.isLoading && !isRefreshing -> {
+        uiState.isLoading -> {
             Box(
                 Modifier
                     .fillMaxSize()
@@ -112,106 +89,82 @@ fun ActivityScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(DarkBackground)
-                    .pullRefresh(pullRefreshState),
+                    .background(DarkBackground),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = if (uiState.searchQuery.isNotBlank() ||
-                                   uiState.activityFilter != ActivityFilterType.ALL ||
-                                   uiState.timePeriodFilter != TimePeriodFilter.ALL_TIME) {
-                            "No activities match your filters"
-                        } else {
-                            "No recent activity found."
-                        },
-                        color = Color.Gray,
-                        fontSize = 16.sp
-                    )
-                }
-                PullRefreshIndicator(
-                    refreshing = isRefreshing,
-                    state = pullRefreshState,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    backgroundColor = DialogBackground,
-                    contentColor = PrimaryBlue
+                Text(
+                    text = if (uiState.searchQuery.isNotBlank() ||
+                               uiState.activityFilter != ActivityFilterType.ALL ||
+                               uiState.timePeriodFilter != TimePeriodFilter.ALL_TIME) {
+                        "No activities match your filters"
+                    } else {
+                        "No recent activity found."
+                    },
+                    color = Color.Gray,
+                    fontSize = 16.sp
                 )
             }
         }
         else -> {
-            Box(
+            // Group activities by date
+            val groupedActivities = remember(uiState.filteredActivities) {
+                groupActivitiesByDate(uiState.filteredActivities)
+            }
+
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(DarkBackground)
-                    .pullRefresh(pullRefreshState)
+                    .background(DarkBackground),
+                contentPadding = PaddingValues(
+                    top = innerPadding.calculateTopPadding(),
+                    bottom = innerPadding.calculateBottomPadding() + 16.dp
+                )
             ) {
-                // Group activities by date
-                val groupedActivities = remember(uiState.filteredActivities) {
-                    groupActivitiesByDate(uiState.filteredActivities)
-                }
+                groupedActivities.forEach { (dateHeader, activities) ->
+                    // Date header
+                    item(key = "header_$dateHeader") {
+                        DateHeader(dateHeader = dateHeader)
+                    }
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        top = innerPadding.calculateTopPadding(),
-                        bottom = innerPadding.calculateBottomPadding() + 16.dp
-                    )
-                ) {
-                    groupedActivities.forEach { (dateHeader, activities) ->
-                        // Date header
-                        item(key = "header_$dateHeader") {
-                            DateHeader(dateHeader = dateHeader)
-                        }
+                    // Activities for this date
+                    items(activities, key = { it.id }) { activity ->
+                        ActivityCard(
+                            activity = activity,
+                            currentUserId = currentUserId ?: "",
+                            onClick = {
+                                val activityType = try {
+                                    ActivityType.valueOf(activity.activityType)
+                                } catch (e: Exception) {
+                                    null
+                                }
 
-                        // Activities for this date
-                        items(activities, key = { it.id }) { activity ->
-                            ActivityCard(
-                                activity = activity,
-                                currentUserId = currentUserId ?: "",
-                                onClick = {
-                                    val activityType = try {
-                                        ActivityType.valueOf(activity.activityType)
-                                    } catch (e: Exception) {
-                                        null
+                                when (activityType) {
+                                    ActivityType.EXPENSE_ADDED -> {
+                                        if (activity.entityId != null) {
+                                            navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
+                                        }
                                     }
-
-                                    when (activityType) {
-                                        ActivityType.EXPENSE_ADDED -> {
-                                            if (activity.entityId != null) {
-                                                navController.navigate("${Screen.ExpenseDetail}/${activity.entityId}")
-                                            }
+                                    ActivityType.EXPENSE_UPDATED,
+                                    ActivityType.EXPENSE_DELETED -> {
+                                        // Do nothing
+                                    }
+                                    ActivityType.PAYMENT_MADE,
+                                    ActivityType.PAYMENT_UPDATED -> {
+                                        if (activity.entityId != null) {
+                                            navController.navigate("${Screen.PaymentDetail}/${activity.entityId}")
                                         }
-                                        ActivityType.EXPENSE_UPDATED,
-                                        ActivityType.EXPENSE_DELETED -> {
-                                            // Do nothing
-                                        }
-                                        ActivityType.PAYMENT_MADE,
-                                        ActivityType.PAYMENT_UPDATED -> {
-                                            if (activity.entityId != null) {
-                                                navController.navigate("${Screen.PaymentDetail}/${activity.entityId}")
-                                            }
-                                        }
-                                        ActivityType.PAYMENT_DELETED -> {
-                                            // Do nothing
-                                        }
-                                        else -> {
-                                            navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
-                                        }
+                                    }
+                                    ActivityType.PAYMENT_DELETED -> {
+                                        // Do nothing
+                                    }
+                                    else -> {
+                                        navController.navigate("${Screen.ActivityDetail}?activityId=${activity.id}")
                                     }
                                 }
-                            )
-                        }
+                            }
+                        )
                     }
                 }
-
-                // Pull-to-refresh indicator
-                PullRefreshIndicator(
-                    refreshing = isRefreshing,
-                    state = pullRefreshState,
-                    modifier = Modifier.align(Alignment.TopCenter),
-                    backgroundColor = DialogBackground,
-                    contentColor = PrimaryBlue
-                )
             }
         }
     }
