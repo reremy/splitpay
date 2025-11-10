@@ -403,7 +403,6 @@ fun ActionButtonsRow(
         }
         ActionButton("Charts") {}
         ActionButton("Balances") {}
-        ActionButton("Total") {}
         ActionButton("Export") {}
     }
 }
