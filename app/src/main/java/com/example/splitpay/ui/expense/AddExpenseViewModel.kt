@@ -386,6 +386,7 @@ class AddExpenseViewModel(
                         splitType = splitType,
                         date = expense.date,
                         memo = expense.memo,
+                        category = expense.category, // Load category
                         uploadedImageUrl = expense.imageUrl, // Load existing image URL
                         error = null
                     )
@@ -593,6 +594,14 @@ class AddExpenseViewModel(
 
     fun showMemoDialog(isVisible: Boolean) {
         _uiState.update { it.copy(isMemoDialogVisible = isVisible) }
+    }
+
+    fun showCategorySelectorDialog(isVisible: Boolean) {
+        _uiState.update { it.copy(isCategorySelectorVisible = isVisible) }
+    }
+
+    fun onCategorySelected(category: String) {
+        _uiState.update { it.copy(category = category, isCategorySelectorVisible = false) }
     }
 
 
@@ -864,7 +873,8 @@ class AddExpenseViewModel(
                 paidBy = expensePayers,
                 participants = expenseParticipants,
                 memo = state.memo.trim(),
-                imageUrl = imageUrl // Use uploaded image URL
+                imageUrl = imageUrl, // Use uploaded image URL
+                category = state.category // Expense category
             )
 
             // --- Determine if we're creating or updating ---

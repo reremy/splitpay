@@ -21,3 +21,21 @@ val availableTags = listOf(
  * Map of tag identifiers to their icons for quick lookup.
  */
 val availableTagsMap: Map<String, ImageVector> = availableTags.toMap()
+
+/**
+ * Available expense categories (includes all group tags + general).
+ * Used for categorizing individual expenses.
+ */
+val expenseCategories = listOf(
+    "general" to Icons.Default.Category,
+    "friends" to Icons.Default.People,
+    "trip" to Icons.Default.Flight,
+    "rent" to Icons.Default.Home,
+    "groceries" to Icons.Default.ShoppingCart,
+    "utilities" to Icons.Default.Bolt,
+)
+
+/**
+ * Map of expense category identifiers to their icons for quick lookup.
+ */
+val expenseCategoriesMap: Map<String, ImageVector> = expenseCategories.toMap()

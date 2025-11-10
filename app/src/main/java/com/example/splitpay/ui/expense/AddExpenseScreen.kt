@@ -98,6 +98,7 @@ import com.example.splitpay.data.repository.GroupsRepository // Keep this
 import com.example.splitpay.data.repository.UserRepository // Keep this
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.expense.AddExpenseBottomBar // Import AddExpenseBottomBar
+import com.example.splitpay.ui.groups.expenseCategories // Import expense categories
 import com.google.firebase.auth.FirebaseAuth
 import com.example.splitpay.ui.expense.AddExpenseTopBar // Import AddExpenseTopBar
 import com.example.splitpay.ui.theme.DarkBackground
@@ -193,6 +194,9 @@ fun AddExpenseScreen(
     // Use rememberSaveable for temporary memo text to survive recomposition within the dialog
     val memoTextState = rememberSaveable { mutableStateOf(uiState.memo) }
 
+    // --- Category Selector Dialog State ---
+    val showCategorySelector = remember { mutableStateOf(false) }
+
     // --- Observe ViewModel state for dialog visibility ---
     LaunchedEffect(uiState.isDatePickerDialogVisible) {
         showDatePicker.value = uiState.isDatePickerDialogVisible
@@ -202,6 +206,9 @@ fun AddExpenseScreen(
         if (uiState.isMemoDialogVisible) {
             memoTextState.value = uiState.memo // Update local state when dialog opens
         }
+    }
+    LaunchedEffect(uiState.isCategorySelectorVisible) {
+        showCategorySelector.value = uiState.isCategorySelectorVisible
     }
 
     // --- Image Picker for Expense Image ---
@@ -325,6 +332,15 @@ fun AddExpenseScreen(
         )
     }
 
+    // --- Category Selector Dialog ---
+    if (showCategorySelector.value) {
+        CategorySelectorDialog(
+            currentCategory = uiState.category,
+            onCategorySelected = { category -> viewModel.onCategorySelected(category) },
+            onDismiss = { viewModel.showCategorySelectorDialog(false) }
+        )
+    }
+
     Scaffold(
         topBar = {
             AddExpenseTopBar( // Use imported composable
@@ -344,6 +360,7 @@ fun AddExpenseScreen(
                 onChooseGroupClick = { viewModel.showGroupSelector(true) },
                 onCalendarClick = { viewModel.showDatePickerDialog(true) },
                 onCameraClick = { imagePickerLauncher.launch("image/*") },
+                onCategoryClick = { viewModel.showCategorySelectorDialog(true) },
                 onMemoClick = { viewModel.showMemoDialog(true) },
                 isEditMode = uiState.isEditMode
             )
@@ -1255,4 +1272,54 @@ fun ExpenseImagePreview(
             )
         }
     }
+}
+@Composable
+fun CategorySelectorDialog(
+    currentCategory: String,
+    onCategorySelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Select Category", color = TextWhite) },
+        text = {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(expenseCategories) { (categoryId, icon) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onCategorySelected(categoryId) }
+                            .background(
+                                color = if (categoryId == currentCategory) PrimaryBlue.copy(alpha = 0.2f) else Color.Transparent,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = categoryId,
+                            tint = if (categoryId == currentCategory) PrimaryBlue else Color.Gray,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Text(
+                            text = categoryId.replaceFirstChar { it.uppercase() },
+                            color = if (categoryId == currentCategory) PrimaryBlue else TextWhite,
+                            fontWeight = if (categoryId == currentCategory) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done", color = PrimaryBlue)
+            }
+        },
+        containerColor = Color(0xFF2D2D2D)
+    )
 }

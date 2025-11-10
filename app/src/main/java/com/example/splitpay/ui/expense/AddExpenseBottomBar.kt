@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material3.BottomAppBar
@@ -39,6 +40,7 @@ fun AddExpenseBottomBar(
     onCalendarClick: () -> Unit,
     onCameraClick: () -> Unit,
     onMemoClick: () -> Unit,
+    onCategoryClick: () -> Unit = {},
     isEditMode: Boolean = false
 ) {
 
@@ -87,13 +89,16 @@ fun AddExpenseBottomBar(
                 )
             }
 
-            // Action Icons (Calendar, Camera, Memo)
+            // Action Icons (Calendar, Camera, Category, Memo)
             Row {
                 IconButton(onClick = onCalendarClick) {
                     Icon(Icons.Default.CalendarToday, contentDescription = "Calendar", tint = Color.Gray)
                 }
                 IconButton(onClick = onCameraClick) {
                     Icon(Icons.Default.CameraAlt, contentDescription = "Add expense image", tint = Color.Gray)
+                }
+                IconButton(onClick = onCategoryClick) {
+                    Icon(Icons.Default.Category, contentDescription = "Category", tint = Color.Gray)
                 }
                 IconButton(onClick = onMemoClick) {
                     Icon(Icons.Default.Notes, contentDescription = "Memo", tint = Color.Gray)

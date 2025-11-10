@@ -35,6 +35,7 @@ data class Expense(
     // --- ADD THESE ---
     val memo: String = "",
     val imageUrl: String = "", // Single expense image
+    val category: String = "general", // Expense category (e.g., general, groceries, trip, etc.)
 
     val expenseType: String = ExpenseType.EXPENSE
 )

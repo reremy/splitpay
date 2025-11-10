@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add // Keep this import
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dining
 import androidx.compose.material.icons.filled.Edit
@@ -95,6 +96,7 @@ import com.example.splitpay.data.repository.ExpenseRepository // <-- Add import
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository // <-- Add import
 import com.example.splitpay.navigation.Screen
+import com.example.splitpay.ui.groups.expenseCategoriesMap // Import expense categories map
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.NegativeRed // NEW IMPORT
 import com.example.splitpay.ui.theme.PositiveGreen // NEW IMPORT
@@ -538,8 +540,8 @@ fun ExpenseActivityCard(
     val monthFormatter = SimpleDateFormat("MMM", Locale.getDefault())
     val month = monthFormatter.format(dateObject).uppercase() // e.g., "OCT"
 
-    // Determine icon (placeholder)
-    val icon = Icons.Default.ShoppingCart // TODO: Choose icon based on category/type?
+    // Determine icon based on expense category
+    val icon = expenseCategoriesMap[expense.category] ?: Icons.Default.Category
 
     Row(
         modifier = modifier
