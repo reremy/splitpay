@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,6 +55,7 @@ import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.groups.ExpenseActivityCard
 import com.example.splitpay.ui.groups.availableTagsMap
 import com.example.splitpay.ui.theme.*
+import com.example.splitpay.ui.theme.SurfaceDark
 import kotlin.math.absoluteValue
 
 // ViewModel Factory
@@ -129,7 +131,7 @@ fun FriendsDetailScreen(
                         Icon(Icons.Default.Settings, contentDescription = "Friend Settings", tint = TextWhite)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF2D2D2D))
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         floatingActionButton = {
@@ -241,7 +243,7 @@ fun FriendDetailContent(
                 item {
                     Text(
                         "No activities yet with this friend.",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 32.dp),
@@ -315,7 +317,7 @@ fun FriendDetailHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF2D2D2D))
+            .background(MaterialTheme.colorScheme.surface)
             .padding(bottom = 16.dp, top = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -368,7 +370,7 @@ fun FriendDetailHeader(
         val overallBalanceColor = when {
             netBalance > 0.01 -> PositiveGreen
             netBalance < -0.01 -> NegativeRed
-            else -> Color.Gray
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
 
         Text(
@@ -448,7 +450,7 @@ fun ActionButtonsRow(
         ModalBottomSheet(
             onDismissRequest = { showChartsSheet.value = false },
             sheetState = chartsSheetState,
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             ChartsSheetContent(
                 chartData = uiState.chartData,
@@ -476,7 +478,7 @@ fun ActionButton(label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C)),
+        colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Text(label, fontSize = 14.sp, color = TextWhite)
@@ -505,7 +507,7 @@ fun SharedGroupActivityCard(
     val balanceColor = when {
         card.balance > 0.01 -> PositiveGreen
         card.balance < -0.01 -> NegativeRed
-        else -> Color.Gray
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Row(
@@ -521,7 +523,7 @@ fun SharedGroupActivityCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.width(40.dp)
         ) {
-            Text(month, color = Color.Gray, fontSize = 12.sp)
+            Text(month, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Text(day, color = TextWhite, fontSize = 16.sp, fontWeight = FontWeight.Medium)
         }
 
@@ -559,7 +561,7 @@ fun SharedGroupActivityCard(
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "shared group",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
         }
@@ -601,7 +603,7 @@ fun ChartsSheetContent(
         if (chartData.categoryBreakdown.isEmpty() && chartData.dailySpending.isEmpty() && chartData.groupBreakdown.isEmpty()) {
             Text(
                 text = "No expense data available for charts.",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp,
                 modifier = Modifier.padding(vertical = 32.dp),
                 textAlign = TextAlign.Center
@@ -611,7 +613,7 @@ fun ChartsSheetContent(
             if (chartData.categoryBreakdown.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -641,7 +643,7 @@ fun ChartsSheetContent(
             if (chartData.groupBreakdown.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -671,7 +673,7 @@ fun ChartsSheetContent(
             if (chartData.dailySpending.isNotEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -717,7 +719,7 @@ fun HorizontalBarChart(
             )
             Text(
                 text = "MYR %.2f (%.1f%%)".format(value, percentage),
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp
             )
         }
@@ -728,7 +730,7 @@ fun HorizontalBarChart(
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF4D4D4D))
+                .background(MaterialTheme.colorScheme.outline)
         ) {
             Box(
                 modifier = Modifier
@@ -772,7 +774,7 @@ fun DailySpendingChart(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = SimpleDateFormat("dd", Locale.getDefault()).format(Date(day.date)),
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
                     )
                 }
@@ -783,7 +785,7 @@ fun DailySpendingChart(
 
         Text(
             text = "Last ${dailySpending.takeLast(7).size} days",
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
@@ -807,21 +809,21 @@ fun ReminderDialog(
             Column {
                 Text(
                     "Send a friendly reminder to $friendName about outstanding balances.",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
                 Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = reminderMessage.value,
                     onValueChange = { reminderMessage.value = it },
-                    label = { Text("Message (optional)", color = Color.Gray) },
-                    placeholder = { Text("Add a personal message...", color = Color.Gray) },
+                    label = { Text("Message (optional)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    placeholder = { Text("Add a personal message...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedTextColor = TextWhite,
                         unfocusedTextColor = TextWhite,
                         focusedBorderColor = PrimaryBlue,
-                        unfocusedBorderColor = Color.Gray
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     maxLines = 3
                 )
@@ -837,9 +839,9 @@ fun ReminderDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel", color = Color.Gray)
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        containerColor = Color(0xFF2D2D2D)
+        containerColor = MaterialTheme.colorScheme.surface
     )
 }

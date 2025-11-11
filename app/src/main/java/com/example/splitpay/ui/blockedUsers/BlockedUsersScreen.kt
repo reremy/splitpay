@@ -99,7 +99,7 @@ fun BlockedUsersScreen(
                         Icon(
                             Icons.Default.Block,
                             contentDescription = "No blocked users",
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(64.dp)
                         )
                         Spacer(Modifier.height(16.dp))
@@ -112,7 +112,7 @@ fun BlockedUsersScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = "Users you block will appear here",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
                         )
@@ -146,7 +146,7 @@ fun BlockedUserItem(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.medium
     ) {
         Row(
@@ -169,7 +169,7 @@ fun BlockedUserItem(
                 Icon(
                     Icons.Default.AccountCircle,
                     contentDescription = "User",
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(48.dp)
                 )
             }
@@ -188,7 +188,7 @@ fun BlockedUserItem(
                 )
                 Text(
                     text = "@${user.username}",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
                 )
             }
@@ -201,17 +201,17 @@ fun BlockedUserItem(
                 enabled = !isUnblocking,
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = PrimaryBlue,
-                    disabledContentColor = Color.Gray
+                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 border = ButtonDefaults.outlinedButtonBorder.copy(
-                    brush = androidx.compose.ui.graphics.SolidColor(if (isUnblocking) Color.Gray else PrimaryBlue)
+                    brush = androidx.compose.ui.graphics.SolidColor(if (isUnblocking) MaterialTheme.colorScheme.onSurfaceVariant else PrimaryBlue)
                 )
             ) {
                 if (isUnblocking) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     Text("Unblock")

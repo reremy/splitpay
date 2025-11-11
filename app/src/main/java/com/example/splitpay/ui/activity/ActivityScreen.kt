@@ -100,7 +100,7 @@ fun ActivityScreen(
                     } else {
                         "No recent activity found."
                     },
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp
                 )
             }
@@ -221,7 +221,7 @@ private fun getDateHeader(timestamp: Long): String {
 fun DateHeader(dateHeader: String) {
     Text(
         text = dateHeader,
-        color = Color.Gray,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontSize = 14.sp,
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier
@@ -303,7 +303,7 @@ fun ActivityCard(
                 // Timestamp (e.g., "12:20")
                 Text(
                     text = formatTimestampShort(activity.timestamp),
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -544,6 +544,7 @@ private fun formatFinancialSummary(activity: Activity, currentUserId: String): A
 /**
  * Returns the correct color for the financial summary.
  */
+@Composable
 private fun getFinancialSummaryColor(activity: Activity, currentUserId: String): Color {
     val impact = activity.financialImpacts?.get(currentUserId) ?: 0.0
     val type = try { ActivityType.valueOf(activity.activityType) } catch (e: Exception) { null }
@@ -559,7 +560,7 @@ private fun getFinancialSummaryColor(activity: Activity, currentUserId: String):
     return when {
         impact < -0.01 -> NegativeRed
         impact > 0.01 -> PositiveGreen
-        else -> Color.Gray
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 }
 

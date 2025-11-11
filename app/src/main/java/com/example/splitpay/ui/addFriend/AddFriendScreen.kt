@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +23,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.splitpay.data.model.User
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.*
+import com.example.splitpay.ui.theme.SurfaceDark
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,16 +80,16 @@ fun AddFriendScreen(
                 placeholder = { Text("Start typing username...", color = TextPlaceholder) },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF3C3C3C),
-                    unfocusedContainerColor = Color(0xFF3C3C3C),
-                    disabledContainerColor = Color(0xFF3C3C3C),
+                    focusedContainerColor = SurfaceDark,
+                    unfocusedContainerColor = SurfaceDark,
+                    disabledContainerColor = SurfaceDark,
                     cursorColor = PrimaryBlue,
                     focusedIndicatorColor = PrimaryBlue,
                     unfocusedIndicatorColor = Color.Transparent,
                     disabledIndicatorColor = Color.Transparent,
                     focusedTextColor = TextWhite,
                     unfocusedTextColor = TextWhite,
-                    disabledTextColor = Color.Gray,
+                    disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     focusedLabelColor = PrimaryBlue,
                     unfocusedLabelColor = TextPlaceholder,
                     focusedPlaceholderColor = TextPlaceholder,
@@ -97,7 +99,7 @@ fun AddFriendScreen(
                 trailingIcon = {
                     if (uiState.searchQuery.isNotEmpty()) {
                         IconButton(onClick = { viewModel.onSearchQueryChange("") }) { // Clear query
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = Color.Gray)
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -122,7 +124,7 @@ fun AddFriendScreen(
                             // --- FIX: Use non-null assertion or elvis operator ---
                             text = uiState.infoMessage!!, // Force non-null (safe here after check)
                             // OR alternative: text = uiState.infoMessage ?: "", // Provide empty default
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 32.dp)
                         )
                     }
@@ -144,7 +146,7 @@ fun AddFriendScreen(
                         ) {
                             items(uiState.searchResults, key = { it.uid }) { user ->
                                 SearchResultItem(user = user, onClick = { viewModel.onUserSelected(user) })
-                                Divider(color = Color(0xFF454545), modifier = Modifier.padding(horizontal = 8.dp)) // Divider between items
+                                Divider(color = SurfaceDark, modifier = Modifier.padding(horizontal = 8.dp)) // Divider between items
                             }
                         }
                     }
@@ -170,7 +172,7 @@ fun SearchResultItem(user: User, onClick: () -> Unit) {
         Icon(
             imageVector = Icons.Default.AccountCircle, // Placeholder icon
             contentDescription = "Profile",
-            tint = Color.Gray,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(40.dp)
         )
         Spacer(Modifier.width(16.dp))
@@ -186,7 +188,7 @@ fun SearchResultItem(user: User, onClick: () -> Unit) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     text = user.fullName,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     maxLines = 1 // Prevent wrapping
                 )

@@ -30,6 +30,7 @@ import com.example.splitpay.data.model.User
 import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
+import androidx.compose.material3.MaterialTheme
 import com.example.splitpay.ui.theme.* // Import theme colors
 
 // --- ViewModel Factory ---
@@ -110,9 +111,9 @@ fun AddGroupMembersScreen(
                 placeholder = { Text("Search Friend's username", color = TextPlaceholder) },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF3C3C3C),
-                    unfocusedContainerColor = Color(0xFF3C3C3C),
-                    disabledContainerColor = Color(0xFF3C3C3C),
+                    focusedContainerColor = SurfaceDark,
+                    unfocusedContainerColor = SurfaceDark,
+                    disabledContainerColor = SurfaceDark,
                     cursorColor = PrimaryBlue,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
@@ -125,7 +126,7 @@ fun AddGroupMembersScreen(
                 trailingIcon = {
                     if (uiState.searchQuery.isNotEmpty()) {
                         IconButton(onClick = { viewModel.onSearchQueryChange("") }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = Color.Gray)
+                            Icon(Icons.Default.Clear, contentDescription = "Clear search", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -142,11 +143,11 @@ fun AddGroupMembersScreen(
                 }
             } else if (uiState.availableFriends.isEmpty() && uiState.searchQuery.isNotEmpty()) {
                 Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("No friends found matching '${uiState.searchQuery}'", color = Color.Gray, textAlign = TextAlign.Center)
+                    Text("No friends found matching '${uiState.searchQuery}'", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                 }
             } else if (uiState.availableFriends.isEmpty() && uiState.allFriends.isNotEmpty()) {
                 Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("All your friends are already in this group.", color = Color.Gray, textAlign = TextAlign.Center)
+                    Text("All your friends are already in this group.", color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
                 }
             } else {
                 LazyColumn(
@@ -200,7 +201,7 @@ fun FriendSelectItem(
 ) {
     ListItem(
         headlineContent = { Text(friend.username, color = TextWhite) },
-        supportingContent = { if (friend.fullName.isNotBlank()) Text(friend.fullName, color = Color.Gray, fontSize = 12.sp) else null },
+        supportingContent = { if (friend.fullName.isNotBlank()) Text(friend.fullName, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) else null },
         leadingContent = {
             // Display profile picture if available
             if (friend.profilePictureUrl.isNotEmpty()) {
@@ -216,7 +217,7 @@ fun FriendSelectItem(
                 Icon(
                     Icons.Default.AccountCircle,
                     contentDescription = null,
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -225,7 +226,7 @@ fun FriendSelectItem(
             if (isSelected) {
                 Icon(Icons.Default.CheckCircle, contentDescription = "Selected", tint = PositiveGreen)
             } else {
-                Icon(Icons.Default.RadioButtonUnchecked, contentDescription = "Not Selected", tint = Color.Gray)
+                Icon(Icons.Default.RadioButtonUnchecked, contentDescription = "Not Selected", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         modifier = Modifier
@@ -233,5 +234,5 @@ fun FriendSelectItem(
             .padding(horizontal = 16.dp),
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
-    HorizontalDivider(color = Color(0xFF454545), modifier = Modifier.padding(start = 72.dp))
+    HorizontalDivider(color = SurfaceDark, modifier = Modifier.padding(start = 72.dp))
 }

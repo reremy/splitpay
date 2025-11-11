@@ -54,12 +54,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.MaterialTheme
 import coil.compose.AsyncImage
 import com.example.splitpay.ui.common.InputField
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.BorderGray
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
 import com.example.splitpay.ui.theme.TextWhite
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,7 +130,7 @@ fun CreateGroupScreen(
                 modifier = Modifier
                     .size(96.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF3C3C3C))
+                    .background(SurfaceDark)
                     .clickable { imagePickerLauncher.launch("image/*") },
                 contentAlignment = Alignment.Center
             ) {
@@ -147,7 +149,7 @@ fun CreateGroupScreen(
                     Icon(
                         Icons.Default.CameraAlt,
                         contentDescription = "Upload Photo",
-                        tint = Color.Gray,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(48.dp)
                     )
                 }
@@ -155,7 +157,7 @@ fun CreateGroupScreen(
 
             Text(
                 text = "Tap to upload photo",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -237,7 +239,7 @@ fun TagOption(
     onSelect: (String) -> Unit
 ) {
     val borderColor = if (isSelected) PrimaryBlue else BorderGray
-    val backgroundColor = if (isSelected) Color(0xFF3C3C3C) else Color(0xFF2D2D2D)
+    val backgroundColor = if (isSelected) SurfaceDark else MaterialTheme.colorScheme.surface
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -256,7 +258,7 @@ fun TagOption(
         Spacer(Modifier.height(4.dp))
         Text(
             text = label,
-            color = if (isSelected) TextWhite else Color.Gray,
+            color = if (isSelected) TextWhite else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
         )

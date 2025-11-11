@@ -34,6 +34,7 @@ import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
 import com.example.splitpay.ui.theme.TextWhite
 
 // --- ViewModel Factory ---
@@ -98,7 +99,7 @@ fun MoreOptionsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF2D2D2D)
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             )
         },
@@ -157,7 +158,7 @@ fun MoreOptionsContent(
                 SelectionStep.SELECT_PAYER -> "Select who will make the payment"
                 SelectionStep.SELECT_RECIPIENT -> "Select who will receive the payment"
             },
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             modifier = Modifier.padding(bottom = 16.dp)
         )
@@ -168,14 +169,14 @@ fun MoreOptionsContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Row(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Payer: ", color = Color.Gray, fontSize = 14.sp)
+                    Text("Payer: ", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                     Spacer(Modifier.width(8.dp))
                     MemberListItem(
                         member = uiState.selectedPayer,
@@ -222,7 +223,7 @@ fun MemberListItem(
                 if (isClickable) Modifier.clickable(onClick = onClick) else Modifier
             ),
         colors = CardDefaults.cardColors(
-            containerColor = if (isClickable) Color(0xFF2D2D2D) else Color(0xFF3C3C3C)
+            containerColor = if (isClickable) MaterialTheme.colorScheme.surface else SurfaceDark
         ),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -246,7 +247,7 @@ fun MemberListItem(
                 Icon(
                     Icons.Default.AccountCircle,
                     contentDescription = member.username,
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(48.dp)
                 )
             }
@@ -266,7 +267,7 @@ fun MemberListItem(
                 if (member.fullName.isNotBlank() && member.username != member.fullName) {
                     Text(
                         text = member.fullName,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 }

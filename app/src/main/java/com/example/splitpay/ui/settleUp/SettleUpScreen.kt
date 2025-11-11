@@ -23,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -121,7 +122,7 @@ fun SettleUpScreen(
         ) {
             Text(
                 text = "Select a balance to settle",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 16.sp,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -141,7 +142,7 @@ fun SettleUpScreen(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "Everyone is settled up in this group!",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -182,7 +183,7 @@ fun UserBalanceCard(
     val (text, color) = when {
         member.amount > 0.01 -> "owes you" to PositiveGreen
         member.amount < -0.01 -> "you owe" to NegativeRed
-        else -> "settled up" to Color.Gray
+        else -> "settled up" to MaterialTheme.colorScheme.onSurfaceVariant
     }
     val amount = member.amount.absoluteValue
 
@@ -190,7 +191,7 @@ fun UserBalanceCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -200,7 +201,7 @@ fun UserBalanceCard(
             Icon(
                 Icons.Default.AccountCircle,
                 contentDescription = "Profile",
-                tint = Color.Gray,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(40.dp)
             )
             Spacer(Modifier.width(16.dp))

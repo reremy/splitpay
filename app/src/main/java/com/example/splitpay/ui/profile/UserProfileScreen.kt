@@ -59,6 +59,7 @@ import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
 import com.example.splitpay.ui.theme.TextWhite
 import java.util.Locale
 
@@ -117,7 +118,7 @@ fun UserProfileScreen(
                             modifier = Modifier
                                 .size(120.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF2D2D2D)),
+                                .background(MaterialTheme.colorScheme.surface),
                             contentScale = ContentScale.Crop
                         )
                     } else {
@@ -154,7 +155,7 @@ fun UserProfileScreen(
                 Text(
                     text = "@${uiState.username}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 16.sp
                 )
 
@@ -175,7 +176,7 @@ fun UserProfileScreen(
                 // Account Details Card
                 Text(
                     text = "Account Details",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -184,17 +185,17 @@ fun UserProfileScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Column {
                         AccountDetailItem(Icons.Default.Person, "Full Name", uiState.fullName)
-                        Divider(color = Color(0xFF454545), thickness = 1.dp, modifier = Modifier.padding(start = 56.dp))
+                        Divider(color = SurfaceDark, thickness = 1.dp, modifier = Modifier.padding(start = 56.dp))
                         AccountDetailItem(Icons.Default.AccountCircle, "Username", "@${uiState.username}")
-                        Divider(color = Color(0xFF454545), thickness = 1.dp, modifier = Modifier.padding(start = 56.dp))
+                        Divider(color = SurfaceDark, thickness = 1.dp, modifier = Modifier.padding(start = 56.dp))
                         AccountDetailItem(Icons.Default.Email, "Email", uiState.email)
-                        Divider(color = Color(0xFF454545), thickness = 1.dp, modifier = Modifier.padding(start = 56.dp))
+                        Divider(color = SurfaceDark, thickness = 1.dp, modifier = Modifier.padding(start = 56.dp))
                         AccountDetailItem(Icons.Default.Phone, "Phone", uiState.phoneNumber)
                     }
                 }
@@ -204,7 +205,7 @@ fun UserProfileScreen(
                 // Privacy & Settings Section
                 Text(
                     text = "Privacy & Settings",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -213,7 +214,7 @@ fun UserProfileScreen(
 
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     shape = RoundedCornerShape(10.dp)
                 ) {
@@ -227,7 +228,7 @@ fun UserProfileScreen(
                         Icon(
                             Icons.Default.Block,
                             contentDescription = "Blocked Users",
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(Modifier.width(16.dp))
@@ -239,14 +240,14 @@ fun UserProfileScreen(
                             )
                             Text(
                                 text = "Manage blocked users",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 12.sp
                             )
                         }
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = "Go",
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -319,7 +320,7 @@ fun AccountDetailItem(icon: ImageVector, label: String, value: String) {
         )
         Spacer(Modifier.width(16.dp))
         Column {
-            Text(label, color = Color.Gray, fontSize = 12.sp)
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Text(value, color = TextWhite, fontSize = 16.sp)
         }
     }
@@ -344,7 +345,7 @@ fun QrCodeBottomSheet(
                 .fillMaxWidth(0.9f)
                 .clickable(enabled = false) { },
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D))
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
@@ -371,7 +372,7 @@ fun QrCodeBottomSheet(
                     Spacer(Modifier.height(16.dp))
                     Text(
                         "Scan to send payment",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 } else {
@@ -389,13 +390,13 @@ fun QrCodeBottomSheet(
                             Icon(
                                 Icons.Default.QrCode2,
                                 contentDescription = null,
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(64.dp)
                             )
                             Spacer(Modifier.height(16.dp))
                             Text(
                                 "No QR code available",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -404,7 +405,7 @@ fun QrCodeBottomSheet(
                     Spacer(Modifier.height(16.dp))
                     Text(
                         "Upload your payment QR code in Edit Profile",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp
                     )
                 }

@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material3.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -336,7 +337,7 @@ fun SelectBalanceToSettleScreen(
                             ) {
                                 Text(
                                     text = "Total Balance",
-                                    color = Color.Gray,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     fontSize = 14.sp
                                 )
                                 Spacer(Modifier.height(8.dp))
@@ -349,7 +350,7 @@ fun SelectBalanceToSettleScreen(
                                 val balanceColor = when {
                                     uiState.totalBalance > 0.01 -> PositiveGreen
                                     uiState.totalBalance < -0.01 -> NegativeRed
-                                    else -> Color.Gray
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
                                 }
 
                                 Text(
@@ -383,7 +384,7 @@ fun SelectBalanceToSettleScreen(
                         item {
                             Text(
                                 text = "No outstanding balances",
-                                color = Color.Gray,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontSize = 16.sp,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
@@ -481,7 +482,7 @@ fun GroupBalanceCard(
             val balanceColor = when {
                 groupBalance.balance > 0.01 -> PositiveGreen
                 groupBalance.balance < -0.01 -> NegativeRed
-                else -> Color.Gray
+                else -> MaterialTheme.colorScheme.onSurfaceVariant
             }
 
             Text(

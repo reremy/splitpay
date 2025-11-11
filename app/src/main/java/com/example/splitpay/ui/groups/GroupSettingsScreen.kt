@@ -33,6 +33,7 @@ import com.example.splitpay.data.repository.ExpenseRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.ui.common.UiEventHandler
+import androidx.compose.material3.MaterialTheme
 import com.example.splitpay.ui.theme.* // Import your theme colors
 import com.google.firebase.auth.FirebaseAuth
 import kotlin.math.absoluteValue
@@ -225,7 +226,7 @@ fun GroupSettingsScreen(
                     confirmButton = {
                         Button(onClick = { viewModel.clearLeaveGroupError() }) { Text("OK") }
                     },
-                    containerColor = Color(0xFF3C3C3C), // Darker dialog
+                    containerColor = SurfaceDark, // Darker dialog
                     titleContentColor = TextWhite,
                     textContentColor = Color.Gray
                 )
@@ -288,7 +289,7 @@ fun GroupInfoSection(
             Text(groupName, color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text(
                 iconIdentifier.replaceFirstChar { it.uppercase() }, // Simple category name
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 14.sp
             )
         }
@@ -312,7 +313,7 @@ fun GroupMembersSection(
         Spacer(Modifier.height(8.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column {
@@ -323,7 +324,7 @@ fun GroupMembersSection(
                         showRemoveButton = isAdmin && memberData.user.uid != currentUserId, // Admin can remove others
                         onRemoveClick = { onRemoveClick(memberData.user) }
                 )
-                    HorizontalDivider(color = Color(0xFF454545))
+                    HorizontalDivider(color = SurfaceDark)
             }
                 // Add People Button
                 ListItem(
@@ -368,7 +369,7 @@ fun MemberListItem(
                 Icon(
                     Icons.Default.AccountCircle,
                     contentDescription = "Member",
-                    tint = Color.Gray,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -417,7 +418,7 @@ fun AdvancedSettingsSection(
         Spacer(Modifier.height(8.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Column {
@@ -426,14 +427,14 @@ fun AdvancedSettingsSection(
                     headlineContent = {
                         Text(
                             "Leave group",
-                            color = if (canLeave) NegativeRed else Color.Gray // Dim if disabled
+                            color = if (canLeave) NegativeRed else MaterialTheme.colorScheme.onSurfaceVariant // Dim if disabled
                         )
                     },
                     leadingContent = {
                         Icon(
                             Icons.AutoMirrored.Filled.ExitToApp,
                             contentDescription = "Leave Group",
-                            tint = if (canLeave) NegativeRed else Color.Gray
+                            tint = if (canLeave) NegativeRed else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     modifier = Modifier.clickable(enabled = canLeave, onClick = onLeaveClick), // Disable click if can't leave
@@ -442,7 +443,7 @@ fun AdvancedSettingsSection(
                 if (!canLeave) {
                     Text(
                         "You can't leave the group. You have outstanding debts with other group members.",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)
                     )
@@ -450,7 +451,7 @@ fun AdvancedSettingsSection(
 
                 // Delete Group (Admin only)
                 if (isCurrentUserAdmin) {
-                    HorizontalDivider(color = Color(0xFF454545))
+                    HorizontalDivider(color = SurfaceDark)
                     ListItem(
                         headlineContent = { Text("Delete group", color = NegativeRed) },
                         leadingContent = { Icon(Icons.Default.Delete, contentDescription = "Delete Group", tint = NegativeRed) },

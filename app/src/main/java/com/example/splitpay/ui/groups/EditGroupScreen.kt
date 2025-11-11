@@ -27,12 +27,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.MaterialTheme
 import coil.compose.AsyncImage
 import com.example.splitpay.ui.common.InputField
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.BorderGray
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
 import com.example.splitpay.ui.theme.TextWhite
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -113,7 +115,7 @@ fun EditGroupScreen(
                     modifier = Modifier
                         .size(96.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF3C3C3C))
+                        .background(SurfaceDark)
                         .clickable { imagePickerLauncher.launch("image/*") },
                     contentAlignment = Alignment.Center
                 ) {
@@ -143,7 +145,7 @@ fun EditGroupScreen(
                             Icon(
                                 Icons.Default.CameraAlt,
                                 contentDescription = "Upload Photo",
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(48.dp)
                             )
                         }
@@ -172,7 +174,7 @@ fun EditGroupScreen(
             Text(
                 text = if (uiState.currentPhotoUrl.isNotEmpty() || uiState.selectedPhotoUri != null)
                     "Tap to change photo" else "Tap to upload photo",
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 8.dp)
             )
@@ -255,7 +257,7 @@ fun EditGroupScreen(
             text = {
                 Text(
                     "This will permanently delete the group photo. You can upload a new one later.",
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -271,10 +273,10 @@ fun EditGroupScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeletePhotoDialog = false }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }

@@ -8,6 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import com.example.splitpay.navigation.Navigation
+import com.example.splitpay.ui.theme.SplitPayTheme
 import com.google.firebase.auth.FirebaseAuth
 
 
@@ -22,12 +23,14 @@ class MainActivity : ComponentActivity() {
         auth = FirebaseAuth.getInstance()
 
         setContent {
-            val navController = rememberNavController()
+            SplitPayTheme {
+                val navController = rememberNavController()
 
-            Surface(Modifier.fillMaxSize()) {
-                Navigation(
-                    navController = navController,
-                )
+                Surface(Modifier.fillMaxSize()) {
+                    Navigation(
+                        navController = navController,
+                    )
+                }
             }
         }
     }

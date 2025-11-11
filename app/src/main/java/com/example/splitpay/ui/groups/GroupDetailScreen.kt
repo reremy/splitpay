@@ -58,6 +58,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SheetState
@@ -99,10 +100,13 @@ import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository // <-- Add import
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.groups.expenseCategoriesMap // Import expense categories map
+import com.example.splitpay.ui.theme.CardBackground
 import com.example.splitpay.ui.theme.DarkBackground
-import com.example.splitpay.ui.theme.NegativeRed // NEW IMPORT
-import com.example.splitpay.ui.theme.PositiveGreen // NEW IMPORT
+import com.example.splitpay.ui.theme.DialogBackground
+import com.example.splitpay.ui.theme.NegativeRed
+import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
 import com.example.splitpay.ui.theme.TextWhite
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -177,18 +181,18 @@ fun GroupDetailScreen(
     if (showInfoDialog.value) {
         AlertDialog(
             onDismissRequest = { showInfoDialog.value = false },
-            title = { Text("Non-Group Expenses Info", color = TextWhite) },
+            title = { Text("Non-Group Expenses Info", color = MaterialTheme.colorScheme.onSurface) },
             text = { Text(
                 "This section shows expenses shared directly with individuals, not within a group setting. These expenses cannot be modified or deleted from this view.",
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )},
             confirmButton = {
                 Button(
                     onClick = { showInfoDialog.value = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) { Text("OK") }
             },
-            containerColor = Color(0xFF2D2D2D) // Match theme dark dialog background
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -197,7 +201,7 @@ fun GroupDetailScreen(
         ModalBottomSheet(
             onDismissRequest = { showTotalsSheet.value = false },
             sheetState = totalsSheetState,
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             TotalsSheetContent(
                 totals = uiState.totals,
@@ -212,7 +216,7 @@ fun GroupDetailScreen(
         ModalBottomSheet(
             onDismissRequest = { showBalancesSheet.value = false },
             sheetState = balancesSheetState,
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             BalancesSheetContent(
                 balanceBreakdown = uiState.balanceBreakdown,
@@ -227,7 +231,7 @@ fun GroupDetailScreen(
         ModalBottomSheet(
             onDismissRequest = { showChartsSheet.value = false },
             sheetState = chartsSheetState,
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         ) {
             ChartsSheetContent(
                 chartData = uiState.chartData,
@@ -260,7 +264,7 @@ fun GroupDetailScreen(
                     if (groupId == "non_group") {
                         // Show Info icon for non-group
                         IconButton(onClick = { showInfoDialog.value = true }) { // Show dialog on click
-                            Icon(Icons.Default.Info, contentDescription = "Non-Group Info", tint = TextWhite)
+                            Icon(Icons.Default.Info, contentDescription = "Non-Group Info", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     } else {
                         // Show Settings icon for regular groups
@@ -268,11 +272,11 @@ fun GroupDetailScreen(
                             // Navigate to the group settings screen
                             navController.navigate("group_settings/$groupId")
                         }) {
-                            Icon(Icons.Default.Settings, contentDescription = "Group Settings", tint = TextWhite)
+                            Icon(Icons.Default.Settings, contentDescription = "Group Settings", tint = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF2D2D2D)) // Match header color
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
         floatingActionButton = {
@@ -344,7 +348,7 @@ fun GroupDetailHeaderDisplay(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF2D2D2D)) // Match TopAppBar color
+            .background(MaterialTheme.colorScheme.surface) // Match TopAppBar color
             .padding(bottom = 16.dp, top = 16.dp), // Add padding
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -406,7 +410,7 @@ fun GroupDetailHeaderDisplay(
         val overallBalanceColor = when {
             overallBalance > 0.01 -> PositiveGreen
             overallBalance < -0.01 -> NegativeRed
-            else -> Color.Gray
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
         }
 
         Text(
@@ -499,7 +503,7 @@ fun GroupDetailContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Column(
@@ -510,7 +514,7 @@ fun GroupDetailContent(
                     ) {
                         Text(
                             text = "There is only one member in this group",
-                            color = Color.Gray,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontSize = 14.sp,
                             textAlign = TextAlign.Center
                         )
@@ -552,7 +556,7 @@ fun GroupDetailContent(
             item {
                 Text(
                     "No expenses recorded yet.",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 32.dp),
@@ -627,7 +631,7 @@ fun ExpenseActivityCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.width(40.dp)
         ) {
-            Text(month, color = Color.Gray, fontSize = 12.sp)
+            Text(month, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
             Text(day, color = TextWhite, fontSize = 16.sp, fontWeight = FontWeight.Medium)
         }
         Spacer(Modifier.width(12.dp))
@@ -636,7 +640,7 @@ fun ExpenseActivityCard(
             modifier = Modifier
                 .size(40.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF3C3C3C)), // Icon background
+                .background(SurfaceDark), // Icon background
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -655,7 +659,7 @@ fun ExpenseActivityCard(
         ) {
             Text(expense.description, color = TextWhite, fontSize = 16.sp)
             Spacer(Modifier.height(2.dp))
-            Text(payerSummary, color = Color.Gray, fontSize = 12.sp) // Use formatted summary
+            Text(payerSummary, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp) // Use formatted summary
         }
 
         Spacer(Modifier.width(8.dp))
@@ -675,7 +679,7 @@ fun ExpenseActivityCard(
             if (userOwed > 0.01) {
                 Text(
                     "Your share: MYR%.2f".format(userOwed),
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -729,7 +733,7 @@ fun ActionButton(label: String, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3C3C3C)),
+        colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
         // Adjust padding if needed for 5 buttons
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
     ) {
@@ -748,7 +752,7 @@ fun GroupMemberStatus(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(2.dp),
         shape = RoundedCornerShape(10.dp) // Match example
     ) {
@@ -758,7 +762,7 @@ fun GroupMemberStatus(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (showAddMemberButtonInStatus) Color(0xFF454545) else Color(0xFF3C3C3C))
+                    .background(if (showAddMemberButtonInStatus) SurfaceDark else SurfaceDark)
                     .padding(12.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -833,13 +837,13 @@ fun StackedMemberPhotos(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0xFF3C3C3C)),
+                            .background(SurfaceDark),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             Icons.Default.AccountCircle,
                             contentDescription = member.username,
-                            tint = Color.Gray,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -854,7 +858,7 @@ fun StackedMemberPhotos(
                     .offset(x = (visibleMembers.size * -8).dp)
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF3C3C3C))
+                    .background(SurfaceDark)
                     .border(2.dp, DarkBackground, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -894,13 +898,13 @@ fun TotalsSheetContent(
         // Total Spent Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Total Spent",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -914,7 +918,7 @@ fun TotalsSheetContent(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Sum of all expenses in this group",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -925,13 +929,13 @@ fun TotalsSheetContent(
         // Average Per Person Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Average Per Person",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -945,7 +949,7 @@ fun TotalsSheetContent(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Total spent divided by ${if (totals.totalPaidByMembers.isNotEmpty()) totals.totalPaidByMembers.size else 0} ${if (totals.totalPaidByMembers.size == 1) "member" else "members"}",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -956,13 +960,13 @@ fun TotalsSheetContent(
         // Total Pending Settlements Card
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+            colors = CardDefaults.cardColors(containerColor = SurfaceDark),
             shape = RoundedCornerShape(12.dp)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
                     text = "Pending Settlements",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -976,7 +980,7 @@ fun TotalsSheetContent(
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = if (totals.totalPendingSettlements > 0) "Total amount yet to be settled" else "All settled up!",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp
                 )
             }
@@ -988,13 +992,13 @@ fun TotalsSheetContent(
         if (totals.totalPaidByMembers.isNotEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
                         text = "Contributions by Member",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 12.dp)
@@ -1034,7 +1038,7 @@ fun TotalsSheetContent(
                             if (uid != totals.totalPaidByMembers.entries.sortedByDescending { it.value }.last().key) {
                                 HorizontalDivider(
                                     modifier = Modifier.padding(vertical = 4.dp),
-                                    color = Color(0xFF4D4D4D)
+                                    color = MaterialTheme.colorScheme.outline
                                 )
                             }
                         }
@@ -1072,7 +1076,7 @@ fun BalancesSheetContent(
             // All settled up message
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -1090,7 +1094,7 @@ fun BalancesSheetContent(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = "Everyone's balanced in this group",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center
                     )
@@ -1100,7 +1104,7 @@ fun BalancesSheetContent(
             // Balance breakdown list
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -1137,7 +1141,7 @@ fun BalancesSheetContent(
                                     Icon(
                                         Icons.Default.AccountCircle,
                                         contentDescription = detail.memberName,
-                                        tint = Color.Gray,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(40.dp)
                                     )
                                 }
@@ -1161,7 +1165,7 @@ fun BalancesSheetContent(
 
                                     Text(
                                         text = descriptionText,
-                                        color = Color.Gray,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 13.sp
                                     )
                                 }
@@ -1180,7 +1184,7 @@ fun BalancesSheetContent(
                         if (index < balanceBreakdown.size - 1) {
                             HorizontalDivider(
                                 modifier = Modifier.padding(vertical = 4.dp),
-                                color = Color(0xFF4D4D4D)
+                                color = MaterialTheme.colorScheme.outline
                             )
                         }
                     }
@@ -1217,7 +1221,7 @@ fun ChartsSheetContent(
             // No data message
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(
@@ -1228,14 +1232,14 @@ fun ChartsSheetContent(
                 ) {
                     Text(
                         text = "No Data Available",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = "Add some expenses to see charts",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         textAlign = TextAlign.Center
                     )
@@ -1252,7 +1256,7 @@ fun ChartsSheetContent(
             )
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
@@ -1281,7 +1285,7 @@ fun ChartsSheetContent(
                 )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
@@ -1311,7 +1315,7 @@ fun ChartsSheetContent(
                 )
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF3C3C3C)),
+                    colors = CardDefaults.cardColors(containerColor = SurfaceDark),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     DailySpendingChart(
@@ -1348,7 +1352,7 @@ fun HorizontalBarChart(
             )
             Text(
                 text = "MYR %.2f (%.1f%%)".format(value, percentage),
-                color = Color.Gray,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp
             )
         }
@@ -1359,7 +1363,7 @@ fun HorizontalBarChart(
                 .fillMaxWidth()
                 .height(8.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF4D4D4D))
+                .background(MaterialTheme.colorScheme.outline)
         ) {
             Box(
                 modifier = Modifier
@@ -1407,7 +1411,7 @@ fun DailySpendingChart(
                     // Date label
                     Text(
                         text = SimpleDateFormat("dd", Locale.getDefault()).format(Date(day.date)),
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
                     )
                 }
@@ -1419,7 +1423,7 @@ fun DailySpendingChart(
         // Legend
         Text(
             text = "Last ${dailySpending.takeLast(7).size} days",
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center

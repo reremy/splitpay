@@ -72,6 +72,7 @@ import coil.compose.AsyncImage
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
 import com.example.splitpay.ui.theme.TextWhite
 import java.util.Locale
 
@@ -152,7 +153,7 @@ fun EditProfileScreen(
                     // Profile Picture Section
                     Text(
                         text = "Profile Picture",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -172,7 +173,7 @@ fun EditProfileScreen(
                                 modifier = Modifier
                                     .size(120.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF2D2D2D))
+                                    .background(MaterialTheme.colorScheme.surface)
                                     .clickable {
                                         profilePictureLauncher.launch(
                                             CropImageContractOptions(
@@ -265,7 +266,7 @@ fun EditProfileScreen(
                     // QR Code Section
                     Text(
                         text = "Payment QR Code",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -291,7 +292,7 @@ fun EditProfileScreen(
                                     )
                                 )
                             },
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         shape = RoundedCornerShape(10.dp)
                     ) {
                         Box(
@@ -333,11 +334,11 @@ fun EditProfileScreen(
                                     Icon(
                                         Icons.Default.QrCode2,
                                         contentDescription = "Add QR Code",
-                                        tint = Color.Gray,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.size(48.dp)
                                     )
                                     Spacer(modifier = Modifier.height(8.dp))
-                                    Text("Tap to add QR code", color = Color.Gray, fontSize = 14.sp)
+                                    Text("Tap to add QR code", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                                 }
                             }
 
@@ -353,7 +354,7 @@ fun EditProfileScreen(
                     // Form Fields
                     Text(
                         text = "Personal Information",
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 14.sp,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -373,12 +374,12 @@ fun EditProfileScreen(
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = Color.Gray,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
                             cursorColor = PrimaryBlue,
                             focusedLabelColor = PrimaryBlue,
-                            unfocusedLabelColor = Color.Gray
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -391,14 +392,14 @@ fun EditProfileScreen(
                         onValueChange = {},
                         label = { Text("Username") },
                         leadingIcon = {
-                            Icon(Icons.Default.AccountCircle, contentDescription = null, tint = Color.Gray)
+                            Icon(Icons.Default.AccountCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         },
                         enabled = false,
                         colors = OutlinedTextFieldDefaults.colors(
-                            disabledBorderColor = Color(0xFF454545),
-                            disabledTextColor = Color.Gray,
-                            disabledLabelColor = Color.Gray,
-                            disabledLeadingIconColor = Color.Gray
+                            disabledBorderColor = SurfaceDark,
+                            disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -419,12 +420,12 @@ fun EditProfileScreen(
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = Color.Gray,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
                             cursorColor = PrimaryBlue,
                             focusedLabelColor = PrimaryBlue,
-                            unfocusedLabelColor = Color.Gray
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -446,12 +447,12 @@ fun EditProfileScreen(
                         },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = PrimaryBlue,
-                            unfocusedBorderColor = Color.Gray,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             focusedTextColor = TextWhite,
                             unfocusedTextColor = TextWhite,
                             cursorColor = PrimaryBlue,
                             focusedLabelColor = PrimaryBlue,
-                            unfocusedLabelColor = Color.Gray
+                            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -507,7 +508,7 @@ fun EditProfileScreen(
                     // Cancel Button
                     OutlinedButton(
                         onClick = { viewModel.navigateBack() },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Gray),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurfaceVariant),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier.fillMaxWidth().height(50.dp),
                         enabled = !uiState.isSaving
@@ -529,7 +530,7 @@ fun EditProfileScreen(
             text = {
                 Text(
                     "This will permanently delete your profile picture from storage. You'll need to upload a new one if you want to add it again.",
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -542,10 +543,10 @@ fun EditProfileScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.hideDeleteProfilePictureDialog() }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 
@@ -557,7 +558,7 @@ fun EditProfileScreen(
             text = {
                 Text(
                     "This will permanently delete your payment QR code from storage. You'll need to upload a new one if you want to add it again.",
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             },
             confirmButton = {
@@ -570,10 +571,10 @@ fun EditProfileScreen(
             },
             dismissButton = {
                 TextButton(onClick = { viewModel.hideDeleteQrCodeDialog() }) {
-                    Text("Cancel", color = Color.Gray)
+                    Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = Color(0xFF2D2D2D)
+            containerColor = MaterialTheme.colorScheme.surface
         )
     }
 }

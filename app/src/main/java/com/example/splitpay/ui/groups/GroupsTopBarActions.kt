@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
 import com.example.splitpay.ui.theme.NegativeRed
 import com.example.splitpay.ui.theme.PositiveGreen
 import com.example.splitpay.ui.theme.PrimaryBlue
@@ -76,7 +77,7 @@ fun GroupsTopBarActions(
                 expanded = showFilterDropdown,
                 onDismissRequest = onToggleFilterDropdown,
                 modifier = Modifier
-                    .background(Color(0xFF2D2D2D))
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 Column(modifier = Modifier.padding(8.dp)) {
                     Text(
@@ -131,13 +132,13 @@ private fun FilterOption(
             onClick = onClick,
             colors = RadioButtonDefaults.colors(
                 selectedColor = PrimaryBlue,
-                unselectedColor = Color.Gray
+                unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
             )
         )
         Spacer(Modifier.width(8.dp))
         Text(
             text = text,
-            color = if (selected) Color.White else Color.Gray,
+            color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
             fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal
         )

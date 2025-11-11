@@ -7,9 +7,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.splitpay.ui.theme.PositiveGreen
+import com.example.splitpay.ui.theme.SurfaceDark
 
 // In a new file, e.g., HomeBottomBar.kt
 @Composable
@@ -19,7 +22,7 @@ fun HomeBottomBar(
     viewModel: HomeViewModel
 ) {
     NavigationBar (
-        containerColor = Color(0xFF2D2D2D)
+        containerColor = MaterialTheme.colorScheme.surface
     ){
         uiState.items.forEachIndexed { index, item ->
             NavigationBarItem(
@@ -35,11 +38,11 @@ fun HomeBottomBar(
                 label = { Text(item.label) },
                 icon = { Icon(item.icon, contentDescription = item.label) },
 
-                colors = NavigationBarItemDefaults.colors(selectedIconColor = Color(0xFF66BB6A), // Example selected green icon color
-                selectedTextColor = Color(0xFF66BB6A), // Example selected green text color
-                unselectedIconColor = Color(0xFFAAAAAA), // Example unselected icon color
-                unselectedTextColor = Color(0xFFAAAAAA), // Example unselected text color
-                indicatorColor = Color(0xFF3C3C3C) // Example color for the indicator background
+                colors = NavigationBarItemDefaults.colors(selectedIconColor = PositiveGreen, // Example selected green icon color
+                selectedTextColor = PositiveGreen, // Example selected green text color
+                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, // Example unselected icon color
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant, // Example unselected text color
+                indicatorColor = SurfaceDark // Example color for the indicator background
             )
             )
         }

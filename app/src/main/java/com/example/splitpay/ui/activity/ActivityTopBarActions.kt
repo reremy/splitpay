@@ -51,13 +51,13 @@ fun ActivityTopBarActions(
                 placeholder = { Text("Search activities...", color = TextPlaceholder) },
                 singleLine = true,
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(0xFF2D2D2D),
-                    unfocusedContainerColor = Color(0xFF2D2D2D),
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
                     focusedTextColor = TextWhite,
                     unfocusedTextColor = TextWhite,
                     cursorColor = PrimaryBlue,
                     focusedIndicatorColor = PrimaryBlue,
-                    unfocusedIndicatorColor = Color.Gray
+                    unfocusedIndicatorColor = MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 shape = RoundedCornerShape(8.dp)
             )
@@ -88,7 +88,7 @@ fun ActivityTopBarActions(
                 // Activity Type Section
                 Text(
                     text = "Activity Type",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
@@ -116,7 +116,7 @@ fun ActivityTopBarActions(
                                 onClick = null,
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = PrimaryBlue,
-                                    unselectedColor = Color.Gray
+                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
                         },
@@ -124,12 +124,12 @@ fun ActivityTopBarActions(
                     )
                 }
 
-                Divider(color = Color.Gray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+                Divider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
 
                 // Time Period Section
                 Text(
                     text = "Time Period",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
@@ -157,7 +157,7 @@ fun ActivityTopBarActions(
                                 onClick = null,
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = PrimaryBlue,
-                                    unselectedColor = Color.Gray
+                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
                         },
@@ -165,12 +165,12 @@ fun ActivityTopBarActions(
                     )
                 }
 
-                Divider(color = Color.Gray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+                Divider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
 
                 // Sort Order Section
                 Text(
                     text = "Sort By",
-                    color = Color.Gray,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
@@ -196,7 +196,7 @@ fun ActivityTopBarActions(
                                 onClick = null,
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = PrimaryBlue,
-                                    unselectedColor = Color.Gray
+                                    unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             )
                         },

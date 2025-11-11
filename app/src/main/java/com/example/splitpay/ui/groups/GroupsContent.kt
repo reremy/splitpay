@@ -26,6 +26,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -184,7 +185,7 @@ fun GroupBalanceCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -295,7 +296,7 @@ fun NonGroupExpensesCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick), // <-- Make Card clickable
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF2D2D2D)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -348,7 +349,7 @@ fun SettledUpGroupButton(
     ) {
         Text(
             text = "Hiding groups that have been settled up over one month.",
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 12.sp,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -356,7 +357,7 @@ fun SettledUpGroupButton(
             onClick = onClick,
             shape = RoundedCornerShape(20.dp),
             colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF2D2D2D),
+                containerColor = MaterialTheme.colorScheme.surface,
                 contentColor = Color.White
             )
         ) {
