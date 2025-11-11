@@ -1,5 +1,10 @@
 package com.example.splitpay.ui.home
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.EaseInOut
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +24,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -203,10 +209,46 @@ fun HomeScreen3(
             HomeBottomBar(uiState, homeNavController, viewModel)
         }
     ) { innerPadding ->
+        // ========================================
+        // Smooth Tab Transitions with Crossfade
+        // ========================================
         NavHost(
             navController = homeNavController,
             startDestination = "groups_screen",
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            // Add smooth crossfade animations for tab transitions
+            enterTransition = {
+                fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = EaseInOut
+                    )
+                )
+            },
+            exitTransition = {
+                fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = EaseInOut
+                    )
+                )
+            },
+            popEnterTransition = {
+                fadeIn(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = EaseInOut
+                    )
+                )
+            },
+            popExitTransition = {
+                fadeOut(
+                    animationSpec = tween(
+                        durationMillis = 200,
+                        easing = EaseInOut
+                    )
+                )
+            }
         ) {
             composable("groups_screen") {
                 GroupsContent(
