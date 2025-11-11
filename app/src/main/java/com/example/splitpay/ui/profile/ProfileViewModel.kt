@@ -37,7 +37,7 @@ class ProfileViewModel(
                 }
 
                 logD("Fetching profile for user: ${currentUser.uid}")
-                val userDoc = repository.getUserProfile(currentUser.uid)
+                val userDoc = repository.getUserProfileCached(currentUser.uid)
                 if (userDoc != null) {
                     logI("Profile loaded successfully for: ${userDoc.username}")
                     _uiState.update {

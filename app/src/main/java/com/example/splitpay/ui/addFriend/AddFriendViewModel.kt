@@ -64,7 +64,8 @@ class AddFriendViewModel(
     private suspend fun performSearch(query: String) {
         _uiState.update { it.copy(isLoading = true, infoMessage = null, error = null) }
         try {
-            val results = userRepository.searchUsersByUsername(query, limit = 5)
+            // Use cached search for better performance
+            val results = userRepository.searchUsersByUsernameCached(query, limit = 5)
             logD("Search results for '$query': ${results.size} users found.")
             _uiState.update {
                 it.copy(

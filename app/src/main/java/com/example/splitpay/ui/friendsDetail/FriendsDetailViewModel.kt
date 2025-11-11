@@ -149,8 +149,15 @@ class FriendsDetailViewModel(
             _uiState.update { it.copy(isLoadingFriend = true, isLoadingExpenses = true, error = null) }
 
             try {
-                // Load friend profile
-                val friend = userRepository.getUserProfile(friendId)
+                // === PARALLEL LOADING OPTIMIZATION ===
+                // Load friend profile and groups in parallel
+                val friendDeferred = async { userRepository.getUserProfileCached(friendId) }
+                val allGroupsDeferred = async { groupsRepository.getGroupsSuspend() }
+
+                // Wait for both to complete
+                val friend = friendDeferred.await()
+                val allGroups = allGroupsDeferred.await()
+
                 if (friend == null) {
                     _uiState.update {
                         it.copy(
@@ -167,25 +174,30 @@ class FriendsDetailViewModel(
                 logD("Loading expenses for friend: $friendId")
 
                 // Get all groups that both users are in
-                val allGroups = groupsRepository.getGroupsSuspend()
                 val sharedGroups = allGroups.filter { group ->
                     group.members.contains(currentUserId) && group.members.contains(friendId)
                 }
 
                 logD("Found ${sharedGroups.size} shared groups with friend $friendId")
 
-                // Fetch expenses from shared groups
-                val groupExpenses = if (sharedGroups.isNotEmpty()) {
-                    expenseRepository.getExpensesForGroups(sharedGroups.map { it.id })
-                } else {
-                    emptyList()
+                // === PARALLEL EXPENSE LOADING ===
+                // Load group expenses and non-group expenses in parallel
+                val groupExpensesDeferred = async {
+                    if (sharedGroups.isNotEmpty()) {
+                        expenseRepository.getExpensesForGroups(sharedGroups.map { it.id })
+                    } else {
+                        emptyList()
+                    }
+                }
+                val nonGroupExpensesDeferred = async {
+                    expenseRepository.getNonGroupExpensesBetweenUsers(currentUserId!!, friendId)
                 }
 
+                // Wait for both expense queries to complete
+                val groupExpenses = groupExpensesDeferred.await()
+                val nonGroupExpenses = nonGroupExpensesDeferred.await()
+
                 logD("Fetched ${groupExpenses.size} group expenses")
-
-                // Fetch non-group expenses
-                val nonGroupExpenses = expenseRepository.getNonGroupExpensesBetweenUsers(currentUserId!!, friendId)
-
                 logD("Fetched ${nonGroupExpenses.size} non-group expenses")
 
                 // Filter to only include expenses where BOTH users are involved
@@ -260,32 +272,41 @@ class FriendsDetailViewModel(
                     totalNetBalance += nonGroupBalance
                 }
 
-                // Fetch user details for display
+                // === PARALLEL USER AND ACTIVITY LOADING ===
+                // Fetch user details and activities in parallel
                 val allInvolvedUids = allExpenses.flatMap { expense ->
                     listOf(expense.createdByUid) + expense.paidBy.map { it.uid } + expense.participants.map { it.uid }
                 }.distinct()
 
-                val usersMap = if (allInvolvedUids.isNotEmpty()) {
-                    userRepository.getProfilesForFriends(allInvolvedUids).associateBy { it.uid }
-                } else {
-                    emptyMap()
-                }
-
-                // Load shared group activities
-                val sharedGroupActivities = mutableListOf<Activity>()
-                sharedGroups.forEach { group ->
-                    // Get all activities for this group
-                    val groupActivities = activityRepository.getActivitiesForGroup(group.id)
-
-                    // Filter to MEMBER_ADDED activities where either user was added to this shared group
-                    val relevantActivities = groupActivities.filter { activity ->
-                        activity.activityType == ActivityType.MEMBER_ADDED.name &&
-                        // Show if either the friend or current user was the one added
-                        (activity.entityId == friendId || activity.entityId == currentUserId)
+                val usersMapDeferred = async {
+                    if (allInvolvedUids.isNotEmpty()) {
+                        userRepository.getProfilesForFriendsCached(allInvolvedUids).associateBy { it.uid }
+                    } else {
+                        emptyMap()
                     }
-
-                    sharedGroupActivities.addAll(relevantActivities)
                 }
+
+                val sharedGroupActivitiesDeferred = async {
+                    val activities = mutableListOf<Activity>()
+                    sharedGroups.forEach { group ->
+                        // Get all activities for this group
+                        val groupActivities = activityRepository.getActivitiesForGroup(group.id)
+
+                        // Filter to MEMBER_ADDED activities where either user was added to this shared group
+                        val relevantActivities = groupActivities.filter { activity ->
+                            activity.activityType == ActivityType.MEMBER_ADDED.name &&
+                            // Show if either the friend or current user was the one added
+                            (activity.entityId == friendId || activity.entityId == currentUserId)
+                        }
+
+                        activities.addAll(relevantActivities)
+                    }
+                    activities
+                }
+
+                // Wait for both to complete
+                val usersMap = usersMapDeferred.await()
+                val sharedGroupActivities = sharedGroupActivitiesDeferred.await()
 
                 logD("Found ${sharedGroupActivities.size} shared group activities")
                 logD("Final state: ${allExpenses.size} expenses, balance: $totalNetBalance")

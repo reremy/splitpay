@@ -125,10 +125,10 @@ class GroupsViewModel(
                         // Return empty pair if no groups
                         Pair(emptyList<GroupWithBalance>(), emptyMap<String, User>())
                     } else {
-                        // --- Fetch All Member Details Once ---
+                        // --- Fetch All Member Details Once (with caching) ---
                         val allMemberUids = groups.flatMap { it.members }.distinct()
                         val membersMap = if (allMemberUids.isNotEmpty()) {
-                            userRepository.getProfilesForFriends(allMemberUids).associateBy { it.uid }
+                            userRepository.getProfilesForFriendsCached(allMemberUids).associateBy { it.uid }
                         } else {
                             emptyMap()
                         }

@@ -37,6 +37,44 @@ class UserRepository(
     private val usersCollection = firestore.collection("users")
 
     // ========================================
+    // Caching Infrastructure
+    // ========================================
+
+    /**
+     * Cached user profile with timestamp for TTL-based expiration.
+     */
+    private data class CachedUserProfile(
+        val user: User,
+        val timestamp: Long = System.currentTimeMillis()
+    ) {
+        fun isExpired(ttlMs: Long = PROFILE_CACHE_TTL): Boolean {
+            return System.currentTimeMillis() - timestamp > ttlMs
+        }
+    }
+
+    /**
+     * Cached search result with timestamp for TTL-based expiration.
+     */
+    private data class CachedSearchResult(
+        val results: List<User>,
+        val query: String,
+        val timestamp: Long = System.currentTimeMillis()
+    ) {
+        fun isExpired(ttlMs: Long = SEARCH_CACHE_TTL): Boolean {
+            return System.currentTimeMillis() - timestamp > ttlMs
+        }
+    }
+
+    // Cache storage
+    private val profileCache = mutableMapOf<String, CachedUserProfile>()
+    private val searchResultCache = mutableMapOf<String, CachedSearchResult>()
+
+    companion object {
+        private const val PROFILE_CACHE_TTL = 5 * 60 * 1000L // 5 minutes
+        private const val SEARCH_CACHE_TTL = 30 * 1000L // 30 seconds
+    }
+
+    // ========================================
     // Authentication Functions
     // ========================================
 
@@ -169,6 +207,49 @@ class UserRepository(
     }
 
     /**
+     * Gets user profile with caching.
+     * Returns cached version if available and not expired.
+     *
+     * @param uid The user's UID
+     * @return User profile or null if not found
+     */
+    suspend fun getUserProfileCached(uid: String): User? {
+        // Check cache first
+        val cached = profileCache[uid]
+        if (cached != null && !cached.isExpired()) {
+            logD("Profile cache hit for $uid")
+            return cached.user
+        }
+
+        // Cache miss - fetch from Firestore
+        logD("Profile cache miss for $uid - fetching from Firestore")
+        val user = getUserProfile(uid)
+
+        // Update cache
+        if (user != null) {
+            profileCache[uid] = CachedUserProfile(user)
+        }
+
+        return user
+    }
+
+    /**
+     * Invalidates profile cache for a specific user or all users.
+     * Call this after profile updates.
+     *
+     * @param uid The user's UID to invalidate, or null to clear entire cache
+     */
+    fun invalidateProfileCache(uid: String? = null) {
+        if (uid == null) {
+            profileCache.clear()
+            logD("Cleared entire profile cache")
+        } else {
+            profileCache.remove(uid)
+            logD("Invalidated cache for $uid")
+        }
+    }
+
+    /**
      * Updates user profile fields in Firestore
      * @param uid The user's UID
      * @param updates Map of field names to new values
@@ -178,6 +259,10 @@ class UserRepository(
         return try {
             logI("Updating profile for user: $uid with ${updates.keys.joinToString()}")
             usersCollection.document(uid).update(updates).await()
+
+            // Invalidate cache for this user after successful update
+            invalidateProfileCache(uid)
+
             logI("Profile updated successfully for user: $uid")
             Result.success(Unit)
         } catch (e: Exception) {
@@ -269,6 +354,47 @@ class UserRepository(
             logE("Error getting friend profiles: ${e.message}")
             emptyList() // Return empty list on error
         }
+    }
+
+    /**
+     * Gets profiles with caching for batch operations.
+     * Returns cached + freshly fetched profiles combined.
+     *
+     * @param friendUids List of user UIDs to fetch profiles for
+     * @return List of User profiles
+     */
+    suspend fun getProfilesForFriendsCached(friendUids: List<String>): List<User> {
+        if (friendUids.isEmpty()) {
+            return emptyList()
+        }
+
+        val cached = mutableListOf<User>()
+        val toFetch = mutableListOf<String>()
+
+        // Separate cached from uncached
+        for (uid in friendUids) {
+            val cachedEntry = profileCache[uid]
+            if (cachedEntry != null && !cachedEntry.isExpired()) {
+                cached.add(cachedEntry.user)
+            } else {
+                toFetch.add(uid)
+            }
+        }
+
+        // Fetch uncached profiles
+        val fresh = if (toFetch.isNotEmpty()) {
+            getProfilesForFriends(toFetch)
+        } else {
+            emptyList()
+        }
+
+        // Update cache with fresh data
+        fresh.forEach { user ->
+            profileCache[user.uid] = CachedUserProfile(user)
+        }
+
+        logD("Profile cache: ${cached.size} hits, ${fresh.size} misses (total ${friendUids.size} requested)")
+        return cached + fresh
     }
 
     /**
@@ -453,6 +579,45 @@ class UserRepository(
         // field to your User model and query that field instead, converting the input query to lowercase.
     }
 
+    /**
+     * Searches for users by username with caching.
+     * Returns cached results if available and not expired.
+     *
+     * @param query The username search query
+     * @param limit Maximum number of results to return
+     * @return List of User objects matching the query
+     */
+    suspend fun searchUsersByUsernameCached(query: String, limit: Long = 5): List<User> {
+        if (query.isBlank()) {
+            return emptyList()
+        }
+
+        // Check cache first
+        val cached = searchResultCache[query]
+        if (cached != null && !cached.isExpired()) {
+            logD("Search cache hit for: '$query'")
+            return cached.results.take(limit.toInt())
+        }
+
+        // Cache miss - perform search
+        logD("Search cache miss for: '$query' - fetching from Firestore")
+        val results = searchUsersByUsername(query, limit)
+
+        // Update cache
+        searchResultCache[query] = CachedSearchResult(results, query)
+
+        return results
+    }
+
+    /**
+     * Invalidates search result cache.
+     * Call this when search criteria or user data changes significantly.
+     */
+    fun invalidateSearchCache() {
+        searchResultCache.clear()
+        logD("Cleared search result cache")
+    }
+
     // --- Other Utility Functions ---
 
     suspend fun checkUsernameExists(username: String): Boolean {
@@ -485,7 +650,7 @@ class UserRepository(
                 // to call the suspend function
                 launch {
                     try {
-                        val profiles = getProfilesForFriends(friendUids)
+                        val profiles = getProfilesForFriendsCached(friendUids)
                         // Filter out blocked users (both blocked by me and who blocked me)
                         val filteredProfiles = profiles.filterNot { profile ->
                             blockedByMe.contains(profile.uid) || profile.blockedUsers.contains(userUid)
