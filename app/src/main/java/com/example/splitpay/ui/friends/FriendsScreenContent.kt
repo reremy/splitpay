@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.LayoutDirection // Import LayoutDirection
 import coil.compose.AsyncImage
 import com.example.splitpay.data.model.FriendWithBalance
 import com.example.splitpay.ui.common.OverallBalanceHeader
+import com.example.splitpay.ui.components.LoadingListShimmer
 import com.example.splitpay.ui.theme.* // Import your theme colors
 import kotlin.math.absoluteValue
 
@@ -48,10 +49,32 @@ fun FriendsScreenContent(
             totalBalance = uiState.totalNetBalance
         )
 
-        // Friends List - LazyColumn with contentPadding to prevent bottom nav from covering items
+        // Friends List - Show shimmer during initial load or when data is loading
         when {
-            // ... (Loading, Empty states) ...
+            uiState.isLoading && uiState.friends.isEmpty() -> {
+                // Show shimmer effect for initial load (slow internet)
+                LoadingListShimmer(itemCount = 6)
+            }
+            uiState.filteredAndSearchedFriends.isEmpty() -> {
+                // Empty state
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (uiState.isSearchActive) {
+                            "No friends found"
+                        } else {
+                            "No friends yet\nAdd some friends to get started!"
+                        },
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
             else -> {
+                // Show actual friends list (with cached data if available)
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     // Add content padding to ensure last items are visible above bottom nav

@@ -47,6 +47,7 @@ import com.example.splitpay.data.model.User
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.common.OverallBalanceHeader
 import com.example.splitpay.ui.common.UiEventHandler
+import com.example.splitpay.ui.components.LoadingListShimmer
 import com.example.splitpay.ui.groups.availableTagsMap
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.ErrorRed
@@ -108,10 +109,9 @@ fun GroupsContent(
             //topPadding = innerPadding.calculateTopPadding()
         )
 
-        if (uiState.isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = PrimaryBlue)
-            }
+        if (uiState.isLoading && uiState.groupsWithBalances.isEmpty()) {
+            // Show shimmer effect for initial load (slow internet)
+            LoadingListShimmer(itemCount = 6)
         } else if (uiState.error != null) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Error: ${uiState.error}", color = Color.Red)
