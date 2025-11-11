@@ -89,6 +89,33 @@ sealed class ActivityCard(val date: Long) {
     ) : ActivityCard(expense.date)
 }
 
+/**
+ * ViewModel for the Friend Detail screen showing comprehensive friend relationship data.
+ *
+ * This ViewModel aggregates and displays:
+ * - **Net Balance**: Total amount owed between current user and friend (positive = friend owes you, negative = you owe friend)
+ * - **Balance Breakdown**: Per-group balance details showing where balances come from
+ * - **Shared Expenses**: All friend-to-friend and shared group expenses
+ * - **Shared Groups**: Groups where both users are members
+ * - **Activity Feed**: Chronological list of expenses, payments, and group events involving both users
+ * - **Chart Analytics**: Spending breakdowns by category, date, and group
+ *
+ * **Balance Calculation Algorithm:**
+ * 1. Fetch all expenses where both users are involved (either as participant or payer)
+ * 2. For each expense:
+ *    - Calculate what friend owes: participant amount where uid = friendUid
+ *    - Calculate what friend paid: payer amount where uid = friendUid
+ *    - Net contribution = paid - owed
+ * 3. Sum all net contributions across all expenses
+ * 4. Positive balance = friend owes current user, Negative = current user owes friend
+ *
+ * **Activity Aggregation:**
+ * Combines multiple data sources (expenses, payments, shared groups) into unified
+ * activity cards sorted chronologically for the UI timeline.
+ *
+ * **Navigation Args:**
+ * - `friendUid`: Friend's UID from [SavedStateHandle] (required)
+ */
 class FriendsDetailViewModel(
     private val userRepository: UserRepository,
     private val expenseRepository: ExpenseRepository,
