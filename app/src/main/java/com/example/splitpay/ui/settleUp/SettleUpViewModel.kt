@@ -45,6 +45,34 @@ sealed interface SettleUpUiEvent {
     object NavigateToMoreOptions : SettleUpUiEvent
 }
 
+/**
+ * ViewModel for the Settle Up screen showing who owes who within a group or between friends.
+ *
+ * This ViewModel calculates and displays detailed balance breakdowns for settling debts:
+ * - **Group Mode** (groupId != "non_group"): Shows balances between current user and each group member
+ * - **Non-Group Mode** (groupId == "non_group"): Shows balances between current user and all friends
+ *
+ * **Balance Calculation Algorithm (per member/friend):**
+ * 1. Fetch all expenses for the group (or all friend-to-friend expenses)
+ * 2. For each expense involving the member:
+ *    - Calculate what member owes: sum of participant amounts where uid = memberUid
+ *    - Calculate what member paid: sum of payer amounts where uid = memberUid
+ *    - Net balance = paid - owed
+ * 3. Positive balance = member owes current user
+ *    Negative balance = current user owes member
+ *
+ * **Use Cases:**
+ * - View who you owe or who owes you in a group
+ * - Navigate to Record Payment screen to settle specific balances
+ * - See breakdown of all debts before settling
+ *
+ * **Navigation Args:**
+ * - `groupId`: Group ID from [SavedStateHandle], or "non_group" for friend-to-friend (required)
+ *
+ * **Related Flows:**
+ * - User taps on a member → navigates to Record Payment with pre-filled amount
+ * - After recording payment → balance automatically updates via Firestore listeners
+ */
 class SettleUpViewModel(
     private val groupsRepository: GroupsRepository,
     private val expenseRepository: ExpenseRepository,

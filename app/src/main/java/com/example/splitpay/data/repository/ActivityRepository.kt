@@ -10,15 +10,37 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Repository for managing activity feed data in Firestore.
+ *
+ * The activity feed provides users with a chronological log of all events relevant to them,
+ * including:
+ * - Expense and payment transactions
+ * - Group management events (created, deleted, member changes)
+ * - Financial impact summaries for each activity
+ *
+ * **Key Design Pattern:**
+ * Activities use the `involvedUids` array to enable efficient user-specific queries.
+ * When an activity is created, all affected user IDs are stored in this array, allowing
+ * Firestore to quickly find activities for a specific user via `whereArrayContains`.
+ */
 class ActivityRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 ) {
     private val activitiesCollection = firestore.collection("activities")
 
     /**
-     * Saves a new activity document to Firestore.
-     * This is a "fire-and-forget" operation from the ViewModel's perspective.
-     * It generates a new ID for the activity.
+     * Logs a new activity to the activity feed.
+     *
+     * **Usage Pattern:**
+     * This is typically called after creating/updating expenses, payments, or making
+     * group changes. It's a "fire-and-forget" operation - failures are logged but
+     * don't block the main operation.
+     *
+     * The function automatically generates a unique ID for the activity.
+     *
+     * @param activity The activity to log (ID will be auto-generated if blank)
+     * @return Result indicating success or failure
      */
     suspend fun logActivity(activity: Activity): Result<Unit> {
         return try {
@@ -36,12 +58,19 @@ class ActivityRepository(
     }
 
     /**
-     * Gets a real-time Flow of the user's activity feed.
-     * Queries all activities where the user's UID is in the 'involvedUids' array.
+     * Creates a real-time Flow of activities relevant to a specific user.
      *
-     * @param userUid The UID of the current user.
-     * @param limit The maximum number of activities to fetch (e.g., the 50 most recent).
-     * @return A Flow emitting a list of Activity objects.
+     * **Query Strategy:**
+     * Uses `whereArrayContains("involvedUids", userUid)` to find all activities where
+     * the user is involved (as creator, participant, payer, or group member).
+     *
+     * **Performance Note:**
+     * Limited to the 50 most recent activities by default to avoid excessive data transfer.
+     * Pagination can be added for loading older activities.
+     *
+     * @param userUid The UID of the current user
+     * @param limit Maximum number of activities to return (default: 50)
+     * @return Flow emitting lists of activities in real-time
      */
     fun getActivityFeedFlow(userUid: String, limit: Long = 50): Flow<List<Activity>> = callbackFlow {
         if (userUid.isBlank()) {
@@ -53,7 +82,7 @@ class ActivityRepository(
 
         logD("Starting activity feed listener for user: $userUid")
 
-        // This is the key query based on our data model
+        // Query all activities where user is in the involvedUids array
         val query = activitiesCollection
             .whereArrayContains("involvedUids", userUid)
             .limit(limit)
@@ -83,7 +112,10 @@ class ActivityRepository(
     }
 
     /**
-     * Gets a single activity by ID
+     * Retrieves a single activity by its unique ID.
+     *
+     * @param activityId The unique ID of the activity
+     * @return Result with the Activity object (or null if not found), or the exception on failure
      */
     suspend fun getActivityById(activityId: String): Result<Activity?> {
         return try {
@@ -101,7 +133,13 @@ class ActivityRepository(
     }
 
     /**
-     * Deletes a single activity by ID
+     * Permanently deletes an activity from the feed.
+     *
+     * **Warning:** This operation cannot be undone and will remove the activity
+     * from all users' feeds.
+     *
+     * @param activityId The ID of the activity to delete
+     * @return Result indicating success or failure
      */
     suspend fun deleteActivity(activityId: String): Result<Unit> {
         return try {
@@ -118,8 +156,14 @@ class ActivityRepository(
     }
 
     /**
-     * Gets an activity by entity ID (e.g., expense ID)
-     * Useful when navigating from expense cards to activity details
+     * Finds an activity by the ID of its related entity (e.g., expense ID).
+     *
+     * **Use Case:**
+     * When navigating from an expense card to its activity detail, this function
+     * retrieves the activity that was logged when the expense was created.
+     *
+     * @param entityId The ID of the related entity (expense, payment, group, etc.)
+     * @return Result with the first matching Activity (or null if not found)
      */
     suspend fun getActivityByEntityId(entityId: String): Result<Activity?> {
         return try {
@@ -146,8 +190,18 @@ class ActivityRepository(
     }
 
     /**
-     * Gets all activities for a specific group
-     * Useful for displaying group-related activities (member additions, etc.)
+     * Fetches all activities related to a specific group.
+     *
+     * Returns activities such as:
+     * - Group creation
+     * - Member additions/removals
+     * - Expenses within the group
+     * - Payments within the group
+     *
+     * Results are sorted by timestamp (newest first).
+     *
+     * @param groupId The ID of the group
+     * @return List of activities for the group, or empty list on error
      */
     suspend fun getActivitiesForGroup(groupId: String): List<Activity> {
         return try {

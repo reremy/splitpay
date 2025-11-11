@@ -13,6 +13,19 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
+/**
+ * Repository for managing expense-sharing groups in Firestore.
+ *
+ * This repository handles:
+ * - Creating and editing groups
+ * - Managing group membership (add/remove members)
+ * - Querying user's groups (active and archived)
+ * - Archiving and deleting groups
+ *
+ * **Group Structure:**
+ * Groups contain multiple members and are used to organize shared expenses.
+ * Each group has an `iconIdentifier` for UI display and can have a custom photo.
+ */
 class GroupsRepository(
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance(),
     private val userRepository: UserRepository = UserRepository()
@@ -20,10 +33,17 @@ class GroupsRepository(
     private val groupsCollection = firestore.collection("groups")
 
     /**
-     * Creates a new expense group in Firestore.
-     * The creator is automatically added as the first member.
+     * Creates a new expense-sharing group.
+     *
+     * The creator is automatically added as the first member of the group.
+     * Additional members can be added later using `addMembersToGroup()`.
+     *
+     * @param groupName The name of the group (e.g., "Weekend Trip")
+     * @param iconIdentifier Identifier for the group icon (e.g., "trip", "home", "friends")
+     * @param photoUrl Optional URL to a custom group photo in Firebase Storage
+     * @return Result with the created Group object, or an exception on failure
      */
-    suspend fun createGroup(groupName: String, iconIdentifier: String, photoUrl: String = ""): Result<Group> { // <--- UPDATED SIGNATURE
+    suspend fun createGroup(groupName: String, iconIdentifier: String, photoUrl: String = ""): Result<Group> {
         val currentUser = userRepository.getCurrentUser()
         if (currentUser == null) {
             return Result.failure(Exception("User not authenticated."))
@@ -53,18 +73,24 @@ class GroupsRepository(
     }
 
     /**
-     * Streams groups the current user is a member of.
+     * Creates a real-time Flow of active groups where the current user is a member.
+     *
+     * **Query Details:**
+     * - Uses `whereArrayContains("members", currentUserUid)` to find groups containing the user
+     * - Filters out archived groups (`isArchived = false`)
+     * - Automatically updates when groups are added, modified, or archived
+     *
+     * @return Flow emitting lists of active Group objects
      */
     fun getGroups(): Flow<List<Group>> = callbackFlow {
         val currentUserUid = userRepository.getCurrentUser()?.uid ?: run {
             logE("User not logged in. Cannot fetch groups.")
-            // FIX: Use trySend for synchronous non-suspending flow emission
             trySend(emptyList())
             awaitClose { }
             return@callbackFlow
         }
 
-        // Listen for groups where the current user's UID is present in the 'members' array
+        // Listen for active groups where current user is a member
         val listenerRegistration = groupsCollection
             .whereArrayContains("members", currentUserUid)
             .whereEqualTo("isArchived", false)
@@ -82,20 +108,23 @@ class GroupsRepository(
                 }
             }
 
-        // The callbackFlow scope is suspended until awaitClose is called.
-        // This block is executed when the flow collector is cancelled or completes.
         awaitClose {
             logD("Stopping Firestore listener for groups.")
             listenerRegistration.remove()
         }
     }
 
-    // --- NEW suspend function to get groups once ---
     /**
-     * Fetches the list of groups the current user is a member of once.
+     * Fetches the list of active groups for the current user (one-time fetch).
+     *
+     * Unlike `getGroups()` which provides a real-time stream, this function
+     * performs a single query and returns the results immediately.
+     *
+     * **Note:** Results are sorted by creation date (newest first) in memory
+     * to avoid requiring a Firestore composite index.
+     *
+     * @return List of Group objects, or empty list if user is not logged in or on error
      */
-    // In GroupsRepository.kt, replace the getGroupsSuspend function with this:
-
     suspend fun getGroupsSuspend(): List<Group> {
         val currentUser = userRepository.getCurrentUser()
         if (currentUser == null) {
@@ -109,13 +138,12 @@ class GroupsRepository(
             val querySnapshot = groupsCollection
                 .whereArrayContains("members", uid)
                 .whereEqualTo("isArchived", false)
-                // REMOVED: .orderBy("createdAt", Query.Direction.DESCENDING)
-                // We can sort in memory instead
                 .get()
                 .await()
 
+            // Sort in memory to avoid needing a composite index on (members + isArchived + createdAt)
             val groups = querySnapshot.toObjects(Group::class.java)
-                .sortedByDescending { it.createdAt } // Sort in memory instead
+                .sortedByDescending { it.createdAt }
             logD("Fetched ${groups.size} groups.")
             groups
         } catch (e: Exception) {

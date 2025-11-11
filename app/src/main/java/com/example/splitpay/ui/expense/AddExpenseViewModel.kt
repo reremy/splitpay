@@ -37,9 +37,35 @@ import kotlin.collections.map
 import kotlin.math.roundToInt
 import kotlin.math.absoluteValue
 
-
-
-
+/**
+ * ViewModel for adding and editing expenses with complex split logic.
+ *
+ * This ViewModel handles one of the most complex flows in the app, managing:
+ * - **Two modes**: Add new expense OR edit existing expense
+ * - **Group vs Friend-to-Friend**: Expenses can belong to a group or be between friends
+ * - **Multiple split types**: EQUALLY, EXACT_AMOUNTS, PERCENTAGES, SHARES
+ * - **Multiple payers**: Support for splitting who paid the bill
+ * - **Dynamic participant selection**: UI adapts based on group/friend context
+ * - **Receipt image uploads**: Optional expense proof via Firebase Storage
+ * - **Real-time split calculations**: Uses [CalculateSplitUseCase] for accurate split math
+ * - **Activity logging**: Creates activity feed entries when expenses are saved
+ *
+ * **State Management:**
+ * - `uiState`: Main UI state including participants, payers, split type, validation
+ * - `availableGroups`: List of user's groups for group selector
+ * - `relevantUsersForSelection`: Dynamic list of users (group members OR friends)
+ * - `uiEvent`: One-time events like navigation success or error messages
+ *
+ * **Initialization:**
+ * - Retrieves `expenseId` and `groupId` from [SavedStateHandle] (navigation args)
+ * - If `expenseId` exists: loads expense for editing
+ * - If `groupId` exists: pre-selects group and loads its members
+ * - Otherwise: defaults to non-group (friend-to-friend) mode
+ *
+ * **Key Complexity:**
+ * The split calculation logic must handle percentage normalization, rounding errors,
+ * and validation across multiple split types. See [calculateAndUpdateSplits] for details.
+ */
 class AddExpenseViewModel(
     private val groupsRepository: GroupsRepository = GroupsRepository(),
     private val userRepository: UserRepository = UserRepository(),

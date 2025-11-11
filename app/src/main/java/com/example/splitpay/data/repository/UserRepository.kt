@@ -19,6 +19,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
+/**
+ * Repository for managing user authentication and profile data.
+ *
+ * This repository handles:
+ * - Firebase Authentication (sign up, login, logout)
+ * - User profile management in Firestore
+ * - Friend relationships (add, remove, block/unblock)
+ * - User search and discovery
+ * - Profile updates (name, username, profile picture, QR code)
+ */
 class UserRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -26,8 +36,25 @@ class UserRepository(
 
     private val usersCollection = firestore.collection("users")
 
-    // --- Authentication Functions ---
+    // ========================================
+    // Authentication Functions
+    // ========================================
 
+    /**
+     * Creates a new user account with email and password.
+     *
+     * This function performs the following operations:
+     * 1. Creates a Firebase Authentication account
+     * 2. Sets the user's display name in Firebase Auth
+     * 3. Creates a user profile document in Firestore
+     *
+     * @param fullName User's full name
+     * @param username Unique username for the user
+     * @param email User's email address
+     * @param phoneNumber User's phone number with country code
+     * @param password Account password (min 6 characters per Firebase rules)
+     * @return Result indicating success or failure with error details
+     */
     suspend fun signUp(
         fullName: String,
         username: String,
