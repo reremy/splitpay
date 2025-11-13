@@ -11,4 +11,8 @@ data class ProfileUiState(
     val isLoggingOut: Boolean = false,
     val showQrCode: Boolean = false,
     val error: String? = null,
+    // Account deletion related fields
+    val isDeletingAccount: Boolean = false,
+    val showDeleteConfirmation: Boolean = false,
+    val deleteErrorMessage: String? = null,
 )
