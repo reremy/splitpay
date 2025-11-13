@@ -22,12 +22,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -281,6 +283,34 @@ fun UserProfileScreen(
                     }
                 }
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Delete Account Button
+                Button(
+                    onClick = { viewModel.onDeleteAccountClick() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.Gray,
+                        contentColor = TextWhite
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    enabled = !uiState.isLoggingOut && !uiState.isDeletingAccount
+                ) {
+                    if (uiState.isDeletingAccount) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            strokeWidth = 2.dp,
+                            color = TextWhite
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Deleting...", fontSize = 16.sp)
+                    } else {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete Account")
+                        Spacer(Modifier.width(8.dp))
+                        Text("Delete Account", fontSize = 16.sp)
+                    }
+                }
+
                 // Show logout error if any
                 if (!uiState.isLoading && currentError != null && currentError.contains("Sign out", ignoreCase = true)) {                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
@@ -299,6 +329,72 @@ fun UserProfileScreen(
             QrCodeBottomSheet(
                 qrCodeUrl = uiState.qrCodeUrl,
                 onDismiss = { viewModel.toggleQrCodeVisibility() }
+            )
+        }
+
+        // Delete Account Confirmation Dialog
+        if (uiState.showDeleteConfirmation) {
+            AlertDialog(
+                onDismissRequest = { viewModel.onDismissDeleteConfirmation() },
+                title = {
+                    Text(
+                        text = "Delete Account?",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Are you sure you want to delete your account?\n\n" +
+                                "Your account will be scheduled for deletion and permanently removed after 30 days. " +
+                                "You can cancel by logging in within 30 days.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { viewModel.confirmDeleteAccount() },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color.Red
+                        )
+                    ) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        onClick = { viewModel.onDismissDeleteConfirmation() }
+                    ) {
+                        Text("Cancel")
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        }
+
+        // Delete Account Error Dialog (if validation fails)
+        if (uiState.deleteErrorMessage != null) {
+            AlertDialog(
+                onDismissRequest = { viewModel.dismissDeleteError() },
+                title = {
+                    Text(
+                        text = "Cannot Delete Account",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
+                text = {
+                    Text(
+                        text = uiState.deleteErrorMessage,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = { viewModel.dismissDeleteError() }
+                    ) {
+                        Text("OK")
+                    }
+                },
+                containerColor = MaterialTheme.colorScheme.surface
             )
         }
     }

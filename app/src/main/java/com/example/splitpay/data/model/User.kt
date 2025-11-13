@@ -17,6 +17,9 @@ package com.example.splitpay.data.model
  * @property createdAt Account creation timestamp in milliseconds
  * @property friends List of friend UIDs (bilateral friendship - both users must have each other)
  * @property blockedUsers List of blocked user UIDs (prevents friend requests and visibility)
+ * @property deletionScheduledAt Timestamp when account deletion was requested (null if not scheduled).
+ *                               Account will be permanently deleted 30 days after this timestamp.
+ *                               Logging in before deletion cancels the scheduled deletion.
  */
 data class User(
     val uid: String = "",
@@ -28,5 +31,6 @@ data class User(
     val qrCodeUrl: String = "",
     val createdAt: Long = System.currentTimeMillis(),
     val friends: List<String> = emptyList(),
-    val blockedUsers: List<String> = emptyList()
+    val blockedUsers: List<String> = emptyList(),
+    val deletionScheduledAt: Long? = null
 )
