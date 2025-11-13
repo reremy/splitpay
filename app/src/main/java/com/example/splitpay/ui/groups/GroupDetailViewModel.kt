@@ -163,10 +163,10 @@ class GroupDetailViewModel(
                     group.members // Use the official group members list
                 }
 
-                // 3. Fetch member details for *only* the relevant UIDs
+                // 3. Fetch member details for *only* the relevant UIDs (with caching)
                 val membersMap = if (memberUidsToFetch.isNotEmpty()) {
                     try {
-                        userRepository.getProfilesForFriends(memberUidsToFetch).associateBy { it.uid }
+                        userRepository.getProfilesForFriendsCached(memberUidsToFetch).associateBy { it.uid }
                     } catch (e: Exception) {
                         emptyMap<String, User>()
                     }

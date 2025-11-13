@@ -67,8 +67,8 @@ class ExpenseDetailViewModel(
                 // Collect all unique user IDs from payers and participants
                 val allUserIds = (expense.paidBy.map { it.uid } + expense.participants.map { it.uid }).distinct()
 
-                // Fetch user profiles for all involved users
-                val users = userRepository.getProfilesForFriends(allUserIds)
+                // Fetch user profiles for all involved users (with caching)
+                val users = userRepository.getProfilesForFriendsCached(allUserIds)
                 val usersMap = users.associateBy { it.uid }
 
                 // Fetch group name if it's a group expense
@@ -142,8 +142,8 @@ class ExpenseDetailViewModel(
 
                     // Create EXPENSE_DELETED activity
                     try {
-                        // Get actor name
-                        val actorProfile = userRepository.getUserProfile(currentUser.uid)
+                        // Get actor name (with caching)
+                        val actorProfile = userRepository.getUserProfileCached(currentUser.uid)
                         val actorName = actorProfile?.username?.takeIf { it.isNotBlank() }
                             ?: actorProfile?.fullName?.takeIf { it.isNotBlank() }
                             ?: "Someone"

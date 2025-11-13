@@ -37,6 +37,44 @@ class UserRepository(
     private val usersCollection = firestore.collection("users")
 
     // ========================================
+    // Caching Infrastructure
+    // ========================================
+
+    /**
+     * Cached user profile with timestamp for TTL-based expiration.
+     */
+    private data class CachedUserProfile(
+        val user: User,
+        val timestamp: Long = System.currentTimeMillis()
+    ) {
+        fun isExpired(ttlMs: Long = PROFILE_CACHE_TTL): Boolean {
+            return System.currentTimeMillis() - timestamp > ttlMs
+        }
+    }
+
+    /**
+     * Cached search result with timestamp for TTL-based expiration.
+     */
+    private data class CachedSearchResult(
+        val results: List<User>,
+        val query: String,
+        val timestamp: Long = System.currentTimeMillis()
+    ) {
+        fun isExpired(ttlMs: Long = SEARCH_CACHE_TTL): Boolean {
+            return System.currentTimeMillis() - timestamp > ttlMs
+        }
+    }
+
+    // Cache storage
+    private val profileCache = mutableMapOf<String, CachedUserProfile>()
+    private val searchResultCache = mutableMapOf<String, CachedSearchResult>()
+
+    companion object {
+        private const val PROFILE_CACHE_TTL = 5 * 60 * 1000L // 5 minutes
+        private const val SEARCH_CACHE_TTL = 30 * 1000L // 30 seconds
+    }
+
+    // ========================================
     // Authentication Functions
     // ========================================
 
@@ -114,6 +152,26 @@ class UserRepository(
 
             if (user != null) {
                 logI("Sign-in successful - UID: ${user.uid}, Email verified: ${user.isEmailVerified}")
+
+                // Check if account deletion is scheduled and cancel if within grace period
+                val userProfile = getUserProfile(user.uid)
+                if (userProfile?.deletionScheduledAt != null) {
+                    val deletionScheduledAt = userProfile.deletionScheduledAt
+                    val gracePeriodMs = 30L * 24 * 60 * 60 * 1000 // 30 days in milliseconds
+                    val now = System.currentTimeMillis()
+
+                    if (now - deletionScheduledAt < gracePeriodMs) {
+                        // Within grace period - cancel deletion silently
+                        logI("User ${user.uid} logged in during grace period. Cancelling scheduled deletion.")
+                        cancelScheduledDeletion(user.uid)
+                    } else {
+                        // Grace period has expired - account should have been deleted
+                        logE("User ${user.uid} attempted login after grace period. Account should be deleted.")
+                        // Sign out immediately and throw exception
+                        signOut()
+                        throw Exception("Account has been deleted.")
+                    }
+                }
             } else {
                 logE("Sign-in returned null user despite no exception")
             }
@@ -169,6 +227,49 @@ class UserRepository(
     }
 
     /**
+     * Gets user profile with caching.
+     * Returns cached version if available and not expired.
+     *
+     * @param uid The user's UID
+     * @return User profile or null if not found
+     */
+    suspend fun getUserProfileCached(uid: String): User? {
+        // Check cache first
+        val cached = profileCache[uid]
+        if (cached != null && !cached.isExpired()) {
+            logD("Profile cache hit for $uid")
+            return cached.user
+        }
+
+        // Cache miss - fetch from Firestore
+        logD("Profile cache miss for $uid - fetching from Firestore")
+        val user = getUserProfile(uid)
+
+        // Update cache
+        if (user != null) {
+            profileCache[uid] = CachedUserProfile(user)
+        }
+
+        return user
+    }
+
+    /**
+     * Invalidates profile cache for a specific user or all users.
+     * Call this after profile updates.
+     *
+     * @param uid The user's UID to invalidate, or null to clear entire cache
+     */
+    fun invalidateProfileCache(uid: String? = null) {
+        if (uid == null) {
+            profileCache.clear()
+            logD("Cleared entire profile cache")
+        } else {
+            profileCache.remove(uid)
+            logD("Invalidated cache for $uid")
+        }
+    }
+
+    /**
      * Updates user profile fields in Firestore
      * @param uid The user's UID
      * @param updates Map of field names to new values
@@ -178,6 +279,10 @@ class UserRepository(
         return try {
             logI("Updating profile for user: $uid with ${updates.keys.joinToString()}")
             usersCollection.document(uid).update(updates).await()
+
+            // Invalidate cache for this user after successful update
+            invalidateProfileCache(uid)
+
             logI("Profile updated successfully for user: $uid")
             Result.success(Unit)
         } catch (e: Exception) {
@@ -269,6 +374,47 @@ class UserRepository(
             logE("Error getting friend profiles: ${e.message}")
             emptyList() // Return empty list on error
         }
+    }
+
+    /**
+     * Gets profiles with caching for batch operations.
+     * Returns cached + freshly fetched profiles combined.
+     *
+     * @param friendUids List of user UIDs to fetch profiles for
+     * @return List of User profiles
+     */
+    suspend fun getProfilesForFriendsCached(friendUids: List<String>): List<User> {
+        if (friendUids.isEmpty()) {
+            return emptyList()
+        }
+
+        val cached = mutableListOf<User>()
+        val toFetch = mutableListOf<String>()
+
+        // Separate cached from uncached
+        for (uid in friendUids) {
+            val cachedEntry = profileCache[uid]
+            if (cachedEntry != null && !cachedEntry.isExpired()) {
+                cached.add(cachedEntry.user)
+            } else {
+                toFetch.add(uid)
+            }
+        }
+
+        // Fetch uncached profiles
+        val fresh = if (toFetch.isNotEmpty()) {
+            getProfilesForFriends(toFetch)
+        } else {
+            emptyList()
+        }
+
+        // Update cache with fresh data
+        fresh.forEach { user ->
+            profileCache[user.uid] = CachedUserProfile(user)
+        }
+
+        logD("Profile cache: ${cached.size} hits, ${fresh.size} misses (total ${friendUids.size} requested)")
+        return cached + fresh
     }
 
     /**
@@ -453,6 +599,45 @@ class UserRepository(
         // field to your User model and query that field instead, converting the input query to lowercase.
     }
 
+    /**
+     * Searches for users by username with caching.
+     * Returns cached results if available and not expired.
+     *
+     * @param query The username search query
+     * @param limit Maximum number of results to return
+     * @return List of User objects matching the query
+     */
+    suspend fun searchUsersByUsernameCached(query: String, limit: Long = 5): List<User> {
+        if (query.isBlank()) {
+            return emptyList()
+        }
+
+        // Check cache first
+        val cached = searchResultCache[query]
+        if (cached != null && !cached.isExpired()) {
+            logD("Search cache hit for: '$query'")
+            return cached.results.take(limit.toInt())
+        }
+
+        // Cache miss - perform search
+        logD("Search cache miss for: '$query' - fetching from Firestore")
+        val results = searchUsersByUsername(query, limit)
+
+        // Update cache
+        searchResultCache[query] = CachedSearchResult(results, query)
+
+        return results
+    }
+
+    /**
+     * Invalidates search result cache.
+     * Call this when search criteria or user data changes significantly.
+     */
+    fun invalidateSearchCache() {
+        searchResultCache.clear()
+        logD("Cleared search result cache")
+    }
+
     // --- Other Utility Functions ---
 
     suspend fun checkUsernameExists(username: String): Boolean {
@@ -485,7 +670,7 @@ class UserRepository(
                 // to call the suspend function
                 launch {
                     try {
-                        val profiles = getProfilesForFriends(friendUids)
+                        val profiles = getProfilesForFriendsCached(friendUids)
                         // Filter out blocked users (both blocked by me and who blocked me)
                         val filteredProfiles = profiles.filterNot { profile ->
                             blockedByMe.contains(profile.uid) || profile.blockedUsers.contains(userUid)
@@ -507,6 +692,190 @@ class UserRepository(
         awaitClose {
             logD("Stopping Firestore listener for user friends: $userUid")
             listener.remove()
+        }
+    }
+
+    // ========================================
+    // Account Deletion Functions
+    // ========================================
+
+    /**
+     * Result of account deletion validation check.
+     */
+    data class DeletionValidationResult(
+        val canDelete: Boolean,
+        val errorMessage: String? = null
+    )
+
+    /**
+     * Validates if user can delete their account.
+     * Checks for:
+     * - Active (non-archived) group memberships
+     * - Unsettled balances (must be exactly 0.00)
+     *
+     * @param uid The user's UID
+     * @param groupsRepository Repository to check group memberships
+     * @param expenseRepository Repository to check balances
+     * @return DeletionValidationResult indicating if deletion is allowed
+     */
+    suspend fun validateAccountDeletion(
+        uid: String,
+        groupsRepository: com.example.splitpay.data.repository.GroupsRepository,
+        expenseRepository: com.example.splitpay.data.repository.ExpenseRepository
+    ): DeletionValidationResult {
+        try {
+            // Check for active group memberships
+            val allGroups = groupsRepository.getGroupsSuspend()
+            val activeGroups = allGroups.filter { group ->
+                group.members.contains(uid) && !group.isArchived
+            }
+
+            if (activeGroups.isNotEmpty()) {
+                logD("Cannot delete account: User is in ${activeGroups.size} active group(s)")
+                return DeletionValidationResult(
+                    canDelete = false,
+                    errorMessage = "Please leave all groups before deleting your account."
+                )
+            }
+
+            // Check for unsettled balances
+            // Get all expenses involving this user
+            val userProfile = getUserProfile(uid)
+            val friendUids = userProfile?.friends ?: emptyList()
+
+            // Get all non-group expenses
+            for (friendUid in friendUids) {
+                val expenses = expenseRepository.getNonGroupExpensesBetweenUsers(uid, friendUid)
+
+                // Calculate balance with this friend
+                var balance = 0.0
+                expenses.forEach { expense ->
+                    val paidByUser = expense.paidBy.find { it.uid == uid }?.paidAmount ?: 0.0
+                    val owedByUser = expense.participants.find { it.uid == uid }?.owesAmount ?: 0.0
+                    balance += (paidByUser - owedByUser)
+                }
+
+                // Check if balance is exactly 0.00
+                if (balance != 0.0) {
+                    logD("Cannot delete account: Unsettled balance of $balance with friend $friendUid")
+                    return DeletionValidationResult(
+                        canDelete = false,
+                        errorMessage = "Please settle all balances before deleting your account."
+                    )
+                }
+            }
+
+            logD("Account deletion validation passed for user $uid")
+            return DeletionValidationResult(canDelete = true)
+
+        } catch (e: Exception) {
+            logE("Error validating account deletion: ${e.message}")
+            return DeletionValidationResult(
+                canDelete = false,
+                errorMessage = "Error checking account status. Please try again."
+            )
+        }
+    }
+
+    /**
+     * Schedules account for deletion after 30-day grace period.
+     * Sets deletionScheduledAt timestamp.
+     * User can cancel by logging in within 30 days.
+     *
+     * @param uid The user's UID
+     * @return Result indicating success or failure
+     */
+    suspend fun scheduleAccountDeletion(uid: String): Result<Unit> {
+        return try {
+            val deletionTimestamp = System.currentTimeMillis()
+
+            usersCollection.document(uid)
+                .update("deletionScheduledAt", deletionTimestamp)
+                .await()
+
+            logI("Account deletion scheduled for user $uid at timestamp $deletionTimestamp")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error scheduling account deletion for $uid: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Cancels scheduled account deletion.
+     * Called when user logs in during grace period.
+     *
+     * @param uid The user's UID
+     * @return Result indicating success or failure
+     */
+    suspend fun cancelScheduledDeletion(uid: String): Result<Unit> {
+        return try {
+            usersCollection.document(uid)
+                .update("deletionScheduledAt", null)
+                .await()
+
+            logI("Account deletion cancelled for user $uid")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Error cancelling account deletion for $uid: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Permanently deletes user account and all associated data.
+     * This should only be called by Cloud Function after grace period ends.
+     *
+     * Steps:
+     * 1. Remove user from all friends' friend lists
+     * 2. Leave all archived groups
+     * 3. Delete user document from Firestore
+     * 4. Delete Firebase Auth account
+     *
+     * @param uid The user's UID
+     * @return Result indicating success or failure
+     */
+    suspend fun permanentlyDeleteAccount(uid: String): Result<Unit> {
+        return try {
+            logI("Starting permanent account deletion for user $uid")
+
+            // Get user profile
+            val user = getUserProfile(uid)
+            if (user == null) {
+                logE("Cannot delete account: User $uid not found")
+                return Result.failure(Exception("User not found"))
+            }
+
+            // 1. Remove from all friends' lists
+            val friendUids = user.friends
+            for (friendUid in friendUids) {
+                try {
+                    usersCollection.document(friendUid)
+                        .update("friends", FieldValue.arrayRemove(uid))
+                        .await()
+                    logD("Removed $uid from friend $friendUid's friend list")
+                } catch (e: Exception) {
+                    logE("Error removing $uid from friend $friendUid: ${e.message}")
+                }
+            }
+
+            // 2. Leave all archived groups (active groups should already be left)
+            // Note: Group expenses will show [Deleted User] via the app logic
+            // We don't delete the expenses themselves
+
+            // 3. Delete user document from Firestore
+            usersCollection.document(uid).delete().await()
+            logI("Deleted Firestore document for user $uid")
+
+            // 4. Delete Firebase Auth account would be done by Cloud Function with admin SDK
+            // App doesn't have permission to delete other users' auth accounts
+
+            logI("Account permanently deleted for user $uid")
+            Result.success(Unit)
+
+        } catch (e: Exception) {
+            logE("Error permanently deleting account for $uid: ${e.message}")
+            Result.failure(e)
         }
     }
 }

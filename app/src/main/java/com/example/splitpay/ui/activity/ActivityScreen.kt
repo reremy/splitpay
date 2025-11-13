@@ -36,6 +36,7 @@ import com.example.splitpay.data.model.Activity
 import com.example.splitpay.data.model.ActivityType
 import androidx.navigation.NavHostController
 import com.example.splitpay.navigation.Screen
+import com.example.splitpay.ui.components.LoadingListShimmer
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.DialogBackground
 import com.example.splitpay.ui.theme.NegativeRed
@@ -62,15 +63,15 @@ fun ActivityScreen(
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
     when {
-        uiState.isLoading -> {
-            Box(
+        uiState.isLoading && uiState.filteredActivities.isEmpty() -> {
+            // Show shimmer effect for initial load (slow internet)
+            Column(
                 Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .background(DarkBackground),
-                contentAlignment = Alignment.Center
+                    .background(DarkBackground)
             ) {
-                CircularProgressIndicator(color = PrimaryBlue)
+                LoadingListShimmer(itemCount = 6)
             }
         }
         uiState.error != null -> {

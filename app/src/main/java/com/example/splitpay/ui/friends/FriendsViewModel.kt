@@ -65,6 +65,35 @@ class FriendsViewModel(
 
     private val currentUserUid: String? = userRepository.getCurrentUser()?.uid
 
+    // ========================================
+    // Balance Caching Infrastructure
+    // ========================================
+
+    /**
+     * Cached balance for a friend with expense hash for invalidation detection.
+     */
+    private data class CachedFriendBalance(
+        val balance: Double,
+        val breakdown: List<BalanceDetail>,
+        val expenseHash: Int,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+
+    // Cache storage: friendUid -> CachedFriendBalance
+    private val friendBalanceCache = mutableMapOf<String, CachedFriendBalance>()
+    private var lastExpenseHash = 0
+
+    /**
+     * Calculates a hash of expenses to detect when they change.
+     * Used to invalidate balance cache.
+     */
+    private fun calculateExpenseHash(expenses: List<Expense>): Int {
+        // Simple hash combining expense IDs and amounts
+        return expenses.fold(0) { acc, expense ->
+            acc xor expense.id.hashCode() xor expense.totalAmount.hashCode()
+        }
+    }
+
     // --- Data Flows from Repositories ---
     // These flows are assumed to be added to your repositories to provide real-time updates.
 
@@ -138,7 +167,18 @@ class FriendsViewModel(
         } else {
             // --- All calculation logic is now inside the combine block ---
 
-            logD("Recalculating FriendsUiState...")
+            logD("Recalculating FriendsUiState with balance caching...")
+
+            // Calculate expense hash to detect changes
+            val currentExpenseHash = calculateExpenseHash(allExpenses)
+            val expensesChanged = currentExpenseHash != lastExpenseHash
+
+            if (expensesChanged) {
+                logD("Expenses changed (hash: $lastExpenseHash -> $currentExpenseHash), invalidating affected balances")
+                lastExpenseHash = currentExpenseHash
+                // Clear cache when expenses change - we'll recalculate affected friends
+                friendBalanceCache.clear()
+            }
 
             // --- START OF FIX 2 ---
             // 1. Separate expenses for easier processing
@@ -150,15 +190,33 @@ class FriendsViewModel(
 
             var totalOverallBalance = 0.0
 
-            // 2. Calculate balance for each friend
+            // 2. Calculate balance for each friend with caching
             val friendsWithBalances = friends.map { friend ->
-                val (netBalance, breakdown) = calculateNetBalanceWithFriend(
-                    currentUserUid = currentUserUid,
-                    friendUid = friend.uid,
-                    allUserGroups = allGroups,
-                    groupExpensesMap = groupExpensesMap,
-                    allNonGroupExpenses = nonGroupExpenses // Pass the correctly filtered list
-                )
+                // Check cache first
+                val cached = friendBalanceCache[friend.uid]
+                val (netBalance, breakdown) = if (cached != null && !expensesChanged) {
+                    logD("Using cached balance for ${friend.username}")
+                    Pair(cached.balance, cached.breakdown)
+                } else {
+                    logD("Calculating balance for ${friend.username}")
+                    val result = calculateNetBalanceWithFriend(
+                        currentUserUid = currentUserUid,
+                        friendUid = friend.uid,
+                        allUserGroups = allGroups,
+                        groupExpensesMap = groupExpensesMap,
+                        allNonGroupExpenses = nonGroupExpenses // Pass the correctly filtered list
+                    )
+
+                    // Store in cache
+                    friendBalanceCache[friend.uid] = CachedFriendBalance(
+                        balance = result.first,
+                        breakdown = result.second,
+                        expenseHash = currentExpenseHash
+                    )
+
+                    result
+                }
+
                 totalOverallBalance += netBalance
                 FriendWithBalance(
                     uid = friend.uid,

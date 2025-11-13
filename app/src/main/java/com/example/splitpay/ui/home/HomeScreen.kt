@@ -1,5 +1,14 @@
 package com.example.splitpay.ui.home
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -203,10 +213,87 @@ fun HomeScreen3(
             HomeBottomBar(uiState, homeNavController, viewModel)
         }
     ) { innerPadding ->
+        // ========================================
+        // Material Motion: Smooth Flowing Tab Transitions
+        // ========================================
+        // Define tab order for directional animations
+        val tabOrder = listOf("groups_screen", "friends_screen", "activity_screen", "profile_screen")
+
         NavHost(
             navController = homeNavController,
             startDestination = "groups_screen",
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            // Material motion: Slide + Fade with spring physics for natural feel
+            enterTransition = {
+                // Determine slide direction based on tab order
+                val targetIndex = tabOrder.indexOf(targetState.destination.route)
+                val initialIndex = tabOrder.indexOf(initialState.destination.route)
+
+                if (targetIndex > initialIndex) {
+                    // Sliding forward (left to right tabs) - slide in from right
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth / 3 }, // Start 33% off screen
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
+                } else {
+                    // Sliding backward - slide in from left
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> -fullWidth / 3 },
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ) + fadeIn(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
+                }
+            },
+            exitTransition = {
+                // Current screen slides out and fades
+                val targetIndex = tabOrder.indexOf(targetState.destination.route)
+                val initialIndex = tabOrder.indexOf(initialState.destination.route)
+
+                if (targetIndex > initialIndex) {
+                    // Sliding forward - current slides left
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> -fullWidth / 3 },
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ) + fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
+                } else {
+                    // Sliding backward - current slides right
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> fullWidth / 3 },
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMedium
+                        )
+                    ) + fadeOut(
+                        animationSpec = tween(
+                            durationMillis = 300,
+                            easing = FastOutSlowInEasing
+                        )
+                    )
+                }
+            }
         ) {
             composable("groups_screen") {
                 GroupsContent(
