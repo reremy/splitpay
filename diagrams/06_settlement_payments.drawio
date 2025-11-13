@@ -1,0 +1,173 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="SplitPay-Settlement-Payments" name="6. Settlement &amp; Payments">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" value="Module 6: Settlement &amp; Payments" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;fontColor=#880E4F;" vertex="1" parent="1">
+          <mxGeometry x="350" y="20" width="500" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- System Boundary -->
+        <mxCell id="systemBoundary" value="Payment Settlement System" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F8BBD0;strokeColor=#880E4F;strokeWidth=3;fontSize=14;fontStyle=1;verticalAlign=top;align=center;" vertex="1" parent="1">
+          <mxGeometry x="300" y="100" width="700" height="600" as="geometry" />
+        </mxCell>
+        
+        <!-- Payer Actor -->
+        <mxCell id="actor1" value="User&#xa;(Payer)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#E91E63;strokeColor=#880E4F;strokeWidth=3;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="120" y="350" width="80" height="160" as="geometry" />
+        </mxCell>
+        
+        <!-- Payee Actor -->
+        <mxCell id="actor2" value="Friend/Member&#xa;(Payee)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#F06292;strokeColor=#880E4F;strokeWidth=2;fontColor=#FFFFFF;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="350" width="60" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Central Use Case -->
+        <mxCell id="uc1" value="Record Payment" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E91E63;strokeColor=#880E4F;strokeWidth=3;fontColor=#FFFFFF;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="520" y="350" width="180" height="90" as="geometry" />
+        </mxCell>
+        
+        <!-- Settlement Use Cases -->
+        <mxCell id="uc2" value="Settle Up&#xa;Full Amount" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F06292;strokeColor=#880E4F;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="180" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc3" value="Settle Up&#xa;Partial Amount" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F06292;strokeColor=#880E4F;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="580" y="180" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc4" value="Settle Up&#xa;Group Balance" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F06292;strokeColor=#880E4F;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="780" y="180" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Payment Management Use Cases -->
+        <mxCell id="uc5" value="View Payment&#xa;Detail" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F48FB1;strokeColor=#880E4F;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="500" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc6" value="Edit Payment" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F48FB1;strokeColor=#880E4F;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="580" y="500" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc7" value="Delete Payment" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F48FB1;strokeColor=#880E4F;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="780" y="500" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- Supporting Use Cases -->
+        <mxCell id="uc8" value="View Payment&#xa;History" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F8BBD0;strokeColor=#880E4F;strokeWidth=2;fontColor=#000000;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="320" y="320" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc9" value="Calculate&#xa;Settlement Amount" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#880E4F;strokeWidth=2;fontColor=#000000;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="780" y="320" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc10" value="Add Payment&#xa;Memo" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#880E4F;strokeWidth=2;fontColor=#000000;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="380" y="610" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc11" value="Attach Payment&#xa;Proof" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#880E4F;strokeWidth=2;fontColor=#000000;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="560" y="610" width="140" height="60" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc12" value="View Optimized&#xa;Settlement Plan" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F8BBD0;strokeColor=#880E4F;strokeWidth=2;fontColor=#000000;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="740" y="610" width="160" height="60" as="geometry" />
+        </mxCell>
+        
+        <!-- User Associations -->
+        <mxCell id="edge1" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#E91E63;" edge="1" parent="1" source="actor1" target="uc1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge2" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#E91E63;" edge="1" parent="1" source="actor1" target="uc5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge3" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#E91E63;" edge="1" parent="1" source="actor1" target="uc6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge4" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#E91E63;" edge="1" parent="1" source="actor1" target="uc7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge5" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#E91E63;" edge="1" parent="1" source="actor1" target="uc8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge6" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#E91E63;" edge="1" parent="1" source="actor1" target="uc12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Extend Relationships -->
+        <mxCell id="extend1" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc2" target="uc1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="extend2" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc3" target="uc1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="extend3" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc4" target="uc1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="extend4" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#999999;" edge="1" parent="1" source="uc10" target="uc1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="extend5" value="&amp;lt;&amp;lt;extend&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#999999;" edge="1" parent="1" source="uc11" target="uc1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Include Relationships -->
+        <mxCell id="include1" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc2" target="uc9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="include2" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc3" target="uc9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Payee Associations -->
+        <mxCell id="edge20" value="receives payment" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#F06292;dashed=1;" edge="1" parent="1" source="uc1" target="actor2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge21" value="balance reduced" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#F06292;dashed=1;" edge="1" parent="1" source="uc2" target="actor2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Legend -->
+        <mxCell id="legendBox" value="Legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#424242;strokeWidth=2;fontSize=12;fontStyle=1;verticalAlign=top;align=center;" vertex="1" parent="1">
+          <mxGeometry x="80" y="550" width="180" height="120" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="legend1" value="Core" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E91E63;strokeColor=#880E4F;strokeWidth=1;fontColor=#FFFFFF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="585" width="55" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="legend2" value="Settle Type" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F06292;strokeColor=#880E4F;strokeWidth=1;fontColor=#FFFFFF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="585" width="75" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="legend3" value="Manage" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F48FB1;strokeColor=#880E4F;strokeWidth=1;fontColor=#FFFFFF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="100" y="625" width="55" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="legend4" value="Optional" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#880E4F;strokeWidth=1;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="625" width="55" height="30" as="geometry" />
+        </mxCell>
+        
+        <!-- Notes -->
+        <mxCell id="notes" value="📝 Notes:&#xa;• Payment is a special expense&#xa;• Reduces balance between users&#xa;• Full settle = pay entire debt&#xa;• Partial = pay portion of debt&#xa;• Payment proof optional&#xa;• Only payer can edit/delete" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#F57F17;strokeWidth=2;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="180" height="180" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

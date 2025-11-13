@@ -1,0 +1,177 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="SplitPay-Group-Management" name="3. Group Setup &amp; Management">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        
+        <!-- Title -->
+        <mxCell id="title" value="Module 3: Group Setup &amp; Management" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=20;fontStyle=1;fontColor=#6A1B9A;" vertex="1" parent="1">
+          <mxGeometry x="350" y="20" width="500" height="40" as="geometry" />
+        </mxCell>
+        
+        <!-- System Boundary -->
+        <mxCell id="systemBoundary" value="Group Management System" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#6A1B9A;strokeWidth=3;fontSize=14;fontStyle=1;verticalAlign=top;align=center;" vertex="1" parent="1">
+          <mxGeometry x="250" y="100" width="800" height="700" as="geometry" />
+        </mxCell>
+        
+        <!-- User Actor -->
+        <mxCell id="actor1" value="User&#xa;(Creator)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#9C27B0;strokeColor=#6A1B9A;strokeWidth=3;fontColor=#FFFFFF;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="80" y="400" width="80" height="160" as="geometry" />
+        </mxCell>
+        
+        <!-- Group Member Actor -->
+        <mxCell id="actor2" value="Group&#xa;Member" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#AB47BC;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="400" width="60" height="120" as="geometry" />
+        </mxCell>
+        
+        <!-- Use Cases -->
+        <mxCell id="uc1" value="Create Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#9C27B0;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="320" y="150" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc2" value="Edit Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#AB47BC;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="530" y="150" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc3" value="Delete Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#AB47BC;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="740" y="150" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc4" value="Archive Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#AB47BC;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="320" y="270" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc5" value="Upload Group&#xa;Photo" style="ellipse;whiteSpace=wrap;html=1;fillColor=#BA68C8;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="530" y="270" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc6" value="Select Group&#xa;Icon" style="ellipse;whiteSpace=wrap;html=1;fillColor=#BA68C8;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="740" y="270" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc7" value="Add Members&#xa;to Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#AB47BC;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="320" y="390" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc8" value="Remove Member&#xa;from Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#AB47BC;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="530" y="390" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc9" value="Leave Group" style="ellipse;whiteSpace=wrap;html=1;fillColor=#AB47BC;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="740" y="390" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc10" value="View Groups List" style="ellipse;whiteSpace=wrap;html=1;fillColor=#BA68C8;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="320" y="510" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc11" value="View Group&#xa;Detail" style="ellipse;whiteSpace=wrap;html=1;fillColor=#BA68C8;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="530" y="510" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc12" value="View Group&#xa;Members" style="ellipse;whiteSpace=wrap;html=1;fillColor=#CE93D8;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="740" y="510" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="uc13" value="View Archived&#xa;Groups" style="ellipse;whiteSpace=wrap;html=1;fillColor=#BA68C8;strokeColor=#6A1B9A;strokeWidth=2;fontColor=#FFFFFF;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="430" y="640" width="160" height="80" as="geometry" />
+        </mxCell>
+        
+        <!-- User Associations -->
+        <mxCell id="edge1" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge2" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge3" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge4" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge5" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge6" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge7" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge8" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc10">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge9" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge10" value="" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#9C27B0;" edge="1" parent="1" source="actor1" target="uc13">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Include Relationships -->
+        <mxCell id="include1" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc1" target="uc5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="include2" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc1" target="uc6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="include3" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc2" target="uc5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="include4" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;dashed=1;html=1;strokeWidth=2;endFill=0;strokeColor=#666666;" edge="1" parent="1" source="uc11" target="uc12">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Group Member Associations -->
+        <mxCell id="edge20" value="gets added" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#AB47BC;dashed=1;" edge="1" parent="1" source="uc7" target="actor2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge21" value="sees group" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#AB47BC;dashed=1;" edge="1" parent="1" source="uc11" target="actor2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="edge22" value="can leave" style="endArrow=none;html=1;strokeWidth=2;strokeColor=#AB47BC;dashed=1;" edge="1" parent="1" source="uc9" target="actor2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        
+        <!-- Legend -->
+        <mxCell id="legendBox" value="Legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#424242;strokeWidth=2;fontSize=12;fontStyle=1;verticalAlign=top;align=center;" vertex="1" parent="1">
+          <mxGeometry x="80" y="620" width="140" height="100" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="legend1" value="Create" style="ellipse;whiteSpace=wrap;html=1;fillColor=#9C27B0;strokeColor=#6A1B9A;strokeWidth=1;fontColor=#FFFFFF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="90" y="655" width="55" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="legend2" value="Manage" style="ellipse;whiteSpace=wrap;html=1;fillColor=#AB47BC;strokeColor=#6A1B9A;strokeWidth=1;fontColor=#FFFFFF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="155" y="655" width="55" height="30" as="geometry" />
+        </mxCell>
+        
+        <mxCell id="legend3" value="View" style="ellipse;whiteSpace=wrap;html=1;fillColor=#BA68C8;strokeColor=#6A1B9A;strokeWidth=1;fontColor=#FFFFFF;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="90" y="690" width="55" height="30" as="geometry" />
+        </mxCell>
+        
+        <!-- Notes -->
+        <mxCell id="notes" value="📝 Notes:&#xa;• Only creator can delete group&#xa;• Members can add other members&#xa;• Archive preserves history&#xa;• Group photo max: 5MB&#xa;• Min 2 members per group" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF9C4;strokeColor=#F57F17;strokeWidth=2;fontSize=11;align=left;spacingLeft=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="80" y="120" width="140" height="160" as="geometry" />
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
