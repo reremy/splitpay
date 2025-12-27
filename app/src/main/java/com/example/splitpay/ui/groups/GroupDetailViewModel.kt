@@ -142,9 +142,19 @@ class GroupDetailViewModel(
             ) { group, expenses ->
                 _uiState.update { it.copy(isLoadingExpenses = true) }
 
+                val expensesToUse = if (groupId == "non_group") {
+                    expenses.filter { expense ->
+                        val isInPaidBy = expense.paidBy.any { it.uid == currentUserId }
+                        val isInParticipants = expense.participants.any { it.uid == currentUserId }
+                        isInPaidBy || isInParticipants
+                    }
+                } else {
+                    expenses
+                }
+
                 // 1. Calculate Balances FIRST to find out *who* is involved
                 val balances = mutableMapOf<String, Double>()
-                expenses.forEach { expense ->
+                expensesToUse.forEach { expense ->
                     expense.paidBy.forEach { payer ->
                         balances[payer.uid] = (balances[payer.uid] ?: 0.0) + payer.paidAmount
                     }
@@ -182,7 +192,7 @@ class GroupDetailViewModel(
                     } else {
                         // Calculate balance *between* currentUser and this member
                         var balanceWithMember = 0.0
-                        expenses.filter { exp ->
+                        expensesToUse.filter { exp ->
                             val involvedUids = (exp.paidBy.map { it.uid } + exp.participants.map { it.uid }).toSet()
                             involvedUids.contains(currentUserId) && involvedUids.contains(uid)
                         }.forEach { relevantExpense ->
@@ -223,10 +233,10 @@ class GroupDetailViewModel(
                 }
 
                 // 5. Calculate Totals
-                val totals = calculateTotals(expenses, balances, memberUidsToFetch.size)
+                val totals = calculateTotals(expensesToUse, balances, memberUidsToFetch.size)
 
                 // 6. Calculate Chart Data
-                val chartData = calculateChartData(expenses, membersMap)
+                val chartData = calculateChartData(expensesToUse, membersMap)
 
                 // Wrap calculated data
                 val calculatedData = CalculatedData(
@@ -238,7 +248,7 @@ class GroupDetailViewModel(
                 )
 
                 // Return pair of (group, expenses, calculatedData)
-                Pair(group, Pair(expenses, calculatedData))
+                Pair(group, Pair(expensesToUse, calculatedData))
             }.collectLatest { (groupFromFlow, expensesAndData) ->
                 val (expenses, calculatedData) = expensesAndData
                 _uiState.update {
