@@ -878,4 +878,26 @@ class UserRepository(
             Result.failure(e)
         }
     }
+
+    suspend fun updateFcmToken(token: String): Result<Unit> {
+        return try {
+            val currentUser = getCurrentUser() ?: run {
+                logE("Cannot update FCM token: User not signed in")
+                return Result.failure(Exception("User not signed in."))
+            }
+
+            logD("Updating FCM token for user: ${currentUser.uid}")
+
+            firestore.collection("users")
+                .document(currentUser.uid)
+                .update("fcmToken", token)
+                .await()
+
+            logI("FCM token updated successfully for user: ${currentUser.uid}")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            logE("Failed to update FCM token: ${e.message}")
+            Result.failure(e)
+        }
+    }
 }

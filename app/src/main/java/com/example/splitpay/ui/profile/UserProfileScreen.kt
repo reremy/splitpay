@@ -97,7 +97,7 @@ fun UserProfileScreen(
                 CircularProgressIndicator(color = PrimaryBlue)
             }
         } else if (currentError != null && !currentError.contains("Sign out", ignoreCase = true)) {            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Error: ${uiState.error}", color = Color.Red)
+                Text("Error: $currentError", color = Color.Red)
             }
         } else {
             Column(
@@ -371,8 +371,10 @@ fun UserProfileScreen(
             )
         }
 
+
+        val deleteError = uiState.deleteErrorMessage
         // Delete Account Error Dialog (if validation fails)
-        if (uiState.deleteErrorMessage != null) {
+        if (deleteError != null) {
             AlertDialog(
                 onDismissRequest = { viewModel.dismissDeleteError() },
                 title = {
@@ -383,7 +385,7 @@ fun UserProfileScreen(
                 },
                 text = {
                     Text(
-                        text = uiState.deleteErrorMessage,
+                        text = deleteError,
                         style = MaterialTheme.typography.bodyMedium
                     )
                 },

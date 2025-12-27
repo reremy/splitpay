@@ -1,5 +1,11 @@
 package com.example.splitpay.ui.home
 
+import android.Manifest
+import android.R.id.message
+import android.os.Build
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -43,6 +49,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.splitpay.logger.logE
+import com.example.splitpay.logger.logI
+import com.example.splitpay.logger.logW
 import com.example.splitpay.navigation.Screen
 import com.example.splitpay.ui.activity.ActivityScreen
 import com.example.splitpay.ui.friends.FriendsScreenContent
@@ -64,11 +72,39 @@ import kotlinx.coroutines.delay
 @Composable
 fun HomeScreen3(
     mainNavController: NavHostController,
-    viewModel: HomeViewModel = viewModel()
+    viewModel: HomeViewModel = viewModel(),
+    initialTab: String? = null
 ) {
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU){
+        val notificationPermissionLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.RequestPermission()){
+            isGranted ->
+            if (isGranted){
+                Log.i("HomeScreen","Notification permission granted")
+            } else {
+                Log.w("HomeScreen","Notification permission denied")
+            }
+        }
+
+        LaunchedEffect(Unit){
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
     val uiState by viewModel.uiState.collectAsState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     val homeNavController = rememberNavController()
+
+    LaunchedEffect(initialTab) {
+        if (initialTab == "activity") {
+            homeNavController.navigate("activity_screen") {
+                // Optional: Clear back stack to avoid back button confusion
+                popUpTo("groups_screen") {
+                    inclusive = false
+                }
+            }
+        }
+    }
 
     // Determine the current route for FAB/TopBar customization
     val navBackStackEntry by homeNavController.currentBackStackEntryAsState()

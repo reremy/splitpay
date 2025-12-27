@@ -16,6 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -50,6 +51,8 @@ import com.example.splitpay.ui.activityDetail.ActivityDetailScreen
 import com.example.splitpay.ui.profile.edit.EditProfileScreen
 import com.example.splitpay.ui.blockedUsers.BlockedUsersScreen
 import com.example.splitpay.ui.moreOptions.MoreOptionsScreen
+import com.example.splitpay.ui.receipt.ReceiptReviewScreen
+import com.example.splitpay.ui.receipt.ReceiptScannerScreen
 import kotlin.math.absoluteValue
 
 // Navigation.kt
@@ -578,6 +581,97 @@ fun Navigation(
         ) {
             BlockedUsersScreen(
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = Screen.ReceiptScannerRoute,
+            arguments = listOf(
+                navArgument("groupId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+
+            // Get parent NavBackStackEntry to share ViewModel
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(Screen.ReceiptScannerRoute.replace("{groupId}", groupId))
+            }
+
+            ReceiptScannerScreen(
+                groupId = groupId,
+                navController = navController,
+                onNavigateBack = { navController.popBackStack() },
+                viewModel = viewModel(parentEntry)
+            )
+        }
+
+        composable(
+            route = Screen.ReceiptScannerRoute,
+            arguments = listOf(
+                navArgument("groupId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            ReceiptScannerScreen(
+                groupId = groupId,
+                navController = navController,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = Screen.ReceiptReviewRoute,
+            arguments = listOf(
+                navArgument("groupId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+            ReceiptReviewScreen(
+                groupId = groupId,
+                navController = navController
+            )
+        }
+        composable(
+            route = Screen.ReceiptReviewRoute,
+            arguments = listOf(
+                navArgument("groupId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId") ?: ""
+
+            // Share ViewModel with scanner screen
+            val scannerRoute = "${Screen.ReceiptScanner}/$groupId"
+            val parentEntry = remember(backStackEntry) {
+                navController.getBackStackEntry(scannerRoute)
+            }
+
+            ReceiptReviewScreen(
+                groupId = groupId,
+                navController = navController,
+                viewModel = viewModel(parentEntry)
+            )
+        }
+        composable(
+            route = "${Screen.Home}?tab={tab}",
+            arguments = listOf(
+                navArgument("tab") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val initialTab = backStackEntry.arguments?.getString("tab")
+            HomeScreen3(
+                mainNavController = navController,
+                initialTab = initialTab
             )
         }
 

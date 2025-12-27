@@ -69,6 +69,23 @@ dependencies {
     // Image cropping
     implementation("com.vanniktech:android-image-cropper:4.5.0")
 
+    //ML Kit
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+
+    //Cam
+    implementation("androidx.camera:camera-camera2:1.3.1")
+    implementation("androidx.camera:camera-lifecycle:1.3.1")
+    implementation("androidx.camera:camera-view:1.3.1")
+
+    //accompanist
+    implementation(libs.accompanist.permissions)
+
+    //FCM
+    implementation("com.google.firebase:firebase-messaging:23.4.0")
+
+    //calling cloud functions
+    implementation("com.google.firebase:firebase-functions:20.4.0")
+
     implementation(libs.androidx.navigation.runtime.ktx)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -119,7 +119,6 @@ import java.util.Locale
 import kotlin.math.absoluteValue
 
 
-// Note: availableTagsMap is now defined in CreateGroupScreen.kt and imported from there
 
 // --- ViewModel Factory ---
 class GroupDetailViewModelFactory(
@@ -140,10 +139,9 @@ class GroupDetailViewModelFactory(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GroupDetailScreen(
-    groupId: String, // Keep receiving groupId
+    groupId: String,
     navController: NavHostController,
     onNavigateBack: () -> Unit,
-    // Provide default repository instances
     groupsRepository: GroupsRepository = GroupsRepository(),
     expenseRepository: ExpenseRepository = ExpenseRepository(),
     userRepository: UserRepository = UserRepository()
@@ -154,7 +152,7 @@ fun GroupDetailScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val group = uiState.group
-    // Use combined loading state or handle separately
+
     val isLoading = uiState.isLoadingGroup || uiState.isLoadingExpenses
 
     // --- State for Info Dialog ---
@@ -260,7 +258,7 @@ fun GroupDetailScreen(
                     }
                 },
                 actions = {
-                    // --- MODIFIED: Conditional Icon ---
+
                     if (groupId == "non_group") {
                         // Show Info icon for non-group
                         IconButton(onClick = { showInfoDialog.value = true }) { // Show dialog on click
@@ -570,6 +568,8 @@ fun GroupDetailContent(
                 // Format payer summary using ViewModel helper
                 val payerSummary = viewModel.formatPayerSummary(expense)
 
+                //val userNon_GroupParticipation = expense.participants.contains(currentUserId)
+
                 ExpenseActivityCard(
                     expense = expense,
                     payerSummary = payerSummary,
@@ -711,6 +711,15 @@ fun ActionButtonsRow(
             "Settle Up",
             { navController.navigate("${Screen.SettleUp}/$groupId") }
         )
+        if(groupId != "non_group"){
+            ActionButton(
+                "Scan",
+                {
+                    navController.navigate("${Screen.ReceiptScanner}/$groupId")
+                }
+            )
+        }
+
         ActionButton("Charts", { showChartsSheet.value = true })
         ActionButton("Balances", { showBalancesSheet.value = true })
         ActionButton("Total", { showTotalsSheet.value = true })

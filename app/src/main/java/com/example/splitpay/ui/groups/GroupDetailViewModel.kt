@@ -121,13 +121,13 @@ class GroupDetailViewModel(
             )}
 
         } else if (currentGroupId == groupId && dataCollectionJob?.isActive == true) {
-            return // Already collecting for this group
+            return
         } else {
             _uiState.update { it.copy(isLoadingGroup = true, isLoadingExpenses = true, error = null) }
         }
 
         currentGroupId = groupId
-        dataCollectionJob?.cancel() // Cancel previous job
+        dataCollectionJob?.cancel()
 
         dataCollectionJob = viewModelScope.launch {
             val groupSourceFlow = if (groupId == "non_group") {
@@ -140,10 +140,7 @@ class GroupDetailViewModel(
                 groupSourceFlow.filterNotNull(),
                 expenseRepository.getExpensesFlowForGroup(groupId)
             ) { group, expenses ->
-                _uiState.update { it.copy(isLoadingExpenses = true) } // Indicate recalculation
-
-                // --- START OF FIX (Reactivity Bug) ---
-                // The order of operations is changed here.
+                _uiState.update { it.copy(isLoadingExpenses = true) }
 
                 // 1. Calculate Balances FIRST to find out *who* is involved
                 val balances = mutableMapOf<String, Double>()
@@ -173,8 +170,6 @@ class GroupDetailViewModel(
                 } else {
                     emptyMap<String, User>()
                 }
-                // --- END OF FIX ---
-
 
                 // 4. Calculate Balances Breakdown
                 val breakdown = mutableListOf<MemberBalanceDetail>()

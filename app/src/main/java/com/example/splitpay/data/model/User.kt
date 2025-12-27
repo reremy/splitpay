@@ -32,5 +32,6 @@ data class User(
     val createdAt: Long = System.currentTimeMillis(),
     val friends: List<String> = emptyList(),
     val blockedUsers: List<String> = emptyList(),
-    val deletionScheduledAt: Long? = null
+    val deletionScheduledAt: Long? = null,
+    val fcmToken: String = ""
 )

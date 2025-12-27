@@ -15,6 +15,7 @@ navigationRuntimeKtx = "2.9.5"
 firebaseBom = "34.4.0"
 coroutinesPlayServices = "1.10.2"
 composeMaterialIconsExtended = "1.7.8"
+accompanistPermissions = "0.34.0"
 
 
 [libraries]
@@ -43,7 +44,7 @@ firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended-android", version.ref = "composeMaterialIconsExtended" }
-
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanistPermissions" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

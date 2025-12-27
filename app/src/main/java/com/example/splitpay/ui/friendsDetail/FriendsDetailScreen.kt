@@ -463,11 +463,12 @@ fun ActionButtonsRow(
     if (uiState.showReminderDialog) {
         ReminderDialog(
             friendName = uiState.friend?.username ?: "Friend",
+            isSending = uiState.isSendingReminder,
             onDismiss = { viewModel.dismissReminderDialog() },
             onSend = { message ->
                 // For now, just show a toast or dismiss
                 // In a real app, this would send a notification or message
-                viewModel.dismissReminderDialog()
+                viewModel.sendReminder(message)
             }
         )
     }
@@ -839,6 +840,75 @@ fun ReminderDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
+                Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+@Composable
+fun ReminderDialog(
+    friendName: String,
+    isSending: Boolean, // Add this parameter
+    onDismiss: () -> Unit,
+    onSend: (String) -> Unit
+) {
+    val reminderMessage = remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Send Reminder to $friendName", color = TextWhite) },
+        text = {
+            Column {
+                Text(
+                    "Send a friendly reminder to $friendName about outstanding balances.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp
+                )
+                Spacer(Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = reminderMessage.value,
+                    onValueChange = { reminderMessage.value = it },
+                    label = { Text("Message (optional)", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    placeholder = { Text("Add a personal message...", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isSending, // Disable while sending
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        focusedBorderColor = PrimaryBlue,
+                        unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    ),
+                    maxLines = 3
+                )
+
+                if (isSending) {
+                    Spacer(Modifier.height(8.dp))
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = PrimaryBlue
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    onSend(reminderMessage.value)
+                    onDismiss() // Close dialog after sending
+                },
+                enabled = !isSending, // Disable while sending
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
+            ) {
+                Text("Send", color = TextWhite)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSending
+            ) {
                 Text("Cancel", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },

@@ -55,4 +55,11 @@ object Screen {
     // --- Blocked Users ---
     const val BlockedUsers = "blocked_users"
 
+    // --- Receipt Scanner ---
+    const val ReceiptScanner = "receipt_scanner"
+    const val ReceiptScannerRoute = "$ReceiptScanner/{groupId}"
+
+    const val ReceiptReview = "receipt_review"
+    const val ReceiptReviewRoute = "$ReceiptReview/{groupId}"
+
 }

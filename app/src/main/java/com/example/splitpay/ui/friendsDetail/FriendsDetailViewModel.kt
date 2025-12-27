@@ -16,9 +16,13 @@ import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logD
 import com.example.splitpay.logger.logE
+import com.example.splitpay.logger.logI
 import com.example.splitpay.ui.theme.NegativeRed
 import com.example.splitpay.ui.theme.PositiveGreen
+import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.functions
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,6 +30,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import kotlin.math.absoluteValue
 import kotlin.math.roundToInt
 
@@ -43,8 +48,10 @@ data class FriendDetailUiState(
     // NEW: Aggregated activity cards
     val activityCards: List<ActivityCard> = emptyList(),
     val chartData: ChartData = ChartData(),
-    val showReminderDialog: Boolean = false
-)
+    val showReminderDialog: Boolean = false,
+    val isSendingReminder: Boolean = false,
+
+    )
 
 data class BalanceDetail(
     val groupName: String,
@@ -123,6 +130,8 @@ class FriendsDetailViewModel(
     private val activityRepository: ActivityRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private val functions: FirebaseFunctions = Firebase.functions
 
     private val _uiState = MutableStateFlow(FriendDetailUiState())
     val uiState: StateFlow<FriendDetailUiState> = _uiState.asStateFlow()
@@ -685,4 +694,50 @@ class FriendsDetailViewModel(
     fun dismissReminderDialog() {
         _uiState.update { it.copy(showReminderDialog = false) }
     }
+
+    fun sendReminder(customMessage: String = "") {
+        val friendId = _uiState.value.friend?.uid ?: run {
+            logE("Cannot send reminder: Friend not loaded")
+            //_uiEvent.tryEmit(FriendsDetailUiEvent.ShowSnackbar("Failed to send reminder"))
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                logI("Sending reminder to friend: $friendId")
+                _uiState.update { it.copy(isSendingReminder = true) }
+
+                // Call Cloud Function
+                val data = hashMapOf(
+                    "friendId" to friendId,
+                    "customMessage" to customMessage
+                )
+
+                val result = functions
+                    .getHttpsCallable("sendManualReminder")
+                    .call(data)
+                    .await()
+
+                val response = result.data as? Map<*, *>
+                val success = response?.get("success") as? Boolean ?: false
+
+                if (success) {
+                    logI("Reminder sent successfully to $friendId")
+                    //_uiEvent.emit(FriendsDetailUiEvent.ShowSnackbar("Reminder sent!"))
+                } else {
+                    val message = response?.get("message") as? String ?: "Failed to send reminder"
+                    logE("Reminder failed: $message")
+                    //_uiEvent.emit(FriendsDetailUiEvent.ShowSnackbar(message))
+                }
+
+            } catch (e: Exception) {
+                logE("Error sending reminder: ${e.message}")
+                //_uiEvent.emit(FriendsDetailUiEvent.ShowSnackbar("Failed to send reminder"))
+            } finally {
+                _uiState.update { it.copy(isSendingReminder = false) }
+            }
+        }
+    }
+
+
 }
