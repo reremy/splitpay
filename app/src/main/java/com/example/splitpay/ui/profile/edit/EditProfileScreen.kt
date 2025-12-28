@@ -1,5 +1,7 @@
 package com.example.splitpay.ui.profile.edit
 
+import android.app.Application
+import android.media.ApplicationMediaCapabilities
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
@@ -63,12 +65,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.splitpay.ui.common.UiEventHandler
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.PrimaryBlue
@@ -79,9 +83,17 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileScreen(
-    viewModel: EditProfileViewModel = viewModel(),
+    //viewModel: EditProfileViewModel = viewModel(),
     navController: NavHostController
 ) {
+
+    val context = LocalContext.current
+    val application = context.applicationContext as Application
+
+    val viewModel: EditProfileViewModel = viewModel(
+        factory = EditProfileViewModelFactory(application)
+    )
+
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
@@ -168,7 +180,12 @@ fun EditProfileScreen(
                         if (hasProfilePicture) {
                             // Show the selected or existing image
                             AsyncImage(
-                                model = uiState.profilePictureUri ?: uiState.profilePictureUrl,
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(uiState.profilePictureUri ?: uiState.profilePictureUrl)
+                                    .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                    .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                                    .crossfade(true)
+                                    .build(),
                                 contentDescription = "Profile Picture",
                                 modifier = Modifier
                                     .size(120.dp)
@@ -303,7 +320,12 @@ fun EditProfileScreen(
 
                             if (hasQrCode) {
                                 AsyncImage(
-                                    model = uiState.qrCodeUri ?: uiState.qrCodeUrl,
+                                    model = ImageRequest.Builder(LocalContext.current)
+                                        .data(uiState.qrCodeUri ?: uiState.qrCodeUrl)
+                                        .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                                        .diskCachePolicy(coil.request.CachePolicy.DISABLED)
+                                        .crossfade(true)
+                                        .build(),
                                     contentDescription = "QR Code",
                                     modifier = Modifier
                                         .fillMaxSize()

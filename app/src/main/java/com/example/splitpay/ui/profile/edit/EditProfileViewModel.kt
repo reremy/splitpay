@@ -1,13 +1,18 @@
 package com.example.splitpay.ui.profile.edit
 
+import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import coil.imageLoader
+import coil.memory.MemoryCache
 import com.example.splitpay.data.repository.FileStorageRepository
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.logger.logD
 import com.example.splitpay.logger.logE
 import com.example.splitpay.logger.logI
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,9 +20,12 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+
+
 class EditProfileViewModel(
     private val userRepository: UserRepository = UserRepository(),
-    private val fileStorageRepository: FileStorageRepository = FileStorageRepository()
+    private val fileStorageRepository: FileStorageRepository = FileStorageRepository(),
+    private val application: Application
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(EditProfileUiState())
@@ -253,12 +261,16 @@ class EditProfileViewModel(
                     logD("Uploading new profile picture")
                     _uiState.update { it.copy(isUploadingProfilePicture = true) }
 
+                    val oldProfilePictureUrl = state.profilePictureUrl
                     val uploadResult = fileStorageRepository.uploadProfilePicture(uid, state.profilePictureUri)
                     uploadResult.fold(
                         onSuccess = { url ->
                             logI("Profile picture uploaded successfully")
                             updates["profilePictureUrl"] = url
                             _uiState.update { it.copy(profilePictureUrl = url, isUploadingProfilePicture = false) }
+
+                            clearImageCache(oldProfilePictureUrl)
+                            logD("Cleared image cache for: ${oldProfilePictureUrl.take(50)}...")
                         },
                         onFailure = { e ->
                             logE("Failed to upload profile picture: ${e.message}", e)
@@ -282,12 +294,17 @@ class EditProfileViewModel(
                     logD("Uploading new QR code")
                     _uiState.update { it.copy(isUploadingQrCode = true) }
 
+                    val oldQrCodeUrl = state.qrCodeUrl
+
                     val uploadResult = fileStorageRepository.uploadQrCode(uid, state.qrCodeUri)
                     uploadResult.fold(
                         onSuccess = { url ->
                             logI("QR code uploaded successfully")
                             updates["qrCodeUrl"] = url
                             _uiState.update { it.copy(qrCodeUrl = url, isUploadingQrCode = false) }
+
+                            clearImageCache(oldQrCodeUrl)
+                            logD("Cleared image cache for: ${oldQrCodeUrl.take(50)}...")
                         },
                         onFailure = { e ->
                             logE("Failed to upload QR code: ${e.message}", e)
@@ -395,5 +412,39 @@ class EditProfileViewModel(
             logD("Navigating back from Edit Profile screen")
             _uiEvent.emit(EditProfileUiEvent.NavigateBack)
         }
+    }
+
+    private fun clearImageCache(url: String?) {
+        if (url.isNullOrEmpty()) return
+
+        try {
+            val imageLoader = application.imageLoader
+
+            // Clear memory cache
+            imageLoader.memoryCache?.remove(MemoryCache.Key(url))
+            logD("Cleared memory cache for: ${url.take(50)}...")
+
+            // Clear disk cache
+            viewModelScope.launch(Dispatchers.IO) {
+                imageLoader.diskCache?.remove(url)
+                logD("Cleared disk cache for: ${url.take(50)}...")
+            }
+        } catch (e: Exception) {
+            logE("Error clearing image cache: ${e.message}", e)
+        }
+    }
+}
+
+class EditProfileViewModelFactory(
+    private val application: Application
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(EditProfileViewModel::class.java)) {
+            return EditProfileViewModel(
+                application = application
+            ) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

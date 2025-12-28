@@ -42,6 +42,8 @@ class ProfileViewModel(
                 val userDoc = repository.getUserProfileCached(currentUser.uid)
                 if (userDoc != null) {
                     logI("Profile loaded successfully for: ${userDoc.username}")
+                    
+
                     _uiState.update {
                         it.copy(
                             fullName = userDoc.fullName,
@@ -211,5 +213,7 @@ class ProfileViewModel(
         logD("Delete error dialog dismissed")
         _uiState.update { it.copy(deleteErrorMessage = null) }
     }
+
+
 
 }
