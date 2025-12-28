@@ -335,6 +335,7 @@ class EditProfileViewModel(
                 updateResult.fold(
                     onSuccess = {
                         logI("Profile saved successfully")
+                        userRepository.invalidateProfileCache(uid)
                         _uiState.update {
                             it.copy(
                                 isSaving = false,
