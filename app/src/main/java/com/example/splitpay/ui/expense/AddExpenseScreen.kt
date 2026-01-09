@@ -1125,7 +1125,7 @@ fun SplitSummary(
 ) {
     val totalOwed = participants.sumOf { it.owesAmount }
     val totalInputValue = when (splitType) {
-        SplitType.PERCENTAGES, SplitType.SHARES, SplitType.UNEQUALLY, SplitType.ADJUSTMENTS ->
+        SplitType.PERCENTAGES, SplitType.SHARES, SplitType.UNEQUALLY ->
             participants.sumOf { it.splitValue.toDoubleOrNull() ?: 0.0 }
         else -> 0.0
     }

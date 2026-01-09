@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * - Rounding to cents (2 decimal places)
  * - Rounding error adjustments to ensure totals match exactly
  */
-class CalculateSplitUseCase {
+class   CalculateSplitUseCase {
 
     /**
      * Calculates how much each participant owes based on the selected split type.
@@ -60,7 +60,7 @@ class CalculateSplitUseCase {
             }
 
             // Exact Amounts: User manually specifies exact amount each person owes
-            SplitType.UNEQUALLY, SplitType.ADJUSTMENTS -> {
+            SplitType.UNEQUALLY -> {
                 participants.map { p ->
                     val owes = if (p.isChecked) roundToCents(p.splitValue.toDoubleOrNull() ?: 0.0) else 0.0
                     p.copy(owesAmount = owes)

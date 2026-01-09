@@ -1,0 +1,1061 @@
+package com.example.splitpay.ui.groups
+
+import android.net.Uri
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import com.example.splitpay.data.model.Group
+import com.example.splitpay.data.repository.ActivityRepository
+import com.example.splitpay.data.repository.FileStorageRepository
+import com.example.splitpay.data.repository.GroupsRepository
+import com.example.splitpay.data.repository.UserRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.mockito.Mock
+import org.mockito.junit.MockitoJUnitRunner
+import org.mockito.kotlin.*
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/**
+ * Unit Tests for CreateGroupViewModel - Group Creation State Management and Validation
+ *
+ * Test Class Purpose:
+ * This test class verifies the state management and validation logic for group creation
+ * in the CreateGroupViewModel. It focuses on ensuring the UI state updates correctly
+ * and the single validation rule (non-blank name) is properly enforced before attempting
+ * to create a group in Firestore.
+ *
+ * System Under Test:
+ * - CreateGroupViewModel.onGroupNameChange() - Updates group name state
+ * - CreateGroupViewModel.onIconSelected() - Updates icon selection state
+ * - CreateGroupViewModel.onPhotoSelected() - Updates photo URI state
+ * - CreateGroupViewModel.onCreateGroupClick() - Validates and triggers group creation
+ *
+ * Validation Rules Tested:
+ * 1. Group Name: Cannot be blank (empty or whitespace-only)
+ *    - Empty string "" is rejected
+ *    - Whitespace-only strings "   " are rejected (tests trim() behavior)
+ *    - Valid names clear any previous errors
+ *
+ * Note: The current implementation only validates blank names. There are no minimum
+ * or maximum length requirements implemented in the code, so length boundary tests
+ * are not applicable.
+ *
+ * Test Coverage Categories:
+ * - PRIORITY 1: State management (3 tests) - name, icon, photo updates
+ * - PRIORITY 2: Validation logic (3 tests) - blank name scenarios
+ * - PRIORITY 3: Integration flow (3 tests) - repository interaction
+ *
+ * Testing Approach:
+ * - Minimal test suite focusing on implemented functionality
+ * - All external dependencies (repositories) are mocked
+ * - Tests are independent and can run in any order
+ * - Extensive inline documentation for learning purposes
+ * - Clear AAA (Arrange-Act-Assert) structure in all tests
+ *
+ * Dependencies Mocked:
+ * - GroupsRepository - Handles group creation in Firestore
+ * - ActivityRepository - Logs group creation activities
+ * - UserRepository - Provides current user information
+ * - FileStorageRepository - Handles photo uploads to Firebase Storage
+ *
+ * Testing Framework:
+ * - JUnit 4 for test structure
+ * - Mockito for mocking dependencies
+ * - Kotlin Coroutines Test for async testing
+ * - InstantTaskExecutorRule for State/LiveData testing
+ *
+ * Total Tests: 9 (Minimal Suite)
+ * Test Suite Type: Minimal (Core functionality only)
+ * Code Coverage Target: 70-80%
+ *
+ * Author: SplitPay Development Team
+ * Course: Final Year Project
+ * Date: January 2026
+ * Last Modified: January 2026
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(MockitoJUnitRunner::class)
+class CreateGroupViewModelTest {
+
+    // ========== TEST RULES ==========
+
+    /**
+     * InstantTaskExecutorRule is REQUIRED for testing Compose State and LiveData.
+     *
+     * What it does:
+     * - Forces all State updates to happen synchronously on the same thread
+     * - Without this rule, State changes might not be visible in tests
+     * - This is necessary because State normally updates on the main thread,
+     *   but unit tests don't have a main thread
+     *
+     * When to use:
+     * - Always use when testing ViewModels with State or LiveData
+     * - Always use when testing Compose State
+     */
+    @get:Rule
+    val instantTaskExecutorRule = InstantTaskExecutorRule()
+
+    // ========== MOCKED DEPENDENCIES ==========
+
+    /**
+     * All repository dependencies are mocked using Mockito.
+     *
+     * Why mock?
+     * - Unit tests should test ONE thing (the ViewModel logic)
+     * - We don't want to test Firebase/Firestore in ViewModel tests
+     * - Mocks allow us to control what repositories return
+     * - Tests run faster without real network calls
+     *
+     * The @Mock annotation tells Mockito to create a fake implementation.
+     * MockitoJUnitRunner automatically initializes these in setup.
+     */
+
+    @Mock
+    private lateinit var mockGroupsRepository: GroupsRepository
+
+    @Mock
+    private lateinit var mockActivityRepository: ActivityRepository
+
+    @Mock
+    private lateinit var mockUserRepository: UserRepository
+
+    @Mock
+    private lateinit var mockFileStorageRepository: FileStorageRepository
+
+    // ========== SYSTEM UNDER TEST ==========
+
+    /**
+     * The ViewModel we're testing.
+     * Created fresh in setup() before each test to ensure test independence.
+     */
+    private lateinit var viewModel: CreateGroupViewModel
+
+    /**
+     * Test dispatcher for coroutines.
+     * Allows us to control when coroutines execute in tests.
+     */
+    private val testDispatcher = StandardTestDispatcher()
+
+    // ========== SETUP AND TEARDOWN ==========
+
+    /**
+     * Setup runs BEFORE each test.
+     *
+     * Purpose:
+     * - Initialize the ViewModel with mocked dependencies
+     * - Set up the test coroutine dispatcher
+     * - Ensure each test starts with a fresh, clean state
+     *
+     * Why before each test?
+     * - Tests should be independent
+     * - Each test gets its own ViewModel instance
+     * - No state bleeds between tests
+     */
+    @Before
+    fun setup() {
+        // Set the Main dispatcher for coroutines to our test dispatcher
+        // This is required because viewModelScope uses Dispatchers.Main
+        Dispatchers.setMain(testDispatcher)
+
+        // Create the ViewModel with all mocked dependencies
+        // Even though some tests don't use all dependencies, we inject them all
+        // to match the real production constructor
+        viewModel = CreateGroupViewModel(
+            repository = mockGroupsRepository,
+            activityRepository = mockActivityRepository,
+            userRepository = mockUserRepository,
+            fileStorageRepository = mockFileStorageRepository
+        )
+    }
+
+    /**
+     * Teardown runs AFTER each test.
+     *
+     * Purpose:
+     * - Clean up the test coroutine dispatcher
+     * - Reset the Main dispatcher to avoid affecting other tests
+     */
+    @After
+    fun teardown() {
+        Dispatchers.resetMain()
+    }
+
+    // ========== PRIORITY 1: STATE MANAGEMENT TESTS (3 tests) ==========
+    // These tests verify that UI state updates correctly when user interacts with the form
+
+    /**
+     * Test: Verify that onGroupNameChange() correctly updates the group name in UI state
+     *
+     * Purpose:
+     * This is the foundational test for CreateGroupViewModel. It verifies that the
+     * ViewModel correctly updates its internal state when the user types a group name.
+     * This is the EASIEST test because:
+     * 1. No validation logic involved (just state update)
+     * 2. No repository mocking needed
+     * 3. No coroutines involved
+     * 4. Direct state observation
+     * 5. No complex setup required
+     *
+     * This test ensures the basic data flow works: User Input → ViewModel → UI State
+     *
+     * Test Scenario:
+     * User is on the Create Group screen and types a group name into the text field.
+     * The ViewModel should immediately update its state to reflect this change so the
+     * UI can display the current input.
+     *
+     * Test Data:
+     * - Input: "My Test Group" - a simple, valid group name
+     * - Why this value? It's clear, readable, and represents typical user input
+     * - Expected Output: State should update with this exact name, error should be cleared
+     *
+     * Verification:
+     * - UI state's groupName field contains the input value
+     * - Error field is null (name change clears any previous errors)
+     * - Other fields remain unchanged (icon, photo, loading state)
+     *
+     * Related Requirements:
+     * - State management requirement: ViewModel must maintain current form state
+     * - User experience requirement: UI should reflect user input immediately
+     */
+    @Test
+    fun testOnGroupNameChange_ValidInput_UpdatesStateCorrectly() {
+        // ============================================
+        // ARRANGE (Setup test data and environment)
+        // ============================================
+
+        // Define our test input
+        // We use "My Test Group" because:
+        // 1. It's a realistic group name a user might enter
+        // 2. It contains spaces (tests that spaces are handled)
+        // 3. It's neither too short nor too long
+        // 4. It's easily recognizable in assertions (clear test intent)
+        val testGroupName = "My Test Group"
+
+        // ============================================
+        // ACT (Execute the function under test)
+        // ============================================
+
+        // Call the function we're testing
+        // This simulates the user typing a name in the UI
+        // In a real app, the Compose TextField would call this when onValueChange triggers
+        viewModel.onGroupNameChange(testGroupName)
+
+        // ============================================
+        // ASSERT (Verify the results)
+        // ============================================
+
+        // Verify the group name was updated in the UI state
+        // We access uiState.value to get the current state snapshot
+        // Expected: The groupName field should now contain our test input
+        assertEquals(
+            "Group name in UI state should match the input value",
+            testGroupName,
+            viewModel.uiState.value.groupName
+        )
+
+        // Verify that any previous error was cleared
+        // Why check this? The onGroupNameChange() function sets error = null
+        // This ensures that if there was a validation error before, it's cleared
+        // when the user starts typing a new name (good UX practice)
+        assertNull(
+            "Error should be cleared when user changes group name",
+            viewModel.uiState.value.error
+        )
+
+        // Verify other state fields weren't affected
+        // This ensures we didn't accidentally change unrelated state
+        assertEquals(
+            "Icon selection should remain at default",
+            "friends",
+            viewModel.uiState.value.selectedIcon
+        )
+
+        assertNull(
+            "Photo URI should remain null (not set yet)",
+            viewModel.uiState.value.selectedPhotoUri
+        )
+
+        assertFalse(
+            "Loading state should be false (not creating group yet)",
+            viewModel.uiState.value.isLoading
+        )
+
+        // Verify no repository methods were called
+        // This is a pure state update - no external dependencies should be touched
+        verifyNoInteractions(mockGroupsRepository)
+        verifyNoInteractions(mockActivityRepository)
+        verifyNoInteractions(mockUserRepository)
+        verifyNoInteractions(mockFileStorageRepository)
+    }
+
+    /**
+     * Test: Verify that onIconSelected() correctly updates the icon in UI state
+     *
+     * Purpose:
+     * Icon selection is a required part of group creation. This test ensures that
+     * when a user selects an icon from the available options, the ViewModel correctly
+     * stores this selection in its UI state.
+     *
+     * Test Scenario:
+     * User is on the Create Group screen and taps on a different icon (e.g., "travel")
+     * from the icon selection grid. The ViewModel should update to reflect this choice.
+     *
+     * Test Data:
+     * - Input: "travel" - represents a travel-themed icon
+     * - Why this value? Different from default "friends" to verify state actually changes
+     * - Expected Output: State's selectedIcon should be "travel"
+     *
+     * Verification:
+     * - UI state's selectedIcon field matches the input
+     * - Other state fields unchanged (name, photo, loading, error)
+     *
+     * Related Requirements:
+     * - Icon selection is part of group customization
+     * - Users should be able to choose from predefined icons
+     */
+    @Test
+    fun testOnIconSelected_ValidIcon_UpdatesStateCorrectly() {
+        // ============================================
+        // ARRANGE
+        // ============================================
+
+        // Choose a different icon from the default
+        // Default is "friends", we test with "travel" to verify change
+        val testIcon = "travel"
+
+        // ============================================
+        // ACT
+        // ============================================
+
+        // Simulate user selecting an icon
+        viewModel.onIconSelected(testIcon)
+
+        // ============================================
+        // ASSERT
+        // ============================================
+
+        // Verify icon was updated
+        assertEquals(
+            "Selected icon should be updated in UI state",
+            testIcon,
+            viewModel.uiState.value.selectedIcon
+        )
+
+        // Verify other state unchanged
+        assertEquals(
+            "Group name should remain empty (default state)",
+            "",
+            viewModel.uiState.value.groupName
+        )
+
+        assertNull(
+            "Photo URI should remain null",
+            viewModel.uiState.value.selectedPhotoUri
+        )
+
+        assertFalse(
+            "Loading should remain false",
+            viewModel.uiState.value.isLoading
+        )
+
+        assertNull(
+            "Error should remain null",
+            viewModel.uiState.value.error
+        )
+
+        // No repositories should be called for icon selection
+        verifyNoInteractions(mockGroupsRepository)
+        verifyNoInteractions(mockActivityRepository)
+        verifyNoInteractions(mockUserRepository)
+        verifyNoInteractions(mockFileStorageRepository)
+    }
+
+    /**
+     * Test: Verify that onPhotoSelected() correctly updates the photo URI in UI state
+     *
+     * Purpose:
+     * Photo upload is an OPTIONAL feature for group creation. This test ensures that
+     * when a user selects a photo from their device, the ViewModel stores the URI
+     * correctly so it can be uploaded later when the group is created.
+     *
+     * Test Scenario:
+     * User taps "Add Photo" button, selects a photo from their gallery, and the system
+     * returns a content URI. The ViewModel should store this URI for later use.
+     *
+     * Test Data:
+     * - Input: Mock Uri object (simulates Android's content:// URI)
+     * - Why mock? We can't create real Android Uri objects in unit tests
+     * - Expected Output: State's selectedPhotoUri should contain the mock URI
+     *
+     * Verification:
+     * - UI state's selectedPhotoUri field matches the input URI
+     * - Other state fields unchanged
+     *
+     * Related Requirements:
+     * - Photo upload is optional but should work when user provides it
+     * - URI should be stored until group creation is triggered
+     */
+    @Test
+    fun testOnPhotoSelected_ValidUri_UpdatesStateCorrectly() {
+        // ============================================
+        // ARRANGE
+        // ============================================
+
+        // Create a mock Uri
+        // We can't create real Android Uri objects in unit tests because Uri is
+        // an Android framework class. Mocking it is the standard approach.
+        val mockUri = mock<Uri>()
+
+        // ============================================
+        // ACT
+        // ============================================
+
+        // Simulate user selecting a photo
+        // In the real app, this would be called after user picks from gallery
+        viewModel.onPhotoSelected(mockUri)
+
+        // ============================================
+        // ASSERT
+        // ============================================
+
+        // Verify the URI was stored in state
+        assertEquals(
+            "Selected photo URI should be stored in UI state",
+            mockUri,
+            viewModel.uiState.value.selectedPhotoUri
+        )
+
+        // Verify other state unchanged
+        assertEquals(
+            "Group name should remain empty",
+            "",
+            viewModel.uiState.value.groupName
+        )
+
+        assertEquals(
+            "Icon should remain at default",
+            "friends",
+            viewModel.uiState.value.selectedIcon
+        )
+
+        assertFalse(
+            "Loading should remain false",
+            viewModel.uiState.value.isLoading
+        )
+
+        assertNull(
+            "Error should remain null",
+            viewModel.uiState.value.error
+        )
+
+        // No repositories called for photo selection
+        verifyNoInteractions(mockGroupsRepository)
+        verifyNoInteractions(mockActivityRepository)
+        verifyNoInteractions(mockUserRepository)
+        verifyNoInteractions(mockFileStorageRepository)
+    }
+
+    // ========== PRIORITY 2: VALIDATION LOGIC TESTS (3 tests) ==========
+    // These test the ONLY validation rule: name cannot be blank
+
+    /**
+     * Test: Verify that onCreateGroupClick() shows error when group name is empty
+     *
+     * Purpose:
+     * This tests the most basic validation requirement: groups cannot have empty names.
+     * The ViewModel should detect an empty name and show an appropriate error message
+     * instead of attempting to create the group in Firestore.
+     *
+     * Why is this important?
+     * - Prevents creating nameless groups that would be confusing to users
+     * - Saves network resources by not attempting invalid operations
+     * - Provides immediate feedback to guide user to fix the issue
+     *
+     * Test Scenario:
+     * User is on the Create Group screen, leaves the name field empty (default state),
+     * and taps the "Create Group" button. The app should show an error message instead
+     * of creating the group.
+     *
+     * Real-world scenario: User accidentally taps Create before entering a name.
+     *
+     * Test Data:
+     * - Input: "" (empty string - the default state)
+     * - Why empty string? This is what the ViewModel has by default before user types
+     * - Expected Output: Error message "Group name cannot be empty"
+     * - Expected Behavior: Repository should NOT be called
+     *
+     * Verification:
+     * - Error state contains appropriate message
+     * - Repository's createGroup() was never called
+     * - Loading state remains false (operation didn't start)
+     *
+     * Related Requirements:
+     * - Validation Rule: Group name cannot be blank
+     * - Code Location: CreateGroupViewModel.onCreateGroupClick() line: if (name.isBlank())
+     */
+    @Test
+    fun testOnCreateGroupClick_EmptyName_ShowsError() {
+        // ============================================
+        // ARRANGE
+        // ============================================
+
+        // Set up empty group name scenario
+        // Note: We don't need to call onGroupNameChange("")
+        // because the default state already has groupName = ""
+        // But let's be explicit for clarity:
+        val emptyName = ""
+        viewModel.onGroupNameChange(emptyName)
+
+        // Verify we're starting with empty name (sanity check)
+        assertEquals("", viewModel.uiState.value.groupName)
+
+        // ============================================
+        // ACT
+        // ============================================
+
+        // Attempt to create group with empty name
+        // The onCreateGroupClick() function should:
+        // 1. Call trim() on the name: "".trim() = ""
+        // 2. Check if blank: "".isBlank() = true
+        // 3. Set error and return early (don't call repository)
+        viewModel.onCreateGroupClick()
+
+        // ============================================
+        // ASSERT
+        // ============================================
+
+        // Verify appropriate error message is shown
+        // This error message should match what's in the ViewModel code
+        assertEquals(
+            "Error message should indicate name cannot be empty",
+            "Group name cannot be empty",
+            viewModel.uiState.value.error
+        )
+
+        // Verify repository was NOT called
+        // This is crucial - validation should prevent wasting network resources
+        // verifyNoInteractions checks that the mock was never touched
+        verifyNoInteractions(mockGroupsRepository)
+
+        // Also verify no other repositories were called
+        verifyNoInteractions(mockActivityRepository)
+        verifyNoInteractions(mockUserRepository)
+        verifyNoInteractions(mockFileStorageRepository)
+
+        // Verify loading state was not set
+        // Since validation failed immediately, we shouldn't enter loading state
+        assertFalse(
+            "Loading should not be set when validation fails",
+            viewModel.uiState.value.isLoading
+        )
+    }
+
+    /**
+     * Test: Verify that onCreateGroupClick() shows error for whitespace-only names
+     *
+     * Purpose:
+     * This tests the trim() behavior in the validation logic. A string containing
+     * only whitespace (spaces, tabs, newlines) looks like it has content to a user,
+     * but it's actually blank. The trim() function removes leading and trailing
+     * whitespace, revealing that there's no actual content.
+     *
+     * Why is this important?
+     * - Prevents users from "gaming" validation by entering spaces
+     * - Ensures groups have meaningful names, not just whitespace
+     * - Tests that trim() is being used correctly in validation
+     *
+     * Test Scenario:
+     * User types several spaces into the name field (perhaps by accident or trying
+     * to bypass validation) and taps Create. The app should detect this is actually
+     * blank and show the same error as an empty string.
+     *
+     * Real-world scenario: User accidentally holds spacebar or tries to create
+     * a group with just spaces.
+     *
+     * Test Data:
+     * - Input: "   " (3 spaces)
+     * - Why 3 spaces? Clearly not empty, but becomes empty after trim()
+     * - Processing: "   ".trim() = ""
+     * - Then: "".isBlank() = true
+     * - Expected Output: Same error as empty string
+     *
+     * Verification:
+     * - Error message is "Group name cannot be empty"
+     * - Repository was never called
+     * - This confirms trim() is working correctly in validation
+     *
+     * Related Requirements:
+     * - Validation Rule: Group name is trimmed before checking if blank
+     * - Code Location: val name = _uiState.value.groupName.trim()
+     */
+    @Test
+    fun testOnCreateGroupClick_WhitespaceOnlyName_ShowsError() {
+        // ============================================
+        // ARRANGE
+        // ============================================
+
+        // Create a string with only whitespace
+        // This looks like it has content (to a user), but trim() will reveal it's empty
+        val whitespaceOnlyName = "   "  // 3 spaces
+
+        // Set this as the group name
+        viewModel.onGroupNameChange(whitespaceOnlyName)
+
+        // Verify state was updated (sanity check)
+        assertEquals(whitespaceOnlyName, viewModel.uiState.value.groupName)
+
+        // ============================================
+        // ACT
+        // ============================================
+
+        // Attempt to create group with whitespace-only name
+        // Inside onCreateGroupClick(), this happens:
+        // val name = "   ".trim()  // name becomes ""
+        // if ("".isBlank()) { ... } // condition is true
+        viewModel.onCreateGroupClick()
+
+        // ============================================
+        // ASSERT
+        // ============================================
+
+        // Verify same error as empty string
+        // Whitespace-only should be treated identically to empty
+        assertEquals(
+            "Whitespace-only names should show the same error as empty names",
+            "Group name cannot be empty",
+            viewModel.uiState.value.error
+        )
+
+        // Verify validation prevented repository call
+        // This proves trim() is working - if trim() wasn't called,
+        // "   " would not be considered blank and might pass validation
+        verifyNoInteractions(mockGroupsRepository)
+        verifyNoInteractions(mockActivityRepository)
+        verifyNoInteractions(mockUserRepository)
+        verifyNoInteractions(mockFileStorageRepository)
+
+        // Verify loading state not set
+        assertFalse(
+            "Loading should not be set when validation fails",
+            viewModel.uiState.value.isLoading
+        )
+    }
+
+    /**
+     * Test: Verify that typing a valid name clears any previous error
+     *
+     * Purpose:
+     * User experience is important. If a user sees a validation error (e.g., "name
+     * cannot be empty"), and then starts typing a valid name, the error should
+     * disappear immediately. This provides good feedback that they're fixing the issue.
+     *
+     * Why is this important?
+     * - Good UX: Error disappears as soon as user fixes the problem
+     * - Immediate feedback: User knows they're on the right track
+     * - Tests the error = null behavior in onGroupNameChange()
+     *
+     * Test Scenario:
+     * 1. User tries to create group without name → error appears
+     * 2. User starts typing a valid name → error should disappear
+     *
+     * Real-world scenario: User makes a mistake, sees error, corrects it, and the
+     * error message clears as they type.
+     *
+     * Test Data:
+     * - Initial state: Empty name, which will cause error
+     * - After error: Type "Valid Group Name"
+     * - Expected: Error should be null
+     *
+     * Verification:
+     * - After onCreate with empty name: error is set
+     * - After typing valid name: error is null
+     * - This confirms the error clearing logic works
+     *
+     * Related Requirements:
+     * - UX Requirement: Provide immediate feedback on input
+     * - Code Location: onGroupNameChange sets error = null
+     */
+    @Test
+    fun testOnGroupNameChange_ValidName_ClearsError() {
+        // ============================================
+        // ARRANGE
+        // ============================================
+
+        // Step 1: Create an error state by trying to create with empty name
+        viewModel.onGroupNameChange("") // Ensure empty
+        viewModel.onCreateGroupClick() // This will set error
+
+        // Verify error was set (this is our starting condition)
+        assertEquals(
+            "Error should be set after attempting to create with empty name",
+            "Group name cannot be empty",
+            viewModel.uiState.value.error
+        )
+
+        // Now we have an error state to work with
+
+        // ============================================
+        // ACT
+        // ============================================
+
+        // Step 2: User types a valid name
+        // This should clear the error to provide immediate feedback
+        val validName = "Valid Group Name"
+        viewModel.onGroupNameChange(validName)
+
+        // ============================================
+        // ASSERT
+        // ============================================
+
+        // Verify error was cleared
+        // The onGroupNameChange() function sets error = null
+        // This gives user immediate feedback that they're fixing the issue
+        assertNull(
+            "Error should be cleared when user types a valid name",
+            viewModel.uiState.value.error
+        )
+
+        // Verify name was updated correctly
+        assertEquals(
+            "Group name should be updated in state",
+            validName,
+            viewModel.uiState.value.groupName
+        )
+
+        // No repository calls should have happened
+        // We only triggered validation (which failed) and then changed name
+        verifyNoInteractions(mockGroupsRepository)
+    }
+
+    // ========== PRIORITY 3: INTEGRATION FLOW TESTS (3 tests) ==========
+    // These test the complete flow including repository interaction
+
+    /**
+     * Test: Verify that onCreateGroupClick() calls repository with valid data
+     *
+     * Purpose:
+     * This is an integration test that verifies the complete "happy path" flow:
+     * valid input → validation passes → repository is called with correct parameters.
+     * This is the MAIN functionality of the ViewModel - actually creating a group.
+     *
+     * Why is this important?
+     * - Tests the primary use case: user successfully creates a group
+     * - Verifies repository is called with correct parameters
+     * - Ensures async flow (coroutines) works correctly
+     * - Tests that success leads to proper event emission
+     *
+     * Test Scenario:
+     * User fills in all required fields (name, icon) with valid data and taps
+     * "Create Group". The ViewModel should:
+     * 1. Validate the input (should pass)
+     * 2. Set loading state
+     * 3. Call repository.createGroup() with correct parameters
+     * 4. Handle the success result
+     *
+     * Test Data:
+     * - Group name: "Test Group" (valid, not blank)
+     * - Icon: "friends" (default, but valid)
+     * - Photo: null (optional, not provided)
+     * - Expected repository call: createGroup("Test Group", "friends", "")
+     *
+     * Verification:
+     * - Repository's createGroup was called exactly once
+     * - Called with correct parameters (name, icon, empty photo URL)
+     * - Loading state was set during operation
+     *
+     * Related Requirements:
+     * - Primary Use Case: Create group successfully
+     * - Repository Integration: ViewModel must call repository correctly
+     */
+    @Test
+    fun testOnCreateGroupClick_ValidName_CallsRepository() = runTest {
+        // ============================================
+        // ARRANGE
+        // ============================================
+
+        // Prepare valid test data
+        val validName = "Test Group"
+        val defaultIcon = "friends"
+
+        // Set up the valid name in ViewModel state
+        viewModel.onGroupNameChange(validName)
+        // Icon is already "friends" by default, but we could set it explicitly:
+        // viewModel.onIconSelected(defaultIcon)
+
+        // Mock successful repository response
+        // We need to define what the repository should return when called
+        val mockGroup = Group(
+            id = "test_group_123",
+            name = validName,
+            createdByUid = "test_user_id",
+            members = listOf("test_user_id"),
+            icon = defaultIcon,
+            photoUrl = "",
+            createdAt = System.currentTimeMillis()
+        )
+
+        // Configure the mock to return success
+        // whenever() is from Mockito - it says "when this method is called, return this"
+        whenever(mockGroupsRepository.createGroup(any(), any(), any()))
+            .thenReturn(Result.success(mockGroup))
+
+        // ============================================
+        // ACT
+        // ============================================
+
+        // Trigger group creation
+        // This launches a coroutine inside the ViewModel
+        viewModel.onCreateGroupClick()
+
+        // IMPORTANT: Wait for all coroutines to complete
+        // advanceUntilIdle() processes all pending coroutines
+        // Without this, the repository call might not have happened yet
+        advanceUntilIdle()
+
+        // ============================================
+        // ASSERT
+        // ============================================
+
+        // Verify repository was called with correct parameters
+        // verify() is from Mockito - it checks the mock was called
+        // times(1) ensures it was called exactly once
+        verify(mockGroupsRepository, times(1)).createGroup(
+            eq(validName),    // Name should match what we entered
+            eq(defaultIcon),  // Icon should be the default
+            eq("")            // Photo URL should be empty (no photo selected)
+        )
+
+        // Verify loading state was set to false after completion
+        // The ViewModel sets loading = false in the finally block
+        assertFalse(
+            "Loading should be false after operation completes",
+            viewModel.uiState.value.isLoading
+        )
+
+        // Verify no error was set (success case)
+        assertNull(
+            "Error should be null on successful creation",
+            viewModel.uiState.value.error
+        )
+    }
+
+    /**
+     * Test: Verify that onCreateGroupClick() does not call repository with blank name
+     *
+     * Purpose:
+     * This is a "negative test" that verifies validation actually prevents invalid
+     * operations. Even if someone tries to create a group with blank name, the
+     * repository should never be called because validation catches it first.
+     *
+     * Why is this important?
+     * - Confirms validation is a "gate" that blocks invalid operations
+     * - Prevents wasting network resources on invalid requests
+     * - Ensures database integrity (no blank names in Firestore)
+     * - Tests the early return behavior in validation
+     *
+     * Test Scenario:
+     * User leaves name blank and taps Create. Validation should:
+     * 1. Detect blank name
+     * 2. Set error message
+     * 3. Return early (never reach repository call)
+     *
+     * Test Data:
+     * - Group name: "" (empty/blank)
+     * - Expected: Repository never called
+     *
+     * Verification:
+     * - Error message is set
+     * - Repository createGroup was NEVER called
+     * - Loading state never set (operation never started)
+     *
+     * Related Requirements:
+     * - Validation should prevent invalid operations
+     * - Early return pattern in validation
+     */
+    @Test
+    fun testOnCreateGroupClick_BlankName_DoesNotCallRepository() {
+        // ============================================
+        // ARRANGE
+        // ============================================
+
+        // Ensure name is blank (it's blank by default, but let's be explicit)
+        viewModel.onGroupNameChange("")
+
+        // Verify starting state
+        assertEquals("", viewModel.uiState.value.groupName)
+
+        // ============================================
+        // ACT
+        // ============================================
+
+        // Attempt to create group with blank name
+        // Validation should catch this and return early
+        viewModel.onCreateGroupClick()
+
+        // ============================================
+        // ASSERT
+        // ============================================
+
+        // Verify error was set
+        assertEquals(
+            "Error should be set for blank name",
+            "Group name cannot be empty",
+            viewModel.uiState.value.error
+        )
+
+        // CRITICAL: Verify repository was NEVER called
+        // This proves validation is working as a gate
+        // verifyNoInteractions() checks the mock was never touched at all
+        verifyNoInteractions(mockGroupsRepository)
+
+        // Also verify other repositories not called
+        verifyNoInteractions(mockActivityRepository)
+        verifyNoInteractions(mockUserRepository)
+        verifyNoInteractions(mockFileStorageRepository)
+
+        // Verify loading was never set
+        // Since validation failed immediately, we never enter loading state
+        assertFalse(
+            "Loading should not be set when validation fails",
+            viewModel.uiState.value.isLoading
+        )
+    }
+
+    /**
+     * Test: Verify that onCreateGroupClick() manages loading state correctly
+     *
+     * Purpose:
+     * Loading state is important for UX - it tells the UI to show a progress indicator
+     * while the async operation (group creation) is in progress. This test verifies
+     * that loading state is properly managed: set to true when starting, set to false
+     * when complete.
+     *
+     * Why is this important?
+     * - Good UX: User sees feedback that operation is in progress
+     * - Prevents double-submission: UI can disable button while loading
+     * - Tests async state management in coroutines
+     *
+     * Test Scenario:
+     * User enters valid data and taps Create. The ViewModel should:
+     * 1. Set loading = true immediately
+     * 2. Call repository
+     * 3. Set loading = false when complete (success or failure)
+     *
+     * Test Data:
+     * - Valid group name
+     * - Mock successful repository response
+     * - Monitor loading state changes
+     *
+     * Verification:
+     * - Loading starts as false
+     * - Loading becomes true during operation
+     * - Loading returns to false after completion
+     *
+     * Related Requirements:
+     * - UX Requirement: Show loading indicator during async operations
+     * - State Management: Properly manage loading state
+     */
+    @Test
+    fun testOnCreateGroupClick_ValidName_SetsLoadingState() = runTest {
+        // ============================================
+        // ARRANGE
+        // ============================================
+
+        // Set up valid input
+        val validName = "Test Group"
+        viewModel.onGroupNameChange(validName)
+
+        // Mock successful repository response
+        val mockGroup = Group(
+            id = "test_group_123",
+            name = validName,
+            createdByUid = "test_user",
+            members = listOf("test_user"),
+            icon = "friends",
+            photoUrl = "",
+            createdAt = System.currentTimeMillis()
+        )
+
+        whenever(mockGroupsRepository.createGroup(any(), any(), any()))
+            .thenReturn(Result.success(mockGroup))
+
+        // Verify initial loading state is false
+        assertFalse(
+            "Loading should be false initially",
+            viewModel.uiState.value.isLoading
+        )
+
+        // ============================================
+        // ACT
+        // ============================================
+
+        // Trigger group creation
+        viewModel.onCreateGroupClick()
+
+        // Note: We can't easily check loading state during operation in this test
+        // because advanceUntilIdle() completes everything immediately
+        // In a real app, loading would be true during the network call
+
+        // Complete all coroutines
+        advanceUntilIdle()
+
+        // ============================================
+        // ASSERT
+        // ============================================
+
+        // Verify loading is set back to false after operation
+        // The ViewModel should always reset loading state when done
+        assertFalse(
+            "Loading should be false after operation completes",
+            viewModel.uiState.value.isLoading
+        )
+
+        // Verify operation completed successfully
+        assertNull(
+            "No error should be present after successful creation",
+            viewModel.uiState.value.error
+        )
+
+        // Verify repository was called (operation actually ran)
+        verify(mockGroupsRepository, times(1)).createGroup(any(), any(), any())
+    }
+
+    // ========== HELPER METHODS (Optional) ==========
+
+    /**
+     * Helper function to create a mock Group for testing.
+     *
+     * This is optional - we could inline this in tests, but having a helper
+     * makes tests more readable and reduces duplication.
+     *
+     * @param name The group name (default: "Test Group")
+     * @param icon The icon identifier (default: "friends")
+     * @return A mock Group object with test data
+     */
+    private fun createMockGroup(
+        name: String = "Test Group",
+        icon: String = "friends"
+    ): Group {
+        return Group(
+            id = "test_group_${System.currentTimeMillis()}",
+            name = name,
+            createdByUid = "test_user_id",
+            members = listOf("test_user_id"),
+            icon = icon,
+            photoUrl = "",
+            createdAt = System.currentTimeMillis()
+        )
+    }
+}

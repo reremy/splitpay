@@ -6,5 +6,5 @@ enum class SplitType(val label: String) {
     UNEQUALLY("Unequally (by amount)"),
     PERCENTAGES("By Percentages"),
     SHARES("By Shares"),
-    ADJUSTMENTS("By Adjustments")
+    //ADJUSTMENTS("By Adjustments")
 }

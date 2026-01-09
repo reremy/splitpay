@@ -382,7 +382,7 @@ class AddExpenseViewModel(
                                 SplitType.PERCENTAGES -> expenseParticipant.initialSplitValue.toString()
                                 SplitType.SHARES -> expenseParticipant.initialSplitValue.toString()
                                 SplitType.UNEQUALLY -> expenseParticipant.owesAmount.toString()
-                                SplitType.ADJUSTMENTS -> expenseParticipant.owesAmount.toString()
+                                //SplitType.ADJUSTMENTS -> expenseParticipant.owesAmount.toString()
                             },
                             owesAmount = expenseParticipant.owesAmount
                         )
@@ -759,7 +759,7 @@ class AddExpenseViewModel(
                     SplitType.EQUALLY -> "0.00"
                     SplitType.PERCENTAGES -> "%.2f".format(100.0 / activeCount)
                     SplitType.SHARES -> "1.0"
-                    SplitType.UNEQUALLY, SplitType.ADJUSTMENTS -> "0.00"
+                    SplitType.UNEQUALLY -> "0.00"
                 }
                 p.copy(splitValue = defaultValue)
             }

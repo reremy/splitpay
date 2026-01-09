@@ -99,10 +99,14 @@ class UserRepository(
         email: String,
         phoneNumber: String,
         password: String,
-        ): Result<Unit> {
+    ): Result<Unit> {
         return try {
             logI("Starting sign-up process for user: $email")
             logD("Sign-up details - Username: $username, Phone: ${phoneNumber.take(3)}***")
+
+            // ✅ ADD: Log instances being used
+            logD("🔍 Auth instance: $auth")
+            logD("🔍 Firestore instance: $firestore")
 
             // Create Firebase Auth account
             val authResult = auth.createUserWithEmailAndPassword(email, password).await()
@@ -113,7 +117,7 @@ class UserRepository(
 
             logI("Firebase Auth account created successfully - UID: ${user.uid}")
 
-            // Set the Firebase User's display name using the fullName
+            // Set display name
             val profileUpdates = UserProfileChangeRequest.Builder()
                 .setDisplayName(fullName)
                 .build()
@@ -129,17 +133,47 @@ class UserRepository(
                 phoneNumber = phoneNumber
             )
 
-            // Store in Firestore
-            logD("Saving user profile to Firestore for UID: ${user.uid}")
-            firestore.collection("users")
-                .document(user.uid)
-                .set(userData)
-                .await()
+            // ✅ ADD: Detailed Firestore logging
+            logD("🔍 User data object created: $userData")
+            logD("🔍 About to write to Firestore collection 'users', document: ${user.uid}")
+
+            try {
+                firestore.collection("users")
+                    .document(user.uid)
+                    .set(userData)
+                    .await()
+
+                logI("✅ Firestore write completed successfully!")
+
+                // ✅ ADD: Immediately verify the write
+                logD("🔍 Verifying write by reading back...")
+                val verifyDoc = firestore.collection("users")
+                    .document(user.uid)
+                    .get()
+                    .await()
+
+                logD("🔍 Verification - Document exists: ${verifyDoc.exists()}")
+                logD("🔍 Verification - Document data: ${verifyDoc.data}")
+
+                if (!verifyDoc.exists()) {
+                    logE("❌ CRITICAL: Document write succeeded but immediate read shows it doesn't exist!")
+                    return Result.failure(Exception("Firestore write verification failed"))
+                }
+
+            } catch (firestoreException: Exception) {
+                logE("❌ Firestore operation failed!")
+                logE("   Type: ${firestoreException.javaClass.simpleName}")
+                logE("   Message: ${firestoreException.message}")
+                firestoreException.printStackTrace()
+                throw firestoreException
+            }
 
             logI("User profile saved to Firestore successfully - Sign-up complete for: $email")
             Result.success(Unit)
-        } catch (e: Exception){
+
+        } catch (e: Exception) {
             logE("Sign-up failed for $email: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }

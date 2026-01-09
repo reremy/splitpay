@@ -1,0 +1,419 @@
+package com.example.splitpay.viewmodel
+
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.lifecycle.SavedStateHandle
+import app.cash.turbine.test
+import com.example.splitpay.data.model.*
+import com.example.splitpay.data.repository.*
+import com.example.splitpay.ui.expense.AddExpenseUiEvent
+import com.example.splitpay.ui.expense.AddExpenseViewModel
+import com.google.firebase.auth.FirebaseUser
+import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertTrue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.*
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.mockito.Mock
+import org.mockito.junit.MockitoJUnitRunner
+import org.mockito.kotlin.*
+
+/**
+ * Unit Tests for AddExpenseViewModel - Expense Creation Validation
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(MockitoJUnitRunner::class)
+class AddExpenseViewModelTest {
+
+    @get:Rule
+    val instantTaskExecutorRule = InstantTaskExecutorRule()
+
+    private val testDispatcher = StandardTestDispatcher()
+
+    @Mock
+    private lateinit var mockUserRepository: UserRepository
+
+    @Mock
+    private lateinit var mockExpenseRepository: ExpenseRepository
+
+    @Mock
+    private lateinit var mockGroupsRepository: GroupsRepository
+
+    @Mock
+    private lateinit var mockFileStorageRepository: FileStorageRepository
+
+    @Mock
+    private lateinit var mockActivityRepository: ActivityRepository
+
+    @Mock
+    private lateinit var mockSavedStateHandle: SavedStateHandle
+
+    private lateinit var viewModel: AddExpenseViewModel
+    private lateinit var testFirebaseUser: FirebaseUser
+    private lateinit var testUserProfile: User
+
+    @Before
+    fun setup() {
+        Dispatchers.setMain(testDispatcher)
+
+        setupTestUserData()
+        setupAllMocks()
+
+        viewModel = AddExpenseViewModel(
+            userRepository = mockUserRepository,
+            expenseRepository = mockExpenseRepository,
+            groupsRepository = mockGroupsRepository,
+            fileStorageRepository = mockFileStorageRepository,
+            activityRepository = mockActivityRepository,
+            savedStateHandle = mockSavedStateHandle
+        )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    private fun setupTestUserData() {
+        testFirebaseUser = mock {
+            on { uid } doReturn "test_user_123"
+            on { email } doReturn "testuser@example.com"
+        }
+
+        testUserProfile = User(
+            uid = "test_user_123",
+            username = "TestUser",
+            fullName = "Test User",
+            email = "testuser@example.com"
+        )
+    }
+
+    private fun setupAllMocks() {
+        // UserRepository mocks
+        whenever(mockUserRepository.getCurrentUser()).thenReturn(testFirebaseUser)
+
+        // Mock suspend functions using runBlocking
+        runBlocking {
+            whenever(mockUserRepository.getUserProfile(any())).thenReturn(testUserProfile)
+            whenever(mockUserRepository.getCurrentUserFriendIds()).thenReturn(emptyList())
+            whenever(mockUserRepository.getProfilesForFriends(any())).thenReturn(emptyList())
+            whenever(mockActivityRepository.logActivity(any())).thenReturn(Result.success(Unit))
+            whenever(mockFileStorageRepository.uploadExpenseImage(any(), any()))
+                .thenReturn(Result.success("https://example.com/image.jpg"))
+        }
+
+        // SavedStateHandle mocks
+        whenever(mockSavedStateHandle.get<String>("expenseId")).thenReturn(null)
+        whenever(mockSavedStateHandle.get<String>("groupId")).thenReturn(null)
+
+        // GroupsRepository mocks
+        whenever(mockGroupsRepository.getGroups()).thenReturn(flowOf(emptyList()))
+        whenever(mockGroupsRepository.getGroupFlow(any())).thenReturn(flowOf(null))
+
+        // ExpenseRepository mocks
+        whenever(mockExpenseRepository.generateExpenseId()).thenReturn("test_id")
+    }
+
+    // ========== TESTS ==========
+
+    @Test
+    fun testDescriptionValidation_EmptyDescription_FailsValidation() = runTest {
+        viewModel.onDescriptionChange("")
+        viewModel.onAmountChange("100.00")
+        viewModel.onParticipantCheckedChange("test_user_123", true)
+
+        val validPayer = Payer(
+            uid = "test_user_123",
+            name = "TestUser",
+            amount = "100.00",
+            isChecked = true
+        )
+        viewModel.onPayerSelectionChanged(listOf(validPayer))
+
+        advanceUntilIdle()
+
+        viewModel.onSaveExpenseClick()
+        advanceUntilIdle()
+
+        viewModel.uiEvent.test {
+            val event = awaitItem()
+
+            assertTrue(
+                "Expected ShowErrorDialog for empty description, got: ${event::class.simpleName}",
+                event is AddExpenseUiEvent.ShowErrorDialog
+            )
+
+            val errorEvent = event as AddExpenseUiEvent.ShowErrorDialog
+            assertEquals("Invalid Expense", errorEvent.title)
+
+            assertTrue(
+                "Error message should mention 'description'. Actual: '${errorEvent.message}'",
+                errorEvent.message.contains("description", ignoreCase = true)
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(mockExpenseRepository, never()).addExpense(any())
+    }
+
+    @Test
+    fun testAmountValidation_EmptyAmount_FailsValidation() = runTest {
+        viewModel.onDescriptionChange("Test Expense")
+        viewModel.onAmountChange("")
+        viewModel.onParticipantCheckedChange("test_user_123", true)
+
+        val payer = Payer(
+            uid = "test_user_123",
+            name = "TestUser",
+            amount = "0.00",
+            isChecked = true
+        )
+        viewModel.onPayerSelectionChanged(listOf(payer))
+
+        advanceUntilIdle()
+
+        viewModel.onSaveExpenseClick()
+        advanceUntilIdle()
+
+        viewModel.uiEvent.test {
+            val event = awaitItem()
+
+            assertTrue(
+                "Expected error dialog for empty amount",
+                event is AddExpenseUiEvent.ShowErrorDialog
+            )
+
+            val errorEvent = event as AddExpenseUiEvent.ShowErrorDialog
+            assertEquals("Invalid Expense", errorEvent.title)
+
+            assertTrue(
+                "Error should indicate amount must be greater than zero",
+                errorEvent.message.contains("greater than zero", ignoreCase = true)
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(mockExpenseRepository, never()).addExpense(any())
+    }
+
+    @Test
+    fun testAmountValidation_ZeroAmount_FailsValidation() = runTest {
+        viewModel.onDescriptionChange("Test Expense")
+        viewModel.onAmountChange("0.00")
+        viewModel.onParticipantCheckedChange("test_user_123", true)
+
+        val payer = Payer(
+            uid = "test_user_123",
+            name = "TestUser",
+            amount = "0.00",
+            isChecked = true
+        )
+        viewModel.onPayerSelectionChanged(listOf(payer))
+
+        advanceUntilIdle()
+
+        viewModel.onSaveExpenseClick()
+        advanceUntilIdle()
+
+        viewModel.uiEvent.test {
+            val event = awaitItem()
+
+            assertTrue(
+                "Expected error dialog for zero amount",
+                event is AddExpenseUiEvent.ShowErrorDialog
+            )
+
+            val errorEvent = event as AddExpenseUiEvent.ShowErrorDialog
+            assertEquals("Invalid Expense", errorEvent.title)
+
+            assertTrue(
+                "Error should indicate amount must be greater than zero",
+                errorEvent.message.contains("greater than zero", ignoreCase = true)
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(mockExpenseRepository, never()).addExpense(any())
+    }
+
+    @Test
+    fun testParticipantValidation_NoParticipantsChecked_FailsValidation() = runTest {
+        viewModel.onDescriptionChange("Test Expense")
+        viewModel.onAmountChange("100.00")
+        viewModel.onParticipantCheckedChange("test_user_123", false)
+
+        val payer = Payer(
+            uid = "test_user_123",
+            name = "TestUser",
+            amount = "100.00",
+            isChecked = true
+        )
+        viewModel.onPayerSelectionChanged(listOf(payer))
+
+        advanceUntilIdle()
+
+        viewModel.onSaveExpenseClick()
+        advanceUntilIdle()
+
+        viewModel.uiEvent.test {
+            val event = awaitItem()
+
+            assertTrue(
+                "Expected error dialog when no participants are checked",
+                event is AddExpenseUiEvent.ShowErrorDialog
+            )
+
+            val errorEvent = event as AddExpenseUiEvent.ShowErrorDialog
+            assertEquals("Invalid Expense", errorEvent.title)
+
+            assertTrue(
+                "Error should mention participant must be selected. Actual: '${errorEvent.message}'",
+                errorEvent.message.contains("participant", ignoreCase = true) &&
+                        errorEvent.message.contains("selected", ignoreCase = true)
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(mockExpenseRepository, never()).addExpense(any())
+    }
+
+    @Test
+    fun testPayerValidation_PayerAmountMismatch_FailsValidation() = runTest {
+        viewModel.onDescriptionChange("Test Expense")
+        viewModel.onAmountChange("100.00")
+        viewModel.onParticipantCheckedChange("test_user_123", true)
+
+        val insufficientPayer = Payer(
+            uid = "test_user_123",
+            name = "TestUser",
+            amount = "50.00",
+            isChecked = true
+        )
+        viewModel.onPayerSelectionChanged(listOf(insufficientPayer))
+
+        advanceUntilIdle()
+
+        viewModel.onSaveExpenseClick()
+        advanceUntilIdle()
+
+        viewModel.uiEvent.test {
+            val event = awaitItem()
+
+            assertTrue(
+                "Expected error dialog for payer amount mismatch",
+                event is AddExpenseUiEvent.ShowErrorDialog
+            )
+
+            val errorEvent = event as AddExpenseUiEvent.ShowErrorDialog
+            assertEquals("Payment Error", errorEvent.title)
+
+            assertTrue(
+                "Error should show both amounts. Actual: '${errorEvent.message}'",
+                errorEvent.message.contains("50") && errorEvent.message.contains("100")
+            )
+
+            assertTrue(
+                "Error should state amounts don't match. Actual: '${errorEvent.message}'",
+                errorEvent.message.contains("does not match", ignoreCase = true)
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(mockExpenseRepository, never()).addExpense(any())
+    }
+
+    @Test
+    fun testPayerValidation_PayerAmountMatches_SavesSuccessfully() = runTest {
+        val testExpenseId = "expense_test_123"
+
+        // Mock suspend function in runBlocking
+        runBlocking {
+            whenever(mockExpenseRepository.addExpense(any()))
+                .thenReturn(Result.success(testExpenseId))
+        }
+
+        viewModel.onDescriptionChange("Test Expense")
+        viewModel.onAmountChange("100.00")
+        viewModel.onParticipantCheckedChange("test_user_123", true)
+
+        val matchingPayer = Payer(
+            uid = "test_user_123",
+            name = "TestUser",
+            amount = "100.00",
+            isChecked = true
+        )
+        viewModel.onPayerSelectionChanged(listOf(matchingPayer))
+
+        advanceUntilIdle()
+
+        viewModel.onSaveExpenseClick()
+        advanceUntilIdle()
+
+        viewModel.uiEvent.test {
+            val event = awaitItem()
+
+            assertTrue(
+                "Expected SaveSuccess, got: ${event::class.simpleName}",
+                event is AddExpenseUiEvent.SaveSuccess
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(mockExpenseRepository, times(1)).addExpense(any())
+    }
+
+    @Test
+    fun testSaveExpenseClick_AllValidData_SavesSuccessfully() = runTest {
+        val testExpenseId = "expense_integration_456"
+
+        // Mock suspend function in runBlocking
+        runBlocking {
+            whenever(mockExpenseRepository.addExpense(any()))
+                .thenReturn(Result.success(testExpenseId))
+        }
+
+        viewModel.onDescriptionChange("Team Lunch")
+        viewModel.onAmountChange("150.00")
+        viewModel.onParticipantCheckedChange("test_user_123", true)
+
+        val validPayer = Payer(
+            uid = "test_user_123",
+            name = "TestUser",
+            amount = "150.00",
+            isChecked = true
+        )
+        viewModel.onPayerSelectionChanged(listOf(validPayer))
+
+        advanceUntilIdle()
+
+        viewModel.onSaveExpenseClick()
+        advanceUntilIdle()
+
+        viewModel.uiEvent.test {
+            val event = awaitItem()
+
+            assertTrue(
+                "Expected SaveSuccess, got: ${event::class.simpleName}",
+                event is AddExpenseUiEvent.SaveSuccess
+            )
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        verify(mockExpenseRepository, times(1)).addExpense(any())
+    }
+}

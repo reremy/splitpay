@@ -369,11 +369,31 @@ class FriendsViewModel(
      * Positive result means friendUid owes currentUserUid more.
      * Negative result means currentUserUid owes friendUid more.
      */
-    private fun calculateBalanceChangeForExpense(
+    internal fun calculateBalanceChangeForExpense(
         expense: Expense,
         currentUserUid: String,
         friendUid: String
     ): Double {
+        // Check if currentUser is involved in the expense
+        val currentUserInvolvedAsPayer = expense.paidBy.any { it.uid == currentUserUid }
+        val currentUserInvolvedAsParticipant = expense.participants.any { it.uid == currentUserUid }
+        val currentUserInvolved = currentUserInvolvedAsPayer || currentUserInvolvedAsParticipant
+
+        // Check if friend is involved in the expense
+        val friendInvolvedAsPayer = expense.paidBy.any { it.uid == friendUid }
+        val friendInvolvedAsParticipant = expense.participants.any { it.uid == friendUid }
+        val friendInvolved = friendInvolvedAsPayer || friendInvolvedAsParticipant
+
+        // If either user is not involved in this expense, return 0
+        // This fixes the three failing edge case tests
+        if (!currentUserInvolved || !friendInvolved) {
+            return 0.0
+        }
+
+        // ========================================
+        // Original calculation logic (unchanged)
+        // ========================================
+
         val paidByCurrentUser = expense.paidBy.find { it.uid == currentUserUid }?.paidAmount ?: 0.0
         val paidByFriend = expense.paidBy.find { it.uid == friendUid }?.paidAmount ?: 0.0
 

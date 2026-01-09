@@ -1,0 +1,380 @@
+package com.example.splitpay.integration
+
+import androidx.test.espresso.matcher.ViewMatchers.assertThat
+import com.example.splitpay.data.model.Expense
+import com.example.splitpay.data.model.ExpenseParticipant
+import com.example.splitpay.data.model.ExpensePayer
+import com.example.splitpay.data.repository.ActivityRepository
+import com.example.splitpay.data.repository.ExpenseRepository
+import com.example.splitpay.ui.expense.SplitType
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import kotlin.time.Duration.Companion.seconds
+
+/**
+ * Integration Test: Expense Creation → Balance Update Flow
+ *
+ * Test Level 2: Integration Test
+ *
+ * Purpose: Verify that creating an expense in a group correctly updates
+ * balance calculations, logs activities, and propagates changes in real-time
+ * to all group members.
+ *
+ * Test Coverage:
+ * - Expense creation with equal split
+ * - Balance calculation accuracy
+ * - Activity logging
+ * - Real-time data synchronization
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(AndroidJUnit4::class)
+class ExpenseCreationToBalanceUpdateIntegrationTest {
+
+    // Test fixtures
+    private lateinit var expenseRepository: ExpenseRepository
+    private lateinit var activityRepository: ActivityRepository
+    private lateinit var firestore: FirebaseFirestore
+
+    private val testGroupId = "test_group_${System.currentTimeMillis()}"
+    private val testUserId = "test_user_001"
+    private val testUserName = "Alice"
+    private val participant1Id = "test_user_002"
+    private val participant1Name = "Bob"
+    private val participant2Id = "test_user_003"
+    private val participant2Name = "Charlie"
+
+    @Before
+    fun setup() = runTest {
+        // Initialize Firebase instances
+        firestore = FirebaseFirestore.getInstance()
+        expenseRepository = ExpenseRepository()
+        activityRepository = ActivityRepository()
+
+        // Create test group
+        createTestGroup()
+    }
+
+    @After
+    fun tearDown() = runTest {
+        // Cleanup test data
+        cleanupTestData()
+    }
+
+    /**
+     * Test: testCreateExpense_EqualSplit_BalanceUpdatesCorrectly
+     *
+     * Scenario: User creates a $90 dinner expense split equally among 3 people
+     *
+     * Expected Behavior:
+     * 1. Expense is created successfully in Firestore
+     * 2. Each participant owes exactly $30.00
+     * 3. Total split amounts equal the expense total ($90.00)
+     * 4. Activity is logged with correct financial impacts
+     * 5. Balance summary reflects the new debt structure
+     */
+    @Test
+    fun testCreateExpense_EqualSplit_BalanceUpdatesCorrectly() = runTest {
+        // ==================== ARRANGE ====================
+
+        // Create expense with equal split
+        val totalAmount = 90.0
+        val description = "Dinner at Italian Restaurant"
+
+        val expense = Expense(
+            id = "", // Will be auto-generated
+            groupId = testGroupId,
+            description = description,
+            totalAmount = totalAmount,
+            createdByUid = testUserId,
+            date = System.currentTimeMillis(),
+            splitType = SplitType.EQUALLY.name,
+            paidBy = listOf(
+                ExpensePayer(uid = testUserId, amount = totalAmount)
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = testUserId, owesAmount = 30.0),
+                ExpenseParticipant(uid = participant1Id, owesAmount = 30.0),
+                ExpenseParticipant(uid = participant2Id, owesAmount = 30.0)
+            ),
+            category = "Food",
+            expenseType = "EXPENSE"
+        )
+
+        // ==================== ACT ====================
+
+        // Create the expense
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+
+        // 1. Verify expense creation succeeded
+        assertThat(result.isSuccess).isTrue()
+        val expenseId = result.getOrThrow()
+        assertThat(expenseId).isNotEmpty()
+
+        // 2. Verify expense exists in Firestore
+        val expenseDoc = firestore.collection("expenses")
+            .document(expenseId)
+            .get()
+            .await()
+
+        assertThat(expenseDoc.exists()).isTrue()
+        assertThat(expenseDoc.getString("description")).isEqualTo(description)
+        assertThat(expenseDoc.getDouble("totalAmount")).isEqualTo(totalAmount)
+
+        // 3. Verify balance calculations are correct
+        val participants = expenseDoc.get("participants") as List<Map<String, Any>>
+
+        // Each participant should owe exactly $30
+        assertThat(participants).hasSize(3)
+        participants.forEach { participant ->
+            val owesAmount = participant["owesAmount"] as Double
+            assertThat(owesAmount).isWithin(0.01).of(30.0)
+        }
+
+        // Total should equal expense amount (within rounding tolerance)
+        val totalOwed = participants.sumOf { it["owesAmount"] as Double }
+        assertThat(totalOwed).isWithin(0.01).of(totalAmount)
+
+        // 4. Verify activity was logged
+        withTimeout(5.seconds) {
+            val activities = activityRepository.getActivitiesForUser(testUserId)
+                .first()
+
+            val expenseActivity = activities.find {
+                it.entityId == expenseId &&
+                        it.activityType == "EXPENSE_ADDED"
+            }
+
+            assertThat(expenseActivity).isNotNull()
+            assertThat(expenseActivity!!.actorUid).isEqualTo(testUserId)
+            assertThat(expenseActivity.involvedUids).containsExactly(
+                testUserId, participant1Id, participant2Id
+            )
+
+            // Verify financial impacts
+            val impacts = expenseActivity.financialImpacts!!
+            assertThat(impacts[testUserId]).isWithin(0.01).of(60.0)  // Paid $90, owes $30 = +$60
+            assertThat(impacts[participant1Id]).isWithin(0.01).of(-30.0)  // Paid $0, owes $30 = -$30
+            assertThat(impacts[participant2Id]).isWithin(0.01).of(-30.0)  // Paid $0, owes $30 = -$30
+        }
+
+        // 5. Verify balance summary (integrate with your balance calculation logic)
+        val balances = calculateGroupBalances(testGroupId)
+
+        // Alice should be owed $60 (paid $90, owes $30)
+        assertThat(balances[testUserId]).isWithin(0.01).of(60.0)
+
+        // Bob should owe $30
+        assertThat(balances[participant1Id]).isWithin(0.01).of(-30.0)
+
+        // Charlie should owe $30
+        assertThat(balances[participant2Id]).isWithin(0.01).of(-30.0)
+    }
+
+    /**
+     * Test: testCreateExpense_MultiPayer_BalanceCalculatesCorrectly
+     *
+     * Scenario: Create expense with multiple payers
+     *
+     * Expected Behavior:
+     * - Complex payer scenarios calculate correctly
+     * - Balance reflects each person's net position
+     */
+    @Test
+    fun testCreateExpense_MultiPayer_BalanceCalculatesCorrectly() = runTest {
+        // ==================== ARRANGE ====================
+
+        val totalAmount = 150.0
+        val expense = Expense(
+            id = "",
+            groupId = testGroupId,
+            description = "Weekend Trip",
+            totalAmount = totalAmount,
+            createdByUid = testUserId,
+            date = System.currentTimeMillis(),
+            splitType = SplitType.EQUALLY.name,
+            // Alice paid $100, Bob paid $50, total $150
+            paidBy = listOf(
+                ExpensePayer(uid = testUserId, amount = 100.0),
+                ExpensePayer(uid = participant1Id, amount = 50.0)
+            ),
+            // Split equally: each owes $50
+            participants = listOf(
+                ExpenseParticipant(uid = testUserId, owesAmount = 50.0),
+                ExpenseParticipant(uid = participant1Id, owesAmount = 50.0),
+                ExpenseParticipant(uid = participant2Id, owesAmount = 50.0)
+            ),
+            category = "Travel",
+            expenseType = "EXPENSE"
+        )
+
+        // ==================== ACT ====================
+
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+
+        assertThat(result.isSuccess).isTrue()
+        val expenseId = result.getOrThrow()
+
+        // Verify expense in Firestore
+        val expenseDoc = firestore.collection("expenses")
+            .document(expenseId)
+            .get()
+            .await()
+
+        assertThat(expenseDoc.exists()).isTrue()
+
+        // Verify payer amounts
+        val payers = expenseDoc.get("paidBy") as List<Map<String, Any>>
+        val totalPaid = payers.sumOf { it["amount"] as Double }
+        assertThat(totalPaid).isWithin(0.01).of(totalAmount)
+
+        // Calculate net positions
+        // Alice: paid $100, owes $50 = net +$50 (owed)
+        // Bob: paid $50, owes $50 = net $0 (even)
+        // Charlie: paid $0, owes $50 = net -$50 (owes)
+
+        val balances = calculateGroupBalances(testGroupId)
+        assertThat(balances[testUserId]).isWithin(0.01).of(50.0)
+        assertThat(balances[participant1Id]).isWithin(0.01).of(0.0)
+        assertThat(balances[participant2Id]).isWithin(0.01).of(-50.0)
+    }
+
+    /**
+     * Test: testCreateExpense_RoundingAdjustment_TotalsMatchExactly
+     *
+     * Scenario: Create expense that requires rounding adjustment
+     *
+     * Expected Behavior:
+     * - First participant receives rounding adjustment
+     * - Total splits equal exact expense amount
+     */
+    @Test
+    fun testCreateExpense_RoundingAdjustment_TotalsMatchExactly() = runTest {
+        // ==================== ARRANGE ====================
+
+        val totalAmount = 100.0 // Cannot be divided evenly by 3
+        val expense = Expense(
+            id = "",
+            groupId = testGroupId,
+            description = "Lunch",
+            totalAmount = totalAmount,
+            createdByUid = testUserId,
+            date = System.currentTimeMillis(),
+            splitType = SplitType.EQUALLY.name,
+            paidBy = listOf(
+                ExpensePayer(uid = testUserId, amount = totalAmount)
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = testUserId, owesAmount = 33.34), // Gets adjustment
+                ExpenseParticipant(uid = participant1Id, owesAmount = 33.33),
+                ExpenseParticipant(uid = participant2Id, owesAmount = 33.33)
+            ),
+            category = "Food",
+            expenseType = "EXPENSE"
+        )
+
+        // ==================== ACT ====================
+
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+
+        assertThat(result.isSuccess).isTrue()
+        val expenseId = result.getOrThrow()
+
+        val expenseDoc = firestore.collection("expenses")
+            .document(expenseId)
+            .get()
+            .await()
+
+        val participants = expenseDoc.get("participants") as List<Map<String, Any>>
+        val totalOwed = participants.sumOf { it["owesAmount"] as Double }
+
+        // Total must equal exactly $100.00 (no rounding error)
+        assertThat(totalOwed).isEqualTo(totalAmount)
+
+        // First participant should have the adjustment
+        val firstParticipant = participants[0]
+        assertThat(firstParticipant["owesAmount"] as Double)
+            .isWithin(0.01).of(33.34)
+    }
+
+    // ==================== HELPER METHODS ====================
+
+    private suspend fun createTestGroup() {
+        val group = hashMapOf(
+            "id" to testGroupId,
+            "name" to "Test Group",
+            "members" to listOf(testUserId, participant1Id, participant2Id),
+            "createdByUid" to testUserId,
+            "createdAt" to System.currentTimeMillis(),
+            "isArchived" to false
+        )
+        firestore.collection("groups").document(testGroupId).set(group).await()
+    }
+
+    private suspend fun cleanupTestData() {
+        // Delete expenses
+        val expensesSnapshot = firestore.collection("expenses")
+            .whereEqualTo("groupId", testGroupId)
+            .get()
+            .await()
+        expensesSnapshot.documents.forEach { it.reference.delete().await() }
+
+        // Delete activities
+        val activitiesSnapshot = firestore.collection("activities")
+            .whereArrayContains("involvedUids", testUserId)
+            .get()
+            .await()
+        activitiesSnapshot.documents.forEach { it.reference.delete().await() }
+
+        // Delete group
+        firestore.collection("groups").document(testGroupId).delete().await()
+    }
+
+    private suspend fun calculateGroupBalances(groupId: String): Map<String, Double> {
+        // This would integrate with your actual balance calculation logic
+        // Simplified version for testing
+        val expensesSnapshot = firestore.collection("expenses")
+            .whereEqualTo("groupId", groupId)
+            .get()
+            .await()
+
+        val balances = mutableMapOf<String, Double>()
+
+        expensesSnapshot.documents.forEach { doc ->
+            val paidBy = doc.get("paidBy") as List<Map<String, Any>>
+            val participants = doc.get("participants") as List<Map<String, Any>>
+
+            paidBy.forEach { payer ->
+                val uid = payer["uid"] as String
+                val amount = payer["amount"] as Double
+                balances[uid] = (balances[uid] ?: 0.0) + amount
+            }
+
+            participants.forEach { participant ->
+                val uid = participant["uid"] as String
+                val owes = participant["owesAmount"] as Double
+                balances[uid] = (balances[uid] ?: 0.0) - owes
+            }
+        }
+
+        return balances
+    }
+}
+
+// Extension function for Firestore
+suspend fun com.google.android.gms.tasks.Task<*>.await() {
+    kotlinx.coroutines.tasks.await(this)
+}
