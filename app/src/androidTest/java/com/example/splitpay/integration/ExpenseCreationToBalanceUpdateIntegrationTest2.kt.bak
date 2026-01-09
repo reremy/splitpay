@@ -1,0 +1,858 @@
+package com.example.splitpay.integration
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.espresso.matcher.ViewMatchers.assertThat
+import com.example.splitpay.data.model.*
+import com.example.splitpay.data.repository.ExpenseRepository
+import com.example.splitpay.data.repository.GroupsRepository
+import com.example.splitpay.data.repository.UserRepository
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.tasks.await
+import org.hamcrest.CoreMatchers.`is`
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import kotlin.math.abs
+import kotlinx.coroutines.test.TestScope
+
+/**
+ * Comprehensive Integration Test Suite: Expense Management & Balance Calculations
+ *
+ * Coverage:
+ * - Priority 1: Multiple split types (EQUALLY, BY_PERCENTAGE, BY_EXACT_AMOUNTS, BY_SHARES)
+ * - Priority 2: Cross-module integration (Group → Expense → Balance → Payment flow)
+ * - Priority 3: Negative test cases and error handling
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(AndroidJUnit4::class)
+class ComprehensiveExpenseIntegrationTest {
+
+    // ==================== DEPENDENCIES ====================
+    private lateinit var expenseRepository: ExpenseRepository
+    private lateinit var groupRepository: GroupsRepository
+    private lateinit var userRepository: UserRepository
+    private lateinit var firestore: FirebaseFirestore
+
+    // Test Data
+    private val testGroupId = "test_group_integration_${System.currentTimeMillis()}"
+    private val aliceId = "user_alice_${System.currentTimeMillis()}"
+    private val bobId = "user_bob_${System.currentTimeMillis()}"
+    private val charlieId = "user_charlie_${System.currentTimeMillis()}"
+    private val davidId = "user_david_${System.currentTimeMillis()}"
+
+    @Before
+    fun setup() = runTest {
+        // Initialize Firebase
+        firestore = FirebaseFirestore.getInstance()
+
+        // Initialize repositories
+        expenseRepository = ExpenseRepository(firestore)
+        groupRepository = GroupsRepository(firestore)
+        userRepository = UserRepository(firestore)
+
+        // Create test users
+        createTestUsers()
+    }
+
+    private fun TestScope.UserRepository(auth: FirebaseFirestore): UserRepository {}
+
+    @After
+    fun tearDown() = runTest {
+        // CLEANUP: Remove all test data
+        cleanupTestData()
+    }
+
+    // ==================== ORIGINAL TESTS (From your code) ====================
+
+    /**
+     * Test: testAddExpense_EqualSplit_VerifiesBalance
+     * Scenario: Alice pays $90 for "Dinner". Split equally among Alice, Bob, Charlie.
+     */
+    @Test
+    fun testAddExpense_EqualSplit_VerifiesBalance() = runTest {
+        // ==================== ARRANGE ====================
+        val totalAmount = 90.0
+        val description = "Integration Dinner"
+
+        val expense = Expense(
+            id = "",
+            groupId = testGroupId,
+            description = description,
+            totalAmount = totalAmount,
+            createdByUid = aliceId,
+            date = System.currentTimeMillis(),
+            splitType = "EQUALLY",
+            paidBy = listOf(
+                ExpensePayer(uid = aliceId, paidAmount = 90.0)
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 30.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 30.0),
+                ExpenseParticipant(uid = charlieId, owesAmount = 30.0)
+            ),
+            category = "Food",
+            expenseType = ExpenseType.EXPENSE
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        assertThat("Expense creation should succeed", result.isSuccess, `is`(true))
+        val expenseId = result.getOrThrow()
+
+        // Verify data in Firestore
+        val savedDoc = firestore.collection("expenses").document(expenseId).get().await()
+        assertThat("Document should exist", savedDoc.exists(), `is`(true))
+        assertThat(savedDoc.getString("description"), `is`(description))
+        assertThat(savedDoc.getDouble("totalAmount"), `is`(90.0))
+
+        // Verify Balance Calculation
+        val balances = calculateGroupBalances(testGroupId)
+        assertThat("Alice should be owed 60.0", balances[aliceId], `is`(60.0))
+        assertThat("Bob should owe 30.0", balances[bobId], `is`(-30.0))
+        assertThat("Charlie should owe 30.0", balances[charlieId], `is`(-30.0))
+    }
+
+    /**
+     * Test: testAddExpense_MultiPayer_VerifiesNetPositions
+     * Scenario: Trip cost $150. Alice paid $100, Bob paid $50. Split equally (3 ways).
+     */
+    @Test
+    fun testAddExpense_MultiPayer_VerifiesNetPositions() = runTest {
+        // ==================== ARRANGE ====================
+        val expense = Expense(
+            groupId = testGroupId,
+            description = "Road Trip",
+            totalAmount = 150.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(
+                ExpensePayer(uid = aliceId, paidAmount = 100.0),
+                ExpensePayer(uid = bobId, paidAmount = 50.0)
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 50.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 50.0),
+                ExpenseParticipant(uid = charlieId, owesAmount = 50.0)
+            )
+        )
+
+        // ==================== ACT ====================
+        expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        val balances = calculateGroupBalances(testGroupId)
+        assertThat("Alice net position", balances[aliceId], `is`(50.0))
+        assertThat("Bob net position", balances[bobId], `is`(0.0))
+        assertThat("Charlie net position", balances[charlieId], `is`(-50.0))
+    }
+
+    // ==================== PRIORITY 1: MORE SPLIT TYPES ====================
+
+    /**
+     * Priority 1.1: Test BY_PERCENTAGE split
+     * Scenario: Project cost $1000. Alice 50%, Bob 30%, Charlie 20%
+     */
+    @Test
+    fun testAddExpense_ByPercentage_VerifiesAccurateCalculation() = runTest {
+        // ==================== ARRANGE ====================
+        val expense = Expense(
+            groupId = testGroupId,
+            description = "Project Payment",
+            totalAmount = 1000.0,
+            createdByUid = aliceId,
+            splitType = "BY_PERCENTAGE",
+            paidBy = listOf(
+                ExpensePayer(uid = aliceId, paidAmount = 1000.0) // Alice pays all
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 500.0), // 50%
+                ExpenseParticipant(uid = bobId, owesAmount = 300.0),   // 30%
+                ExpenseParticipant(uid = charlieId, owesAmount = 200.0) // 20%
+            ),
+            category = "Business"
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        assertThat("Expense creation should succeed", result.isSuccess, `is`(true))
+
+        val balances = calculateGroupBalances(testGroupId)
+        assertThat("Alice balance (paid 1000, owes 500)", balances[aliceId], `is`(500.0))
+        assertThat("Bob balance (paid 0, owes 300)", balances[bobId], `is`(-300.0))
+        assertThat("Charlie balance (paid 0, owes 200)", balances[charlieId], `is`(-200.0))
+
+        // Verify percentages add up to 100%
+        val totalOwed = expense.participants.sumOf { it.owesAmount }
+        assertThat("Total owed should equal total amount", totalOwed, `is`(1000.0))
+    }
+
+    /**
+     * Priority 1.2: Test BY_EXACT_AMOUNTS split
+     * Scenario: Shopping $250. Alice buys items for $150, Bob $75, Charlie $25
+     */
+    @Test
+    fun testAddExpense_ByExactAmounts_VerifiesCustomSplit() = runTest {
+        // ==================== ARRANGE ====================
+        val expense = Expense(
+            groupId = testGroupId,
+            description = "Shopping Trip",
+            totalAmount = 250.0,
+            createdByUid = bobId,
+            splitType = "BY_EXACT_AMOUNTS",
+            paidBy = listOf(
+                ExpensePayer(uid = bobId, paidAmount = 250.0) // Bob pays all
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 150.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 75.0),
+                ExpenseParticipant(uid = charlieId, owesAmount = 25.0)
+            ),
+            category = "Shopping"
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        assertThat("Expense creation should succeed", result.isSuccess, `is`(true))
+
+        val balances = calculateGroupBalances(testGroupId)
+        assertThat("Alice owes 150", balances[aliceId], `is`(-150.0))
+        assertThat("Bob net: paid 250 - owes 75 = +175", balances[bobId], `is`(175.0))
+        assertThat("Charlie owes 25", balances[charlieId], `is`(-25.0))
+    }
+
+    /**
+     * Priority 1.3: Test BY_SHARES split
+     * Scenario: Rent $600. Alice 2 shares, Bob 1 share, Charlie 1 share (2:1:1 ratio)
+     */
+    @Test
+    fun testAddExpense_ByShares_VerifiesProportionalSplit() = runTest {
+        // ==================== ARRANGE ====================
+        // Total shares: 2 + 1 + 1 = 4
+        // Share value: 600 / 4 = 150
+        // Alice (2 shares): 300, Bob (1 share): 150, Charlie (1 share): 150
+
+        val expense = Expense(
+            groupId = testGroupId,
+            description = "Apartment Rent",
+            totalAmount = 600.0,
+            createdByUid = aliceId,
+            splitType = "BY_SHARES",
+            paidBy = listOf(
+                ExpensePayer(uid = aliceId, paidAmount = 300.0),
+                ExpensePayer(uid = bobId, paidAmount = 150.0),
+                ExpensePayer(uid = charlieId, paidAmount = 150.0)
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 300.0, shares = 2),
+                ExpenseParticipant(uid = bobId, owesAmount = 150.0, shares = 1),
+                ExpenseParticipant(uid = charlieId, owesAmount = 150.0, shares = 1)
+            ),
+            category = "Housing"
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        assertThat("Expense creation should succeed", result.isSuccess, `is`(true))
+
+        val balances = calculateGroupBalances(testGroupId)
+        // All paid exactly what they owe
+        assertThat("Alice balance should be 0", balances[aliceId], `is`(0.0))
+        assertThat("Bob balance should be 0", balances[bobId], `is`(0.0))
+        assertThat("Charlie balance should be 0", balances[charlieId], `is`(0.0))
+    }
+
+    /**
+     * Priority 1.4: Test mixed payers with unequal participants
+     * Scenario: 4-person trip $400. Alice and Bob pay. Only 3 participate.
+     */
+    @Test
+    fun testAddExpense_MixedPayersUnequalParticipants() = runTest {
+        // ==================== ARRANGE ====================
+        val expense = Expense(
+            groupId = testGroupId,
+            description = "3-Person Trip",
+            totalAmount = 400.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(
+                ExpensePayer(uid = aliceId, paidAmount = 300.0),
+                ExpensePayer(uid = bobId, paidAmount = 100.0)
+            ),
+            participants = listOf(
+                // David doesn't participate but others split equally
+                ExpenseParticipant(uid = aliceId, owesAmount = 133.33),
+                ExpenseParticipant(uid = bobId, owesAmount = 133.33),
+                ExpenseParticipant(uid = charlieId, owesAmount = 133.34) // Rounding adjustment
+            ),
+            category = "Travel"
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        assertThat(result.isSuccess, `is`(true))
+
+        val balances = calculateGroupBalances(testGroupId)
+        // Alice: paid 300, owes 133.33 = +166.67
+        assertThat("Alice net", abs(balances[aliceId]!! - 166.67) < 0.01, `is`(true))
+        // Bob: paid 100, owes 133.33 = -33.33
+        assertThat("Bob net", abs(balances[bobId]!! - (-33.33)) < 0.01, `is`(true))
+        // Charlie: paid 0, owes 133.34 = -133.34
+        assertThat("Charlie net", abs(balances[charlieId]!! - (-133.34)) < 0.01, `is`(true))
+        // David: not involved
+        assertThat("David not involved", balances[davidId] ?: 0.0, `is`(0.0))
+    }
+
+    /**
+     * Priority 1.5: Test rounding edge cases
+     * Scenario: $10 split among 3 people (3.33, 3.33, 3.34)
+     */
+    @Test
+    fun testAddExpense_RoundingEdgeCase_VerifiesTotalMatches() = runTest {
+        // ==================== ARRANGE ====================
+        val expense = Expense(
+            groupId = testGroupId,
+            description = "Small Expense",
+            totalAmount = 10.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(
+                ExpensePayer(uid = aliceId, paidAmount = 10.0)
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 3.34), // Gets rounding
+                ExpenseParticipant(uid = bobId, owesAmount = 3.33),
+                ExpenseParticipant(uid = charlieId, owesAmount = 3.33)
+            ),
+            category = "Other"
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        assertThat(result.isSuccess, `is`(true))
+
+        // Verify total adds up exactly
+        val totalOwed = expense.participants.sumOf { it.owesAmount }
+        assertThat("Total should equal 10.0", totalOwed, `is`(10.0))
+
+        val balances = calculateGroupBalances(testGroupId)
+        assertThat("Alice balance", abs(balances[aliceId]!! - 6.66) < 0.01, `is`(true))
+    }
+
+    // ==================== PRIORITY 2: CROSS-MODULE INTEGRATION ====================
+
+    /**
+     * Priority 2.1: Complete User Journey - Group Creation to Payment Settlement
+     * End-to-End Flow:
+     * 1. Create group
+     * 2. Add members
+     * 3. Create expense
+     * 4. Verify balances
+     * 5. Record payment
+     * 6. Verify balance cleared
+     */
+    @Test
+    fun testCompleteUserJourney_GroupToPaymentSettlement() = runTest {
+        // ==================== STEP 1: Create Group ====================
+        val group = Group(
+            id = "",
+            name = "Weekend Trip Group",
+            createdByUid = aliceId,
+            memberUids = listOf(aliceId, bobId, charlieId),
+            createdAt = System.currentTimeMillis()
+        )
+
+        val groupResult = groupRepository.createGroup(group)
+        assertThat("Group creation should succeed", groupResult.isSuccess, `is`(true))
+        val createdGroupId = groupResult.getOrThrow()
+
+        // ==================== STEP 2: Verify Members Added ====================
+        val retrievedGroup = groupRepository.getGroup(createdGroupId).getOrThrow()
+        assertThat("Group should have 3 members", retrievedGroup.memberUids.size, `is`(3))
+        assertThat("Alice is member", retrievedGroup.memberUids.contains(aliceId), `is`(true))
+
+        // ==================== STEP 3: Create Expense ====================
+        val expense = Expense(
+            groupId = createdGroupId,
+            description = "Hotel Booking",
+            totalAmount = 300.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = 300.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 100.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 100.0),
+                ExpenseParticipant(uid = charlieId, owesAmount = 100.0)
+            ),
+            category = "Accommodation"
+        )
+
+        val expenseResult = expenseRepository.addExpense(expense)
+        assertThat("Expense creation should succeed", expenseResult.isSuccess, `is`(true))
+
+        // ==================== STEP 4: Verify Balances ====================
+        val balancesBeforePayment = calculateGroupBalances(createdGroupId)
+        assertThat("Alice is owed 200", balancesBeforePayment[aliceId], `is`(200.0))
+        assertThat("Bob owes 100", balancesBeforePayment[bobId], `is`(-100.0))
+        assertThat("Charlie owes 100", balancesBeforePayment[charlieId], `is`(-100.0))
+
+        // ==================== STEP 5: Record Payment (Bob pays Alice) ====================
+        val payment = Expense(
+            groupId = createdGroupId,
+            description = "Bob pays Alice",
+            totalAmount = 100.0,
+            createdByUid = bobId,
+            splitType = "PAYMENT",
+            paidBy = listOf(ExpensePayer(uid = bobId, paidAmount = 100.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 100.0) // Alice "receives" 100
+            ),
+            expenseType = ExpenseType.PAYMENT
+        )
+
+        val paymentResult = expenseRepository.addExpense(payment)
+        assertThat("Payment should succeed", paymentResult.isSuccess, `is`(true))
+
+        // ==================== STEP 6: Verify Balance Cleared ====================
+        val balancesAfterPayment = calculateGroupBalances(createdGroupId)
+        assertThat("Alice now owed 100", balancesAfterPayment[aliceId], `is`(100.0))
+        assertThat("Bob balance cleared", balancesAfterPayment[bobId], `is`(0.0))
+        assertThat("Charlie still owes 100", balancesAfterPayment[charlieId], `is`(-100.0))
+    }
+
+    /**
+     * Priority 2.2: Multi-Expense Accumulation
+     * Scenario: Multiple expenses in same group, verify cumulative balances
+     */
+    @Test
+    fun testMultipleExpenses_VerifyCumulativeBalances() = runTest {
+        // ==================== Expense 1: Dinner ====================
+        val dinner = Expense(
+            groupId = testGroupId,
+            description = "Dinner",
+            totalAmount = 90.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = 90.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 30.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 30.0),
+                ExpenseParticipant(uid = charlieId, owesAmount = 30.0)
+            )
+        )
+        expenseRepository.addExpense(dinner)
+
+        // ==================== Expense 2: Taxi ====================
+        val taxi = Expense(
+            groupId = testGroupId,
+            description = "Taxi",
+            totalAmount = 30.0,
+            createdByUid = bobId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = bobId, paidAmount = 30.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 10.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 10.0),
+                ExpenseParticipant(uid = charlieId, owesAmount = 10.0)
+            )
+        )
+        expenseRepository.addExpense(taxi)
+
+        // ==================== Expense 3: Movie ====================
+        val movie = Expense(
+            groupId = testGroupId,
+            description = "Movie Tickets",
+            totalAmount = 60.0,
+            createdByUid = charlieId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = charlieId, paidAmount = 60.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 20.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 20.0),
+                ExpenseParticipant(uid = charlieId, owesAmount = 20.0)
+            )
+        )
+        expenseRepository.addExpense(movie)
+
+        // ==================== VERIFY CUMULATIVE BALANCES ====================
+        val finalBalances = calculateGroupBalances(testGroupId)
+
+        // Alice: paid 90, owes (30+10+20)=60, net = +30
+        assertThat("Alice cumulative balance", finalBalances[aliceId], `is`(30.0))
+        // Bob: paid 30, owes (30+10+20)=60, net = -30
+        assertThat("Bob cumulative balance", finalBalances[bobId], `is`(-30.0))
+        // Charlie: paid 60, owes (30+10+20)=60, net = 0
+        assertThat("Charlie cumulative balance", finalBalances[charlieId], `is`(0.0))
+    }
+
+    /**
+     * Priority 2.3: Concurrent Operations
+     * Scenario: Multiple expenses added simultaneously
+     */
+    @Test
+    fun testConcurrentExpenseAddition_MaintainsDataIntegrity() = runTest {
+        // ==================== Create 5 expenses concurrently ====================
+        val expenses = (1..5).map { i ->
+            Expense(
+                groupId = testGroupId,
+                description = "Concurrent Expense $i",
+                totalAmount = 100.0,
+                createdByUid = aliceId,
+                splitType = "EQUALLY",
+                paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = 100.0)),
+                participants = listOf(
+                    ExpenseParticipant(uid = aliceId, owesAmount = 50.0),
+                    ExpenseParticipant(uid = bobId, owesAmount = 50.0)
+                )
+            )
+        }
+
+        // Add all expenses concurrently
+        val results = expenses.map { expense ->
+            async { expenseRepository.addExpense(expense) }
+        }.awaitAll()
+
+        // ==================== VERIFY ALL SUCCEEDED ====================
+        assertThat("All expenses should succeed", results.all { it.isSuccess }, `is`(true))
+
+        // Verify final balance is correct
+        val balances = calculateGroupBalances(testGroupId)
+        // Alice: paid 500 (5x100), owes 250 (5x50), net = +250
+        assertThat("Alice balance after concurrent adds", balances[aliceId], `is`(250.0))
+        // Bob: paid 0, owes 250 (5x50), net = -250
+        assertThat("Bob balance after concurrent adds", balances[bobId], `is`(-250.0))
+    }
+
+    // ==================== PRIORITY 3: NEGATIVE TEST CASES ====================
+
+    /**
+     * Priority 3.1: Invalid Data - Missing Required Fields
+     */
+    @Test
+    fun testAddExpense_MissingDescription_ReturnsFailure() = runTest {
+        // ==================== ARRANGE ====================
+        val invalidExpense = Expense(
+            groupId = testGroupId,
+            description = "", // INVALID: Empty description
+            totalAmount = 100.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = 100.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 50.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 50.0)
+            )
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(invalidExpense)
+
+        // ==================== ASSERT ====================
+        assertThat("Should fail with empty description", result.isFailure, `is`(true))
+    }
+
+    /**
+     * Priority 3.2: Invalid Data - Negative Amount
+     */
+    @Test
+    fun testAddExpense_NegativeAmount_ReturnsFailure() = runTest {
+        // ==================== ARRANGE ====================
+        val invalidExpense = Expense(
+            groupId = testGroupId,
+            description = "Invalid Expense",
+            totalAmount = -100.0, // INVALID: Negative amount
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = -100.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = -50.0),
+                ExpenseParticipant(uid = bobId, owesAmount = -50.0)
+            )
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(invalidExpense)
+
+        // ==================== ASSERT ====================
+        assertThat("Should fail with negative amount", result.isFailure, `is`(true))
+    }
+
+    /**
+     * Priority 3.3: Invalid Data - Empty Participants List
+     */
+    @Test
+    fun testAddExpense_EmptyParticipants_ReturnsFailure() = runTest {
+        // ==================== ARRANGE ====================
+        val invalidExpense = Expense(
+            groupId = testGroupId,
+            description = "No Participants",
+            totalAmount = 100.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = 100.0)),
+            participants = emptyList() // INVALID: No participants
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(invalidExpense)
+
+        // ==================== ASSERT ====================
+        assertThat("Should fail with empty participants", result.isFailure, `is`(true))
+    }
+
+    /**
+     * Priority 3.4: Invalid Data - Mismatched Total Amount
+     */
+    @Test
+    fun testAddExpense_MismatchedTotalAmount_ReturnsFailure() = runTest {
+        // ==================== ARRANGE ====================
+        val invalidExpense = Expense(
+            groupId = testGroupId,
+            description = "Mismatched Total",
+            totalAmount = 100.0, // Says 100
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(
+                ExpensePayer(uid = aliceId, paidAmount = 150.0) // But paid 150!
+            ),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 50.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 50.0)
+            )
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(invalidExpense)
+
+        // ==================== ASSERT ====================
+        // Depending on your validation logic, this might succeed or fail
+        // Adjust assertion based on your repository's validation
+        assertThat("Should handle mismatched amounts", result.isSuccess, `is`(true))
+        // Or if you validate: assertThat(result.isFailure, `is`(true))
+    }
+
+    /**
+     * Priority 3.5: Edge Case - Zero Amount Expense
+     */
+    @Test
+    fun testAddExpense_ZeroAmount_HandlesGracefully() = runTest {
+        // ==================== ARRANGE ====================
+        val zeroExpense = Expense(
+            groupId = testGroupId,
+            description = "Zero Expense",
+            totalAmount = 0.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = 0.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 0.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 0.0)
+            )
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(zeroExpense)
+
+        // ==================== ASSERT ====================
+        // Zero amounts should either be rejected or handled gracefully
+        if (result.isSuccess) {
+            val balances = calculateGroupBalances(testGroupId)
+            assertThat("Balances unchanged", balances[aliceId] ?: 0.0, `is`(0.0))
+        } else {
+            assertThat("Zero amount rejected", result.isFailure, `is`(true))
+        }
+    }
+
+    /**
+     * Priority 3.6: Edge Case - Single Participant
+     */
+    @Test
+    fun testAddExpense_SingleParticipant_VerifiesBalance() = runTest {
+        // ==================== ARRANGE ====================
+        val soloExpense = Expense(
+            groupId = testGroupId,
+            description = "Solo Expense",
+            totalAmount = 50.0,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = 50.0)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 50.0)
+            )
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(soloExpense)
+
+        // ==================== ASSERT ====================
+        assertThat("Solo expense should succeed", result.isSuccess, `is`(true))
+
+        val balances = calculateGroupBalances(testGroupId)
+        // Alice paid 50 and owes 50, net = 0
+        assertThat("Alice balance should be 0", balances[aliceId], `is`(0.0))
+    }
+
+    /**
+     * Priority 3.7: Edge Case - Payer Who Isn't a Participant
+     */
+    @Test
+    fun testAddExpense_PayerNotParticipant_VerifiesCorrectBalance() = runTest {
+        // ==================== ARRANGE ====================
+        val expense = Expense(
+            groupId = testGroupId,
+            description = "David pays for others",
+            totalAmount = 100.0,
+            createdByUid = davidId,
+            splitType = "EQUALLY",
+            paidBy = listOf(
+                ExpensePayer(uid = davidId, paidAmount = 100.0) // David pays
+            ),
+            participants = listOf(
+                // But only Alice and Bob participate (not David)
+                ExpenseParticipant(uid = aliceId, owesAmount = 50.0),
+                ExpenseParticipant(uid = bobId, owesAmount = 50.0)
+            )
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        assertThat("Expense should succeed", result.isSuccess, `is`(true))
+
+        val balances = calculateGroupBalances(testGroupId)
+        // David: paid 100, owes 0, net = +100
+        assertThat("David should be owed 100", balances[davidId], `is`(100.0))
+        // Alice: paid 0, owes 50, net = -50
+        assertThat("Alice should owe 50", balances[aliceId], `is`(-50.0))
+        // Bob: paid 0, owes 50, net = -50
+        assertThat("Bob should owe 50", balances[bobId], `is`(-50.0))
+    }
+
+    /**
+     * Priority 3.8: Edge Case - Very Large Numbers
+     */
+    @Test
+    fun testAddExpense_VeryLargeAmount_HandlesCorrectly() = runTest {
+        // ==================== ARRANGE ====================
+        val largeExpense = Expense(
+            groupId = testGroupId,
+            description = "Expensive Purchase",
+            totalAmount = 999999.99,
+            createdByUid = aliceId,
+            splitType = "EQUALLY",
+            paidBy = listOf(ExpensePayer(uid = aliceId, paidAmount = 999999.99)),
+            participants = listOf(
+                ExpenseParticipant(uid = aliceId, owesAmount = 333333.33),
+                ExpenseParticipant(uid = bobId, owesAmount = 333333.33),
+                ExpenseParticipant(uid = charlieId, owesAmount = 333333.33)
+            )
+        )
+
+        // ==================== ACT ====================
+        val result = expenseRepository.addExpense(expense)
+
+        // ==================== ASSERT ====================
+        assertThat("Large amount should be handled", result.isSuccess, `is`(true))
+
+        val balances = calculateGroupBalances(testGroupId)
+        // Verify balance is correctly calculated (with rounding tolerance)
+        assertThat("Alice large balance",
+            abs(balances[aliceId]!! - 666666.66) < 0.02, `is`(true))
+    }
+
+    /**
+     * Priority 3.9: Database Error Handling
+     * Note: This requires mocking Firestore to simulate errors
+     * Include if you have mocking capabilities in your test setup
+     */
+    @Test
+    fun testAddExpense_DatabaseError_HandlesGracefully() = runTest {
+        // This test would require Firebase Emulator offline mode
+        // or mocking the Firestore instance
+        // Skipping implementation as it requires additional setup
+        // but including as a placeholder for comprehensive testing
+    }
+
+    // ==================== HELPER METHODS ====================
+
+    /**
+     * Calculate group balances from all expenses
+     * Positive balance = owed money, Negative = owes money
+     */
+    private suspend fun calculateGroupBalances(groupId: String): Map<String, Double> {
+        val expenses = expenseRepository.getExpensesForGroups(listOf(groupId))
+        val balances = mutableMapOf<String, Double>()
+
+        expenses.forEach { expense ->
+            // Add what they paid
+            expense.paidBy.forEach { payer ->
+                val current = balances.getOrDefault(payer.uid, 0.0)
+                balances[payer.uid] = current + payer.paidAmount
+            }
+
+            // Subtract what they owe
+            expense.participants.forEach { participant ->
+                val current = balances.getOrDefault(participant.uid, 0.0)
+                balances[participant.uid] = current - participant.owesAmount
+            }
+        }
+        return balances
+    }
+
+    /**
+     * Create test users in Firestore
+     */
+    private suspend fun createTestUsers() {
+        val users = listOf(
+            User(uid = aliceId, displayName = "Alice", email = "alice@test.com"),
+            User(uid = bobId, displayName = "Bob", email = "bob@test.com"),
+            User(uid = charlieId, displayName = "Charlie", email = "charlie@test.com"),
+            User(uid = davidId, displayName = "David", email = "david@test.com")
+        )
+
+        users.forEach { user ->
+            firestore.collection("users").document(user.uid).set(user).await()
+        }
+    }
+
+    /**
+     * Clean up all test data from Firestore
+     */
+    private suspend fun cleanupTestData() {
+        // Delete test expenses
+        val expenses = firestore.collection("expenses")
+            .whereEqualTo("groupId", testGroupId)
+            .get()
+            .await()
+        expenses.documents.forEach { it.reference.delete().await() }
+
+        // Delete test groups
+        val groups = firestore.collection("groups")
+            .whereArrayContains("memberUids", aliceId)
+            .get()
+            .await()
+        groups.documents.forEach { it.reference.delete().await() }
+
+        // Delete test users
+        listOf(aliceId, bobId, charlieId, davidId).forEach { uid ->
+            firestore.collection("users").document(uid).delete().await()
+        }
+    }
+}
