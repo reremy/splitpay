@@ -1,21 +1,10 @@
 package com.example.splitpay.navigation
 
 import android.util.Log
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.material3.Button
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -24,36 +13,33 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.example.splitpay.ui.addfriend.AddFriendScreen
 import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
-import com.example.splitpay.ui.expense.AddExpenseScreen
-import com.example.splitpay.ui.expense.ExpenseDetailScreen
+import com.example.splitpay.ui.expense.addExpense.AddExpenseScreen
+import com.example.splitpay.ui.expense.expenseDetail.ExpenseDetailScreen
 import com.example.splitpay.ui.paymentDetail.PaymentDetailScreen
-import com.example.splitpay.ui.friendSettings.FriendSettingsScreen
-import com.example.splitpay.ui.friendSettleUp.SelectBalanceToSettleScreen
-import com.example.splitpay.ui.friendSettleUp.SelectPayerFriendScreen
-import com.example.splitpay.ui.friendsDetail.FriendsDetailScreen
-import com.example.splitpay.ui.groups.CreateGroupScreen
-import com.example.splitpay.ui.groups.EditGroupScreen
-import com.example.splitpay.ui.groups.GroupDetailScreen
-import com.example.splitpay.ui.groups.GroupSettingsScreen
+import com.example.splitpay.ui.friends.friendSettings.FriendSettingsScreen
+import com.example.splitpay.ui.friends.friendSettleUp.SelectBalanceToSettleScreen
+import com.example.splitpay.ui.friends.friendSettleUp.SelectPayerFriendScreen
+import com.example.splitpay.ui.friends.friendsDetail.FriendsDetailScreen
+import com.example.splitpay.ui.groups.createGroup.CreateGroupScreen
+import com.example.splitpay.ui.groups.editGroup.EditGroupScreen
+import com.example.splitpay.ui.groups.groupDetail.GroupDetailScreen
+import com.example.splitpay.ui.groups.groupSettings.GroupSettingsScreen
 import com.example.splitpay.ui.home.HomeScreen3
 import com.example.splitpay.ui.login.LoginScreen
 import com.example.splitpay.ui.signup.SignUpScreen
-import com.example.splitpay.ui.theme.DarkBackground
-import com.example.splitpay.ui.theme.TextWhite
 import com.example.splitpay.ui.welcome.WelcomeScreen
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
-import com.example.splitpay.ui.groups.AddGroupMembersScreen // <-- ADD THIS IMPORT
-import com.example.splitpay.ui.groups.GroupSettingsScreen
+import com.example.splitpay.ui.groups.addGroupMember.AddGroupMembersScreen // <-- ADD THIS IMPORT
 import com.example.splitpay.ui.recordPayment.RecordPaymentScreen
 import com.example.splitpay.ui.settleUp.SettleUpScreen
-import com.example.splitpay.ui.activityDetail.ActivityDetailScreen
+import com.example.splitpay.ui.activity.activityDetail.ActivityDetailScreen
 import com.example.splitpay.ui.profile.edit.EditProfileScreen
 import com.example.splitpay.ui.blockedUsers.BlockedUsersScreen
 import com.example.splitpay.ui.moreOptions.MoreOptionsScreen
 import com.example.splitpay.ui.receipt.ReceiptReviewScreen
 import com.example.splitpay.ui.receipt.ReceiptScannerScreen
-import kotlin.math.absoluteValue
+import java.net.URLEncoder
 
 // Navigation.kt
 @Composable
@@ -290,7 +276,7 @@ fun Navigation(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToProfilePreview = { userId, username ->
                     // Encode username if it might contain special characters (safer)
-                    val encodedUsername = java.net.URLEncoder.encode(username, "UTF-8")
+                    val encodedUsername = URLEncoder.encode(username, "UTF-8")
                     navController.navigate("${Screen.FriendProfilePreview}/$userId?username=$encodedUsername")
                 }
             )

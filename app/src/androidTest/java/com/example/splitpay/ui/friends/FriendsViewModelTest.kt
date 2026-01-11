@@ -4,6 +4,7 @@ import com.example.splitpay.data.model.Expense
 import com.example.splitpay.data.model.ExpenseType
 import com.example.splitpay.data.model.ExpensePayer
 import com.example.splitpay.data.model.ExpenseParticipant
+import com.example.splitpay.ui.friends.friendsTab.FriendsViewModel
 import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.assertEquals
@@ -51,7 +52,7 @@ import org.junit.Assert.assertTrue
  * COURSE: [Your Course Code]
  * UNIVERSITY: [Your University]
  *
- * @see FriendsViewModel.calculateBalanceChangeForExpense
+ * @see com.example.splitpay.ui.friends.friendsTab.FriendsViewModel.calculateBalanceChangeForExpense
  */
 class CalculateBalanceChangeForExpenseTest {
 

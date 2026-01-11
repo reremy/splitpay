@@ -7,6 +7,7 @@ import com.example.splitpay.data.repository.ActivityRepository
 import com.example.splitpay.data.repository.FileStorageRepository
 import com.example.splitpay.data.repository.GroupsRepository
 import com.example.splitpay.data.repository.UserRepository
+import com.example.splitpay.ui.groups.createGroup.CreateGroupViewModel
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertNull

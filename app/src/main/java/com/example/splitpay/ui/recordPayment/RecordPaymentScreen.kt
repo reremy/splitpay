@@ -81,9 +81,7 @@ import com.example.splitpay.data.repository.FileStorageRepository
 import com.example.splitpay.data.repository.GroupsRepository // <-- IMPORT
 import com.example.splitpay.data.repository.UserRepository
 import com.example.splitpay.ui.common.UiEventHandler
-import com.example.splitpay.ui.expense.AddExpenseBottomBar // <-- IMPORT
-import com.example.splitpay.ui.recordPayment.RecordPaymentUiEvent
-import com.example.splitpay.ui.recordPayment.RecordPaymentViewModel
+import com.example.splitpay.ui.expense.addExpense.AddExpenseBottomBar // <-- IMPORT
 import com.example.splitpay.ui.theme.DarkBackground
 import com.example.splitpay.ui.theme.NegativeRed
 import com.example.splitpay.ui.theme.PositiveGreen

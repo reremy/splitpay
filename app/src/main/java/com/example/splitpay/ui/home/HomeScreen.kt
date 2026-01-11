@@ -1,12 +1,10 @@
 package com.example.splitpay.ui.home
 
 import android.Manifest
-import android.R.id.message
 import android.os.Build
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -15,18 +13,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
@@ -34,14 +27,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -49,19 +38,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.splitpay.logger.logE
-import com.example.splitpay.logger.logI
-import com.example.splitpay.logger.logW
 import com.example.splitpay.navigation.Screen
-import com.example.splitpay.ui.activity.ActivityScreen
-import com.example.splitpay.ui.friends.FriendsScreenContent
-import com.example.splitpay.ui.friends.FriendsTopBarActions
-import com.example.splitpay.ui.friends.FriendsViewModel
-import com.example.splitpay.ui.activity.ActivityTopBarActions
-import com.example.splitpay.ui.activity.ActivityViewModel
-import com.example.splitpay.ui.groups.GroupsContent
+import com.example.splitpay.ui.activity.activityTab.ActivityScreen
+import com.example.splitpay.ui.friends.friendsTab.FriendsScreenContent
+import com.example.splitpay.ui.friends.friendsTab.FriendsTopBarActions
+import com.example.splitpay.ui.friends.friendsTab.FriendsViewModel
+import com.example.splitpay.ui.activity.activityTab.ActivityTopBarActions
+import com.example.splitpay.ui.activity.activityTab.ActivityViewModel
+import com.example.splitpay.ui.groups.groupsTab.GroupsTabContent
 import com.example.splitpay.ui.groups.GroupsTopBarActions
-import com.example.splitpay.ui.groups.GroupsUiEvent
-import com.example.splitpay.ui.groups.GroupsViewModel
+import com.example.splitpay.ui.groups.groupsTab.GroupsUiEvent
+import com.example.splitpay.ui.groups.groupsTab.GroupsViewModel
 import com.example.splitpay.ui.profile.ProfileTopBarActions
 import com.example.splitpay.ui.profile.UserProfileScreen
 import com.example.splitpay.ui.theme.PositiveGreen
@@ -332,7 +319,7 @@ fun HomeScreen3(
             }
         ) {
             composable("groups_screen") {
-                GroupsContent(
+                GroupsTabContent(
                     innerPadding = innerPadding,
                     overallBalance = friendsUiState.totalNetBalance, // <-- PASS BALANCE HERE
                     viewModel = groupsViewModel, // Pass the same GroupsViewModel instance

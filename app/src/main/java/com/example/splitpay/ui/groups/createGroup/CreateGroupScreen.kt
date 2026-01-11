@@ -1,0 +1,263 @@
+package com.example.splitpay.ui.groups.createGroup
+
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.MaterialTheme
+import coil.compose.AsyncImage
+import com.example.splitpay.ui.common.InputField
+import com.example.splitpay.ui.common.UiEventHandler
+import com.example.splitpay.ui.theme.BorderGray
+import com.example.splitpay.ui.theme.DarkBackground
+import com.example.splitpay.ui.theme.PrimaryBlue
+import com.example.splitpay.ui.theme.SurfaceDark
+import com.example.splitpay.ui.theme.TextWhite
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CreateGroupScreen(
+    viewModel: CreateGroupViewModel = viewModel(),
+    onGroupCreated: (String) -> Unit,
+    onNavigateBack: () -> Unit
+) {
+    UiEventHandler(viewModel.uiEvent) { event ->
+        when (event) {
+            is CreateGroupUiEvent.GroupCreated -> onGroupCreated(event.groupId)
+            CreateGroupUiEvent.NavigateBack -> onNavigateBack()
+        }
+    }
+
+    val uiState = viewModel.uiState.value
+
+    // to select image for group icon
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { viewModel.onPhotoSelected(it) }
+    }
+
+    //ui start here
+    Scaffold(
+        //top bar for the page
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "New Group",
+                        color = TextWhite,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = TextWhite
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = DarkBackground
+                )
+            )
+        },
+        containerColor = DarkBackground
+    ) { paddingValues ->
+
+        // create group form start here
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Top
+        ) {
+            Spacer(Modifier.height(24.dp))
+
+            //group photo
+            Box(
+                modifier = Modifier
+                    .size(96.dp)
+                    .clip(CircleShape)
+                    .background(SurfaceDark)
+                    .clickable { imagePickerLauncher.launch("image/*") },
+                contentAlignment = Alignment.Center
+            ) {
+                if (uiState.selectedPhotoUri != null) {
+                    // to display photo after pick
+                    AsyncImage(
+                        model = uiState.selectedPhotoUri,
+                        contentDescription = "Group Photo",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // show icon if no photo
+                    Icon(
+                        Icons.Default.CameraAlt,
+                        contentDescription = "Upload Photo",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "Tap to upload photo",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            // group name input
+            InputField(
+                label = "Group Name",
+                placeholder = "e.g., Summer Trip, Roommates",
+                value = uiState.groupName,
+                onValueChange = viewModel::onGroupNameChange,
+                isError = uiState.error != null,
+                supportingText = uiState.error,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(24.dp))
+
+            // select tag
+            Text(
+                text = "Select a tag:",
+                color = TextWhite,
+                fontSize = 18.sp,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Tag Options
+                availableTags.forEach { (identifier, icon) ->
+                    TagOption(
+                        icon = icon,
+                        label = identifier.replaceFirstChar { it.uppercase() },
+                        identifier = identifier,
+                        isSelected = uiState.selectedIcon == identifier,
+                        onSelect = viewModel::onIconSelected
+                    )
+                }
+            }
+            Spacer(Modifier.height(48.dp))
+
+            // done button
+            Button(
+                onClick = viewModel::onCreateGroupClick,
+                enabled = !uiState.isLoading,
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(60.dp)
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(color = TextWhite, modifier = Modifier.size(24.dp))
+                } else {
+                    Text(text = "Done", fontSize = 20.sp, color = TextWhite)
+                }
+            }
+
+            if (uiState.error != null) {
+                Text(text = "Error: ${uiState.error}", color = Color.Red, modifier = Modifier.padding(top = 8.dp))
+            }
+
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+
+//function for tag ui
+@Composable
+fun TagOption(
+    icon: ImageVector,
+    label: String,
+    identifier: String,
+    isSelected: Boolean,
+    onSelect: (String) -> Unit
+) {
+    val borderColor = if (isSelected) PrimaryBlue else BorderGray
+    val backgroundColor = if (isSelected) SurfaceDark else MaterialTheme.colorScheme.surface
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onSelect(identifier) }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(60.dp)
+                .clip(CircleShape)
+                .background(backgroundColor)
+                .border(2.dp, borderColor, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = identifier, tint = TextWhite, modifier = Modifier.size(32.dp))
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = label,
+            color = if (isSelected) TextWhite else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+        )
+    }
+}
