@@ -124,7 +124,7 @@ class GroupDetailViewModel(
                 currentUserOverallBalance = 0.0, balanceBreakdown = emptyList(), membersMap = emptyMap(), error = null
             )}
 
-        // If we're already loading the requested group, do nothing
+        // If we're already load the same group, no need to load it again.
         } else if (currentGroupId == groupId && dataCollectionJob?.isActive == true) {
             return
         } else {
@@ -134,6 +134,7 @@ class GroupDetailViewModel(
         currentGroupId = groupId //set current group id
         dataCollectionJob?.cancel() //cancel previous group loading if any
 
+        //launch new job for group data loading
         dataCollectionJob = viewModelScope.launch {
             //create data flow for group (non_group, or group from repository)
             val groupSourceFlow = if (groupId == "non_group") {
@@ -151,6 +152,7 @@ class GroupDetailViewModel(
             ) { group, expenses ->
                 _uiState.update { it.copy(isLoadingExpenses = true) }
 
+                //for nongroup, filter relevant expenses only.
                 val expensesToUse = if (groupId == "non_group") {
                     //for non-group, only show expenses that the current user paid/owed
                     expenses.filter { expense ->
@@ -159,7 +161,7 @@ class GroupDetailViewModel(
                         isInPaidBy || isInParticipants
                     }
                 } else {
-                    // show expenses of the group (not non-group)
+                    // for regular group, use all expenses
                     expenses
                 }
 
@@ -177,7 +179,7 @@ class GroupDetailViewModel(
                 }
 
 
-                //memberUidsToFetch - list of member uids to fetch profiles for
+                //for non-group, memberUidsToFetch - list of member uids to fetch profiles for
                 val memberUidsToFetch = if (groupId == "non_group") {
                     balances.keys.toList()
                 } else {
@@ -198,13 +200,13 @@ class GroupDetailViewModel(
 
 
                 //calculate overall balance and breakdown with each member
-                val breakdown = mutableListOf<MemberBalanceDetail>()
+                val breakdown = mutableListOf<MemberBalanceDetail>() //MemberBalanceDetail is a data class
                 var overallBalance = 0.0
 
 
                 //foe each of the group's members in memberUidsToFetch
                 memberUidsToFetch.forEach { uid ->
-                    //if the uid == current user
+                    //to find my iverall balance
                     if (uid == currentUserId) {
                         overallBalance = roundToCents(balances[uid] ?: 0.0)
                     } else {
@@ -214,15 +216,23 @@ class GroupDetailViewModel(
                             val involvedUids = (exp.paidBy.map { it.uid } + exp.participants.map { it.uid }).toSet()
                             involvedUids.contains(currentUserId) && involvedUids.contains(uid)
                         }.forEach { relevantExpense ->
+                            // currentUserPaid = amount paid by current user in this expense
                             val currentUserPaid = relevantExpense.paidBy.find { it.uid == currentUserId }?.paidAmount ?: 0.0
+
+                            // currentUserOwes = amount owed by current user in this expense
                             val currentUserOwes = relevantExpense.participants.find { it.uid == currentUserId }?.owesAmount ?: 0.0
+
+                            // memberPaid = amount paid by the other member in this expense
                             val memberPaid = relevantExpense.paidBy.find { it.uid == uid }?.paidAmount ?: 0.0
+
+                            // memberOwes = amount owed by the other member in this expense
                             val memberOwes = relevantExpense.participants.find { it.uid == uid }?.owesAmount ?: 0.0
 
                             if (relevantExpense.expenseType == ExpenseType.PAYMENT) {
-                                if (currentUserPaid > 0) {
+                                // In a payment, only one person pays and one person receives
+                                if (currentUserPaid > 0) { //will always be only the currentUser
                                     balanceWithMember += currentUserPaid
-                                } else if (memberPaid > 0) {
+                                } else if (memberPaid > 0) { //will always be the other member
                                     balanceWithMember -= memberPaid
                                 }
                             } else {
@@ -234,10 +244,14 @@ class GroupDetailViewModel(
                                     relevantExpense.participants.size.toDouble().coerceAtLeast(1.0)
                                 }
                                 balanceWithMember += (currentUserNet - memberNet) / numParticipants
+                                //result:
+                                //+: member owes current user
+                                //-: current user owes member
+                                //0: settled
                             }
                         }
 
-                        val roundedBalanceWithMember = roundToCents(balanceWithMember)
+                        val roundedBalanceWithMember = roundToCents(balanceWithMember)//
                         if (roundedBalanceWithMember.absoluteValue > 0.01) {
                             breakdown.add(
                                 MemberBalanceDetail(

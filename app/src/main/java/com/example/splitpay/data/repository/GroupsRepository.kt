@@ -90,14 +90,14 @@ class GroupsRepository(
             return@callbackFlow
         }
 
-        // Listen for active groups where current user is a member
+        // Listen for all groups where current user is a member
         val listenerRegistration = groupsCollection
             .whereArrayContains("members", currentUserUid)
             .whereEqualTo("isArchived", false)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     logE("Error fetching groups: ${error.message}")
-                    close(error) // Close the flow on error
+                    close(error)
                     return@addSnapshotListener
                 }
 

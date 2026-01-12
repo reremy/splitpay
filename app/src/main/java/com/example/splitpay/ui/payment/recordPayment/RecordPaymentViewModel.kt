@@ -1,4 +1,4 @@
-package com.example.splitpay.ui.recordPayment
+package com.example.splitpay.ui.payment.recordPayment
 
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle

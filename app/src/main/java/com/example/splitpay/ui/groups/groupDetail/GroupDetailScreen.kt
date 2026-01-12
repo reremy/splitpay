@@ -313,7 +313,7 @@ fun GroupDetailScreen(
     } // End Scaffold
 }
 
-//group photo/icon, name, stacked members ohoto, overall bal, indi bal breakdown
+//group photo/icon, name, stacked members photo, overall bal, indi bal breakdown
 @Composable
 fun GroupDetailHeaderDisplay(
     group: Group,

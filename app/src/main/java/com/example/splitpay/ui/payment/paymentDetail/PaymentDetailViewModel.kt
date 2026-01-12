@@ -1,4 +1,4 @@
-package com.example.splitpay.ui.paymentDetail
+package com.example.splitpay.ui.payment.paymentDetail
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel

@@ -61,53 +61,20 @@ class FriendsViewModel(
 
     private val currentUserUid: String? = userRepository.getCurrentUser()?.uid
 
-    // ========================================
-    // Balance Caching Infrastructure
-    // ========================================
-
-    /**
-     * Cached balance for a friend with expense hash for invalidation detection.
-     */
-    private data class CachedFriendBalance(
-        val balance: Double,
-        val breakdown: List<BalanceDetail>,
-        val expenseHash: Int,
-        val timestamp: Long = System.currentTimeMillis()
-    )
-
-    // Cache storage: friendUid -> CachedFriendBalance
-    private val friendBalanceCache = mutableMapOf<String, CachedFriendBalance>()
-    private var lastExpenseHash = 0
-
-    /**
-     * Calculates a hash of expenses to detect when they change.
-     * Used to invalidate balance cache.
-     */
-    private fun calculateExpenseHash(expenses: List<Expense>): Int {
-        // Simple hash combining expense IDs and amounts
-        return expenses.fold(0) { acc, expense ->
-            acc xor expense.id.hashCode() xor expense.totalAmount.hashCode()
-        }
-    }
-
     // --- Data Flows from Repositories ---
-    // These flows are assumed to be added to your repositories to provide real-time updates.
 
     // 1. A flow that emits the user's friend list (as User objects) whenever it changes.
     private val friendsFlow: Flow<List<User>> = if (currentUserUid == null) {
         flowOf(emptyList())
     } else {
-        // ASSUMPTION: You create this reactive function in UserRepository
-        // e.g., userRepository.getFriendProfilesFlow(currentUserUid)
-        // For now, we'll simulate a non-reactive one that loads once:
-        userRepository.getFriendsFlow(currentUserUid) // <-- Assuming this is the new reactive func
+        userRepository.getFriendsFlow(currentUserUid)
     }
 
-    // 2. A flow that emits all groups the user is in. (This one exists)
+    // 2. A flow that emits all groups the user is in.
     private val groupsFlow: Flow<List<Group>> = if (currentUserUid == null) {
         flowOf(emptyList())
     } else {
-        groupsRepository.getGroups() // This is already reactive
+        groupsRepository.getGroups()
     }
 
     // 3. Flow for ALL relevant expenses (group + non-group)
@@ -116,10 +83,8 @@ class FriendsViewModel(
     } else {
         // Combine group expenses and non-group expenses reactively
         groupsFlow.flatMapLatest { groups ->
-            // --- START OF FIX 1 ---
-            // Get flow for non-group expenses using the correct ID
+            // Get flow for non-group expenses
             val nonGroupExpenseFlow = expenseRepository.getExpensesFlowForGroup("non_group")
-            // --- END OF FIX 1 ---
 
             if (groups.isEmpty()) {
                 // If no groups, just return the non-group expenses
@@ -161,59 +126,29 @@ class FriendsViewModel(
         if (currentUserUid == null) {
             FriendsUiState(isLoading = false, error = "User not logged in.")
         } else {
-            // --- All calculation logic is now inside the combine block ---
+            logD("Calculating FriendsUiState...")
 
-            logD("Recalculating FriendsUiState with balance caching...")
-
-            // Calculate expense hash to detect changes
-            val currentExpenseHash = calculateExpenseHash(allExpenses)
-            val expensesChanged = currentExpenseHash != lastExpenseHash
-
-            if (expensesChanged) {
-                logD("Expenses changed (hash: $lastExpenseHash -> $currentExpenseHash), invalidating affected balances")
-                lastExpenseHash = currentExpenseHash
-                // Clear cache when expenses change - we'll recalculate affected friends
-                friendBalanceCache.clear()
-            }
-
-            // --- START OF FIX 2 ---
             // 1. Separate expenses for easier processing
             // Group expenses = not null AND not "non_group"
-            val groupExpensesMap = allExpenses.filter { it.groupId != null && it.groupId != "non_group" }.groupBy { it.groupId }
+            val groupExpensesMap = allExpenses
+                .filter { it.groupId != null && it.groupId != "non_group" }
+                .groupBy { it.groupId }
             val nonGroupExpenses = allExpenses.filter { it.groupId == "non_group" }
-            // --- END OF FIX 2 ---
-
 
             var totalOverallBalance = 0.0
 
-            // 2. Calculate balance for each friend with caching
+            // 2. Calculate balance for each friend
             val friendsWithBalances = friends.map { friend ->
-                // Check cache first
-                val cached = friendBalanceCache[friend.uid]
-                val (netBalance, breakdown) = if (cached != null && !expensesChanged) {
-                    logD("Using cached balance for ${friend.username}")
-                    Pair(cached.balance, cached.breakdown)
-                } else {
-                    logD("Calculating balance for ${friend.username}")
-                    val result = calculateNetBalanceWithFriend(
-                        currentUserUid = currentUserUid,
-                        friendUid = friend.uid,
-                        allUserGroups = allGroups,
-                        groupExpensesMap = groupExpensesMap,
-                        allNonGroupExpenses = nonGroupExpenses // Pass the correctly filtered list
-                    )
-
-                    // Store in cache
-                    friendBalanceCache[friend.uid] = CachedFriendBalance(
-                        balance = result.first,
-                        breakdown = result.second,
-                        expenseHash = currentExpenseHash
-                    )
-
-                    result
-                }
+                val (netBalance, breakdown) = calculateNetBalanceWithFriend(
+                    currentUserUid = currentUserUid,
+                    friendUid = friend.uid,
+                    allUserGroups = allGroups,
+                    groupExpensesMap = groupExpensesMap,
+                    allNonGroupExpenses = nonGroupExpenses
+                )
 
                 totalOverallBalance += netBalance
+
                 FriendWithBalance(
                     uid = friend.uid,
                     username = friend.username.takeIf { it.isNotBlank() } ?: friend.fullName,
@@ -226,7 +161,9 @@ class FriendsViewModel(
             // 3. Apply filtering
             val filtered = when (currentFilter) {
                 FriendFilterType.ALL -> friendsWithBalances
-                FriendFilterType.OUTSTANDING -> friendsWithBalances.filter { (it.netBalance > 0.01 || it.netBalance < -0.01) }
+                FriendFilterType.OUTSTANDING -> friendsWithBalances.filter {
+                    (it.netBalance > 0.01 || it.netBalance < -0.01)
+                }
                 FriendFilterType.OWES_YOU -> friendsWithBalances.filter { it.netBalance > 0.01 }
                 FriendFilterType.YOU_OWE -> friendsWithBalances.filter { it.netBalance < -0.01 }
             }
@@ -242,11 +179,11 @@ class FriendsViewModel(
 
             // 5. Construct the final UI state
             FriendsUiState(
-                isLoading = false, // Data has been loaded
-                friends = friendsWithBalances, // The original full list
-                filteredAndSearchedFriends = filteredAndSearched, // The list to display
+                isLoading = false,
+                friends = friendsWithBalances,
+                filteredAndSearchedFriends = filteredAndSearched,
                 currentFilter = currentFilter,
-                totalNetBalance = roundToCents(totalOverallBalance), // The true, reactive total
+                totalNetBalance = roundToCents(totalOverallBalance),
                 error = null,
                 isFilterMenuExpanded = isFilterMenuExpanded,
                 isSearchActive = isSearchActive,
@@ -256,7 +193,7 @@ class FriendsViewModel(
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
-        initialValue = FriendsUiState(isLoading = true) // Start in loading state
+        initialValue = FriendsUiState(isLoading = true)
     )
 
 
@@ -291,15 +228,15 @@ class FriendsViewModel(
     // --- Balance Calculation Helpers ---
 
     /**
-     * Non-suspending balance calculation function.
-     * It takes the prefetched, reactive lists as parameters and filters them.
+     * Calculates the net balance between current user and a friend.
+     * Positive = friend owes you, Negative = you owe friend
      */
     private fun calculateNetBalanceWithFriend(
         currentUserUid: String,
         friendUid: String,
         allUserGroups: List<Group>,
         groupExpensesMap: Map<String?, List<Expense>>,
-        allNonGroupExpenses: List<Expense> // This list is now correctly filtered for "non_group"
+        allNonGroupExpenses: List<Expense>
     ): Pair<Double, List<BalanceDetail>> {
         val balanceDetails = mutableListOf<BalanceDetail>()
         var netBalance = 0.0
@@ -309,12 +246,16 @@ class FriendsViewModel(
             // --- 1. Process SHARED GROUP Expenses ---
             val sharedGroups = allUserGroups
                 .filter { it.members.contains(currentUserUid) && it.members.contains(friendUid) }
-            val groupBalances = mutableMapOf<String, Double>() // GroupId to Net Balance Change
+            val groupBalances = mutableMapOf<String, Double>()
 
             sharedGroups.forEach { group ->
                 val expensesInGroup = groupExpensesMap[group.id] ?: emptyList()
                 expensesInGroup.forEach { expense ->
-                    val balanceChange = calculateBalanceChangeForExpense(expense, currentUserUid, friendUid)
+                    val balanceChange = calculateBalanceChangeForExpense(
+                        expense,
+                        currentUserUid,
+                        friendUid
+                    )
                     netBalance += balanceChange
                     groupBalances[group.id] = (groupBalances[group.id] ?: 0.0) + balanceChange
                 }
@@ -324,12 +265,17 @@ class FriendsViewModel(
             sharedGroups.forEach { group ->
                 val groupBalance = groupBalances[group.id] ?: 0.0
                 if (groupBalance.absoluteValue > 0.01) {
-                    balanceDetails.add(BalanceDetail(groupName = group.name, amount = roundToCents(groupBalance)))
+                    balanceDetails.add(
+                        BalanceDetail(
+                            groupName = group.name,
+                            amount = roundToCents(groupBalance)
+                        )
+                    )
                 }
             }
 
             // --- 2. Process NON-GROUP Expenses ---
-            // Filter the non-group list for *only* expenses involving this friend
+            // Filter for expenses involving both users
             val nonGroupExpensesWithFriend = allNonGroupExpenses.filter { expense ->
                 val involvedUids = mutableSetOf(expense.createdByUid)
                 expense.paidBy.forEach { involvedUids.add(it.uid) }
@@ -339,13 +285,22 @@ class FriendsViewModel(
 
             var nonGroupNetBalance = 0.0
             nonGroupExpensesWithFriend.forEach { expense ->
-                val balanceChange = calculateBalanceChangeForExpense(expense, currentUserUid, friendUid)
+                val balanceChange = calculateBalanceChangeForExpense(
+                    expense,
+                    currentUserUid,
+                    friendUid
+                )
                 netBalance += balanceChange
                 nonGroupNetBalance += balanceChange
             }
 
             if (nonGroupNetBalance.absoluteValue > 0.01) {
-                balanceDetails.add(BalanceDetail(groupName = "Non-group", amount = roundToCents(nonGroupNetBalance)))
+                balanceDetails.add(
+                    BalanceDetail(
+                        groupName = "Non-group",
+                        amount = roundToCents(nonGroupNetBalance)
+                    )
+                )
             }
 
             // --- 3. Return final, rounded balance and details ---
@@ -360,10 +315,10 @@ class FriendsViewModel(
     }
 
     /**
-     * Calculates the net change in balance FOR the currentUserUid RELATIVE TO the friendUid
+     * Calculates the net change in balance for the currentUser relative to the friend
      * for a single expense.
-     * Positive result means friendUid owes currentUserUid more.
-     * Negative result means currentUserUid owes friendUid more.
+     * Positive = friend owes currentUser more
+     * Negative = currentUser owes friend more
      */
     internal fun calculateBalanceChangeForExpense(
         expense: Expense,
@@ -381,14 +336,9 @@ class FriendsViewModel(
         val friendInvolved = friendInvolvedAsPayer || friendInvolvedAsParticipant
 
         // If either user is not involved in this expense, return 0
-        // This fixes the three failing edge case tests
         if (!currentUserInvolved || !friendInvolved) {
             return 0.0
         }
-
-        // ========================================
-        // Original calculation logic (unchanged)
-        // ========================================
 
         val paidByCurrentUser = expense.paidBy.find { it.uid == currentUserUid }?.paidAmount ?: 0.0
         val paidByFriend = expense.paidBy.find { it.uid == friendUid }?.paidAmount ?: 0.0

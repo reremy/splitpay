@@ -15,7 +15,7 @@ import com.example.splitpay.ui.addfriend.AddFriendScreen
 import com.example.splitpay.ui.addfriend.FriendProfilePreviewScreen
 import com.example.splitpay.ui.expense.addExpense.AddExpenseScreen
 import com.example.splitpay.ui.expense.expenseDetail.ExpenseDetailScreen
-import com.example.splitpay.ui.paymentDetail.PaymentDetailScreen
+import com.example.splitpay.ui.payment.paymentDetail.PaymentDetailScreen
 import com.example.splitpay.ui.friends.friendSettings.FriendSettingsScreen
 import com.example.splitpay.ui.friends.friendSettleUp.SelectBalanceToSettleScreen
 import com.example.splitpay.ui.friends.friendSettleUp.SelectPayerFriendScreen
@@ -31,7 +31,7 @@ import com.example.splitpay.ui.welcome.WelcomeScreen
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import com.example.splitpay.ui.groups.addGroupMember.AddGroupMembersScreen // <-- ADD THIS IMPORT
-import com.example.splitpay.ui.recordPayment.RecordPaymentScreen
+import com.example.splitpay.ui.payment.recordPayment.RecordPaymentScreen
 import com.example.splitpay.ui.settleUp.SettleUpScreen
 import com.example.splitpay.ui.activity.activityDetail.ActivityDetailScreen
 import com.example.splitpay.ui.profile.edit.EditProfileScreen
